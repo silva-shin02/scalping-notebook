@@ -1709,13 +1709,20 @@ function _snEvictExpendableCaches() {
   if (removed > 0) console.warn("[stSave] freed localStorage by evicting " + removed + " expendable cache(s)");
   return removed;
 }
+// 端末内保存の控え 2026-10-28b（ユーザー報告「iPadでサーバーから取り込んでも、画面を更新するとゼロに戻る」）:
+//   iPadのlocalStorageは約5MBまで＝記録が増えて書き込めなくなると、更新のたびに空から始まっていた（偽環境で再現）。
+//   localStorageに書けないときは IndexedDB に同じ中身（文字列1つ）を控え、起動時に stLoadBackup で読み戻す。
+//   書けなかったときは localStorage の古い版を消す＝古い版を「この端末で消した」と読まれてサーバーの新しい記録を消す事故を防ぐ。
+//   状況は window._snLocalSave に残し、設定→同期の🩺同期診断に出す。
+var _ST_IDB_KEY = "st_data_backup_v1", _stIdbBackupLive = true, _stBootRead = false;   // 起動時の読み戻しが済むまで控えを消さない
+function _stInfo(o) { try { window._snLocalSave = Object.assign({}, window._snLocalSave || {}, o, { at: Date.now() }); } catch (e) {} }
 function _stWriteToStorage(data) {
   try {
-    var s = _stStrip(data);
+    var s = _stStrip(data), _lsOk = false;
     var refCount = (s.match(/"__ref__"/g) || []).length;
     if (refCount > 0) console.warn("[stSave] WARNING: saving " + refCount + " __ref__ values to localStorage — images may be lost");
     try {
-      localStorage.setItem(ST_KEY, s);
+      localStorage.setItem(ST_KEY, s); _lsOk = true;
     } catch(quotaErr) {
       // 容量超過: ①画像をIDBへ退避 ②再取得可能な日足CSVキャッシュを捨てる → その上で記録を再保存。
       // これでユーザーの記録(memo/trade)が「黙って保存失敗→消失」する事故を防ぐ。
@@ -1723,19 +1730,50 @@ function _stWriteToStorage(data) {
       _stSaveImagesToIdb(data);
       _snEvictExpendableCaches();
       try {
-        localStorage.setItem(ST_KEY, _stStrip(data));
+        s = _stStrip(data);
+        localStorage.setItem(ST_KEY, s); _lsOk = true;
       } catch(e2) {
         console.warn("[stSave] Even after freeing space, save failed:", e2);
-        // それでも保存できない場合は黙って消さず、ユーザーに知らせる(1回だけ)。
-        try {
-          if (typeof window !== "undefined" && !window._snQuotaAlerted) {
-            window._snQuotaAlerted = true;
-            window._snAlert("⚠️ 端末の保存領域が一杯で、記録を保存できませんでした。\n設定→エクスポートでバックアップを取り、不要な銘柄を整理してください。");
-          }
-        } catch(e3){}
+        try { localStorage.removeItem(ST_KEY); } catch (e4) {}   // 古い版を残さない（上の説明）
       }
     }
+    _stInfo({ ls: _lsOk, kb: Math.round(s.length / 1024) });
+    if (_lsOk) {
+      if (_stIdbBackupLive && _stBootRead) { _stIdbBackupLive = false; snIdbDel(_ST_IDB_KEY); }
+      _stInfo({ idb: null });
+      return;
+    }
+    _stIdbBackupLive = true; _stInfo({ idb: "書き込み中" });
+    snIdbSetAwait(_ST_IDB_KEY, { json: s, v: (data && typeof data._v === "number") ? data._v : null, at: Date.now() }).then(function(ok) {
+      _stInfo({ idb: ok ? "ok" : "失敗" });
+      if (ok) return;
+      // 控えにも書けない場合は黙って消さず、ユーザーに知らせる(1回だけ)。
+      try {
+        if (typeof window !== "undefined" && !window._snQuotaAlerted) {
+          window._snQuotaAlerted = true;
+          window._snAlert("⚠️ 端末の保存領域が一杯で、記録を保存できませんでした。\n設定→エクスポートでバックアップを取り、不要な銘柄を整理してください。");
+        }
+      } catch(e3){}
+    });
   } catch (_unused3) {}
+}
+// 起動時に控え（IndexedDB）を読む。localStorage の内容より新しければそれを返す（無い・古い・時間切れは null）。
+function stLoadBackup(ld) {
+  var wait = function() { return new Promise(function(res) { if (_snIdbReady) return res(); var n = 0, t = setInterval(function() { n++; if (_snIdbReady || n >= 40) { clearInterval(t); res(); } }, 50); }); };
+  var _get = wait().then(function() { return snIdbGet(_ST_IDB_KEY); });
+  var _to = new Promise(function(res) { setTimeout(function() { res("__timeout__"); }, 5000); });
+  return Promise.race([_get, _to]).then(function(o) {
+    _stBootRead = true;
+    if (o === "__timeout__") { _stInfo({ boot: "控え（IndexedDB）の読み出しが時間切れ" }); return null; }
+    if (!o || typeof o.json !== "string") { _stIdbBackupLive = false; return null; }
+    var lv = (ld && typeof ld._v === "number") ? ld._v : 0;
+    if (!((o.v || 0) > lv || _fbVolume(ld) === 0)) { _stInfo({ boot: "控えより端末内(localStorage)の方が新しいのでそちらを使用" }); return null; }
+    var d = JSON.parse(o.json);
+    try { d = migrateData(d); } catch (eM) { console.error("[stLoadBackup] migrateData failed, using raw data:", eM); }
+    _stInfo({ boot: "控え（IndexedDB）から読みました（" + Math.round(o.json.length / 1024) + "KB）" });
+    console.log("[stLoadBackup] loaded from IndexedDB backup (" + Math.round(o.json.length / 1024) + "KB)");
+    return d;
+  })["catch"](function(e) { _stBootRead = true; console.warn("[stLoadBackup] failed:", e); _stInfo({ boot: "控えを読めませんでした" }); return null; });
 }
 function _stFlush(skipBlur) {
   
@@ -2146,13 +2184,13 @@ function fbGet(cfg) {
     d = _fbDecKeys(d);
     return (d && _typeof(d) === "object" && (d.trades || d.charts)) ? d : "EMPTY";
   }
-  return fetch(metaUrl)
+  return _fbFetchT(metaUrl, null, 120000)
     .then(function(r) {
       if (r.ok) return r.text().then(_parse);
       
       if (r.status === 404 && dataUrl) {
         console.log("[fbGet] meta.json not found, falling back to data.json (old DB)");
-        return fetch(dataUrl).then(function(r2) {
+        return _fbFetchT(dataUrl, null, 120000).then(function(r2) {
           if (!r2.ok) return null;
           return r2.text().then(_parse);
         });
@@ -2169,7 +2207,17 @@ var _fbLocalV = 0;
 //   _fbSetErr(kind,status)で "sn_fb_err" イベントを飛ばし、App（app-08）が同期バッジを「⚠️ 同期エラー」にして画面上部に赤い帯を出す。成功したら _fbClearErr で消す。
 var _fbErrState = null;
 // 同期の進み具合 2026-10-28（ユーザー報告「iPadで同期中のまま」）: どの段階で止まっているかを設定→同期の🩺同期診断に出す。
-function _fbStage(s) { try { window._snSyncStage = { s: s, at: Date.now() }; } catch (e) {} }
+//   2026-10-28b 段階の履歴(window._snSyncLog・最新40件)も残す＝どこで何秒止まったかを同期診断に並べる（ユーザー報告「iPadで更新するとゼロ・同期中のまま」）。
+function _fbStage(s) { try { var now = Date.now(); window._snSyncStage = { s: s, at: now }; var L = window._snSyncLog || (window._snSyncLog = []); L.push({ s: s, at: now }); if (L.length > 40) L.splice(0, L.length - 40); } catch (e) {} }
+// 時間切れ付きの fetch 2026-10-28b: iPadのSafariで応答が返ってこないまま起動時の同期が「同期中」で止まっていた。本文の読み出しまで含めて ms で打ち切る（失敗扱い＝次のポーリングで再試行）。
+//   戻り値は Response の代わり（ok/status/text()/json()/clone()）。
+function _fbFetchT(url, opts, ms) {
+  var ac = null; try { if (typeof AbortController !== "undefined") ac = new AbortController(); } catch (e) {}
+  var o = Object.assign({}, opts || {}); if (ac) o.signal = ac.signal;
+  var t, p = fetch(url, o).then(function(r) { return r.text().then(function(txt) { var w = { ok: r.ok, status: r.status, text: function() { return Promise.resolve(txt); }, json: function() { return Promise.resolve(JSON.parse(txt)); } }; w.clone = function() { return w; }; return w; }); });
+  var to = new Promise(function(res, rej) { t = setTimeout(function() { try { if (ac) ac.abort(); } catch (e) {} console.warn("[FB] fetch timed out (" + Math.round(ms / 1000) + "s): " + String(url).split("?")[0]); rej(new Error("時間切れ（" + Math.round(ms / 1000) + "秒）")); }, ms); });
+  return Promise.race([p, to]).then(function(r) { clearTimeout(t); return r; }, function(e) { clearTimeout(t); throw e; });
+}
 function _fbSetErr(kind, status, msg) {
   _fbErrState = { kind: kind, status: status, msg: msg || "", at: Date.now() };
   try { window.dispatchEvent(new CustomEvent("sn_fb_err", { detail: _fbErrState })); } catch (e) {}
@@ -2367,7 +2415,7 @@ function _fbCasPrep(cfg, data) {
   var base = _fbBase(cfg), auth = _fbAuth(cfg);
   if (!base || !data) return Promise.resolve(data);
   _fbStage("送信前の確認");
-  return _fbBaseLoad().then(function() { return fetch(base + "/meta/_v.json" + auth); }).then(function(r) { return r.ok ? r.json() : null; }).then(function(rv) {
+  return _fbBaseLoad().then(function() { return _fbFetchT(base + "/meta/_v.json" + auth, null, 20000); }).then(function(r) { return r.ok ? r.json() : null; }).then(function(rv) {
     try { _fbTrack("db_dl", 13, "同期（版数確認）"); } catch (e) {}
     if (typeof rv !== "number" || rv === _fbLocalV) return data;
     return _fbPollFetch(cfg, data, rv).then(function(pf) {
@@ -2468,11 +2516,11 @@ function _fbPut() {
           }
           _fbTrack("db_ul", _metaBody.length);
           _fbStage("サーバーへ送信（" + Math.round(_metaBody.length / 1024) + "KB）");
-          return fetch(base + "/meta.json" + auth, {
+          return _fbFetchT(base + "/meta.json" + auth, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: _metaBody
-          }).then(function(r) {
+          }, 180000).then(function(r) {
             
             if (!r.ok) {
               _fbLastPutHash = null;
@@ -2523,7 +2571,7 @@ function _fbPollV() {
         case 1:
           _ctx.p = 1;
           _ctx.n = 2;
-          return fetch(base + "/meta/_v.json" + auth);
+          return _fbFetchT(base + "/meta/_v.json" + auth, null, 20000);
         case 2:
           r = _ctx.v;
           if (r.ok) { _fbClearErr(); _ctx.n = 3; break; }
@@ -2604,7 +2652,7 @@ function fbGetDiff(cfg, localData, remoteV) {
     return Promise.resolve({ status: "full" });
   }
   function _getJson(path) {
-    return fetch(base + path + auth)
+    return _fbFetchT(base + path + auth, null, 60000)
       .then(function(r) { if (!r.ok) return null; return r.text(); })
       .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0, "同期（署名一覧）"); } catch(e) {} var o = null; try { o = t ? JSON.parse(t) : null; } catch(e) { o = null; } return _fbDecKeys(o); });
   }
@@ -2674,7 +2722,7 @@ function fbGetDiff(cfg, localData, remoteV) {
     if (!fetches.length) return { status: "nochange" }; // 全て内容一致→DL不要
 
     return Promise.all(fetches.map(function(f) {
-      return fetch(base + f.url + auth)
+      return _fbFetchT(base + f.url + auth, null, 120000)
         .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status + " " + f.url); return r.text(); })
         .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0, "同期（差分）"); } catch(e) {} return { f: f, v: t ? _fbDecKeys(JSON.parse(t)) : null }; });
     })).then(function(parts) {
