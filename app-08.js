@@ -436,6 +436,7 @@ function App() {
             var remote = migrateData(res.data);
             
             
+            _fbStage("起動時：統合");
             var _r3i = _fbResolveRemote(dataRef.current || ld, remote);   // 画面を先に出した後の編集も含めて統合   // 2026-10-27 3者統合（旧: 更新時刻が新しい側が丸ごと勝つ）
             var _mr1 = migrateData(_r3i.merged);
             setData(_mr1);
@@ -445,6 +446,7 @@ function App() {
             setFbStatus("ok");
             setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
           } else setFbStatus("err");
+          if (res && res.status !== "err") _fbStage("完了（起動時）");
           startPolling(lc);
           setLoading(false);
         })["catch"](function (e) {

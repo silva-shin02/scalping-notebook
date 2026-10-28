@@ -2122,7 +2122,36 @@ function _snRebuildCustom(d) {
   Object.keys(mCnt).sort(byCnt(mCnt)).forEach(function(x) { if (mt.indexOf(x) < 0) mt.push(x); });
   if (mt.length !== m0) cu.materialTags = mt;
   rep.push({ lbl: "固有材料の名前", before: m0, after: mt.length });
+  var _sdR = _snRebuildSigDetails(d); cu.sigDetails2 = _sdR.sigDetails2;
+  rep.push({ lbl: "シグナル詳細の選択肢（①②③）の追加", before: 0, after: _sdR.added });
   return { data: Object.assign({}, d, { custom: cu }), report: rep };
+}
+// シグナル詳細の選択肢（custom.sigDetails2[シグナル]={b:[①],k:[②],f:[③]}）を記録の sigDetail から戻す（足すだけ・使われた多い順）2026-10-28
+function _snRebuildSigDetails(d) {
+  var sd = Object.assign({}, ((d && d.custom) || {}).sigDetails2 || {}), cnt = {}, added = 0;
+  Object.keys((d && d.charts) || {}).forEach(function(ck) {
+    var c = d.charts[ck]; if (!c || !Array.isArray(c.signals)) return;
+    c.signals.forEach(function(sg) {
+      if (!sg || !sg.sigDetail || typeof _elSigDetailSec !== "function") return;
+      (Array.isArray(sg.tags) ? sg.tags : []).forEach(function(t) {
+        if (!t) return;
+        var sec = _elSigDetailSec(sg, t), m = cnt[t] || (cnt[t] = { b: {}, k: {}, f: {} });
+        if (sec.b) m.b[sec.b] = (m.b[sec.b] || 0) + 1;
+        if (sec.k) m.k[sec.k] = (m.k[sec.k] || 0) + 1;
+        (sec.f || []).forEach(function(x) { if (x) m.f[x] = (m.f[x] || 0) + 1; });
+      });
+    });
+  });
+  Object.keys(cnt).forEach(function(t) {
+    var cur = sd[t] && typeof sd[t] === "object" ? sd[t] : {}, nx = {};
+    ["b", "k", "f"].forEach(function(sk) {
+      var arr = Array.isArray(cur[sk]) ? cur[sk].slice() : [], m = cnt[t][sk];
+      Object.keys(m).sort(function(a, b) { return m[b] - m[a]; }).forEach(function(x) { if (arr.indexOf(x) < 0) { arr.push(x); added++; } });
+      nx[sk] = arr;
+    });
+    sd[t] = Object.assign({}, cur, nx);
+  });
+  return { sigDetails2: sd, added: added };
 }
 // ===== VAP補正の点検 2026-10-28（同期の混乱で一部の記録が古い版に戻った可能性への対処・ユーザー決定「点検して食い違いを直す」）=====
 // 対象＝8/20以降(VAP)・VAP値入力済み・実エントリー以外（一括反映と同じ）。
@@ -2160,6 +2189,9 @@ function _SnSyncDiag(props) {
   var _u2 = useState(""), busy = _u2[0], setBusy = _u2[1];
   var _u3 = useState(""), msg = _u3[0], setMsg = _u3[1];
   var fileRef = useRef(null);
+  var _uTk = useState(0), setTick = _uTk[1];   // 同期の進み具合を1秒ごとに描き直す 2026-10-28
+  useEffect(function() { var t = setInterval(function() { setTick(function(x) { return x + 1; }); }, 1000); return function() { clearInterval(t); }; }, []);
+  var _stg = (typeof window !== "undefined" && window._snSyncStage) || null;
   var fmt = function(v) { if (!v) return "—"; var d = new Date(v); return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0") + ":" + String(d.getSeconds()).padStart(2, "0"); };
   var run = function() {
     var base = _fbBase(cfg), auth = _fbAuth(cfg);
@@ -2210,6 +2242,8 @@ function _SnSyncDiag(props) {
   return React.createElement("div", { style: { marginBottom: 20, padding: "12px 14px", background: "#F8FAFC", borderRadius: 10, border: "1px solid #E2E8F0" } },
     React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#444", marginBottom: 6 } }, "🩺 同期診断"),
     React.createElement("div", { style: { fontSize: 11, color: "#64748B", marginBottom: 8, lineHeight: 1.6 } }, "この端末とサーバー（Firebase）の中身を並べて比べます。他の端末で入れた内容が届かないときに使ってください。"),
+    React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: _stg && !/^完了/.test(_stg.s) && Date.now() - _stg.at > 20000 ? "#B91C1C" : "#334155", marginBottom: 8 } },
+      "いまの同期：" + (_stg ? _stg.s + "（" + Math.round((Date.now() - _stg.at) / 1000) + "秒前から）" : "まだ動いていません")),
     React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
       btn(busy === "diag" ? "診断中…" : "診断する", run, false, !!busy),
       btn(busy === "send" ? "送信中…" : "この端末を正としてサーバーへ送る", function() { merge("send"); }, true, !!busy),
