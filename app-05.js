@@ -8778,13 +8778,19 @@ function EntryRecordForm(_ref_erf) {
     fCeReasons = _useStateCER[0], setFCeReasons = _useStateCER[1];
   var _useStateCET = useState(initSig.ceTopPx != null ? String(initSig.ceTopPx) : ""),   // 直上VAP（株価）2026-10-28
     fCeTopPxRaw = _useStateCET[0], setFCeTopPxRaw = _useStateCET[1];
-  // 2026-10-28b 初期値＝水準線値（ユーザー決定）: 自分で変える（入力・▲▼）までは水準線値に追従。保存済みの値がある記録はそれを使う。
+  // 2026-10-28b 初期値＝水準線値（ユーザー決定）: 自分で変える（入力・▲▼）までは水準線値（＋採用VAP・下記）に追従。保存済みの値がある記録はそれを使う。
   var _useStateCETT = useState(initSig.ceTopPx != null), fCeTopTouched = _useStateCETT[0], setFCeTopTouched = _useStateCETT[1];
-  var fCeTopPx = fCeTopTouched ? fCeTopPxRaw : (fLevelPrice != null ? String(fLevelPrice) : "");
-  var _ceTouchRef = useRef(initSig.ceTopPx != null), _ceLvRef = useRef(fLevelPrice);
-  _ceLvRef.current = fLevelPrice;
+  // 2026-10-28c 採用VAP（補正後＝_fAlpha）が1円以上なら、その分も込み＝水準線＋採用VAP（ユーザー決定）。
+  var _ceTopDef = (function() {
+    if (fLevelPrice == null || fLevelPrice === "" || isNaN(Number(fLevelPrice))) return fLevelPrice != null ? String(fLevelPrice) : "";
+    var lv = Number(fLevelPrice), a = (_fAlpha != null && !isNaN(Number(_fAlpha)) && Number(_fAlpha) >= 1) ? Number(_fAlpha) : 0;
+    return String(Math.round((lv + a) * 100) / 100);
+  })();
+  var fCeTopPx = fCeTopTouched ? fCeTopPxRaw : _ceTopDef;
+  var _ceTouchRef = useRef(initSig.ceTopPx != null), _ceLvRef = useRef(_ceTopDef);
+  _ceLvRef.current = _ceTopDef;
   var setFCeTopPx = function(v) { _ceTouchRef.current = true; setFCeTopTouched(true); setFCeTopPxRaw(v); };
-  // ▲▼（長押しで連続）: 前の値は関数形で読む＝長押し中も1円ずつ進む。最初の1回は水準線値から。
+  // ▲▼（長押しで連続）: 前の値は関数形で読む＝長押し中も1円ずつ進む。最初の1回は初期値（水準線＋採用VAP）から。
   var _ceTopStep = function(d) {
     var first = !_ceTouchRef.current; _ceTouchRef.current = true; setFCeTopTouched(true);
     setFCeTopPxRaw(function(v) { var b0 = first ? (parseFloat(_ceLvRef.current) || 0) : (parseFloat(v) || 0); return String(Math.max(0, Math.round((b0 + d) * 100) / 100)); });
