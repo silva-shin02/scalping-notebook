@@ -8777,7 +8777,18 @@ function EntryRecordForm(_ref_erf) {
   var _useStateCER = useState(Array.isArray(initSig.ceReasons) ? initSig.ceReasons.slice() : []),   // 確定待ちの理由（選択肢）2026-10-19
     fCeReasons = _useStateCER[0], setFCeReasons = _useStateCER[1];
   var _useStateCET = useState(initSig.ceTopPx != null ? String(initSig.ceTopPx) : ""),   // 直上VAP（株価）2026-10-28
-    fCeTopPx = _useStateCET[0], setFCeTopPx = _useStateCET[1];
+    fCeTopPxRaw = _useStateCET[0], setFCeTopPxRaw = _useStateCET[1];
+  // 2026-10-28b 初期値＝水準線値（ユーザー決定）: 自分で変える（入力・▲▼）までは水準線値に追従。保存済みの値がある記録はそれを使う。
+  var _useStateCETT = useState(initSig.ceTopPx != null), fCeTopTouched = _useStateCETT[0], setFCeTopTouched = _useStateCETT[1];
+  var fCeTopPx = fCeTopTouched ? fCeTopPxRaw : (fLevelPrice != null ? String(fLevelPrice) : "");
+  var _ceTouchRef = useRef(initSig.ceTopPx != null), _ceLvRef = useRef(fLevelPrice);
+  _ceLvRef.current = fLevelPrice;
+  var setFCeTopPx = function(v) { _ceTouchRef.current = true; setFCeTopTouched(true); setFCeTopPxRaw(v); };
+  // ▲▼（長押しで連続）: 前の値は関数形で読む＝長押し中も1円ずつ進む。最初の1回は水準線値から。
+  var _ceTopStep = function(d) {
+    var first = !_ceTouchRef.current; _ceTouchRef.current = true; setFCeTopTouched(true);
+    setFCeTopPxRaw(function(v) { var b0 = first ? (parseFloat(_ceLvRef.current) || 0) : (parseFloat(v) || 0); return String(Math.max(0, Math.round((b0 + d) * 100) / 100)); });
+  };
   // 直上VAPの水準線比（計算用）。株価・水準線値のどちらかが無ければ null。
   var _fCeTopRel = (function() {
     if (fCeTopPx === "" || fLevelPrice === "" || fLevelPrice == null) return null;
@@ -10788,9 +10799,11 @@ function EntryRecordForm(_ref_erf) {
               // 直上VAP（株価）2026-10-28: チェックの右。確定を待つ間にこの株価まで上がったら、その値で即エントリーした扱い。
               fCeOn ? React.createElement("span", { title: "確定を待つ間に株価がここまで上がったら、その値で即エントリーした扱い（届かなければ終値エントリー）。VAPより上の株価を入れる。", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#ECFEFF", border: "1px solid #67E8F9" } },
                 React.createElement("span", { style: { color: "#0E7490", fontWeight: 700 } }, "直上VAP"),
-                React.createElement("input", { type: "text", inputMode: "decimal", value: fCeTopPx, placeholder: "株価",
-                  onChange: function(e) { setFCeTopPx(_toHankakuDecimal(e.target.value)); },
-                  style: { padding: "2px 5px", fontSize: 12, fontWeight: 700, color: "#155E75", border: "1px solid #67E8F9", borderRadius: 4, outline: "none", background: "#fff", width: 70, textAlign: "right", boxSizing: "border-box" } }),
+                React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #67E8F9", borderRadius: 4, overflow: "hidden" } },
+                  React.createElement("input", { type: "text", inputMode: "decimal", value: fCeTopPx, placeholder: "株価",
+                    onChange: function(e) { setFCeTopPx(_toHankakuDecimal(e.target.value)); },
+                    style: { padding: "2px 5px", fontSize: 12, fontWeight: 700, color: "#155E75", border: "none", outline: "none", background: "#fff", width: 70, textAlign: "right", boxSizing: "border-box" } }),
+                  _stepBtn(function() { _ceTopStep(1); }, function() { _ceTopStep(-1); })),   // ▲▼で1円ずつ 2026-10-28b
                 React.createElement("span", { style: { color: "#94A3B8" } }, "円"),
                 _fCeTopRel != null ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (_fAlpha != null && !(_fCeTopRel > _fAlpha)) ? "#B91C1C" : "#64748B" } },
                   "＝水準線" + (_fCeTopRel >= 0 ? "+" : "") + _fCeTopRel + (_fAlpha != null && !(_fCeTopRel > _fAlpha) ? "（VAP以下）" : ""))
