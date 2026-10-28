@@ -19,7 +19,7 @@
   th { color:var(--sub); font-weight:600; font-size:12px; }
   td.num { text-align:right; font-variant-numeric:tabular-nums; }
   .wrap { overflow-x:auto; }
-  #log { font-size:12px; color:var(--sub); white-space:pre-wrap; max-height:180px; overflow:auto; }
+  #log { font-size:12px; color:var(--sub); white-space:pre-wrap; max-height:480px; overflow:auto; }
   .ok { color:var(--ok); font-weight:700; } .ng { color:var(--ng); font-weight:700; }
 </style>
 </head>
@@ -336,7 +336,11 @@
     return false;
   }
   var dbFileRe = /\.(ldb|sst|log)$|^(CURRENT|LOCK|LOG(\.old)?|MANIFEST-\d+)$/i;
+  var diag = { vals: [], blobs: [] };
+  function hexs(b, a, n) { var o = []; for (var i = a; i < Math.min(b.length, a + n); i++) o.push((b[i] < 16 ? "0" : "") + b[i].toString(16)); return o.join(" "); }
+  function printable(k) { var s = ""; for (var i = 0; i < Math.min(k.length, 60); i++) { var c = k[i]; s += (c >= 32 && c < 127) ? String.fromCharCode(c) : "."; } return s; }
   function handleFiles(files) {
+    diag = { vals: [], blobs: [] };
     files = Array.prototype.slice.call(files);
     var skipped = 0, t0 = Date.now();
     logEl.textContent += "\n" + files.length + " 個のファイルを調べます…（前に選んだ分の結果に追加します）";
@@ -346,13 +350,15 @@
         if (fi % 200 === 0 && fi) log("  … " + fi + " / " + files.length);
         if (dbFileRe.test(file.name)) return file.arrayBuffer();
         return file.slice(0, 4096).arrayBuffer().then(function (hb) {
-          if (!looksLikeRecord(new Uint8Array(hb))) { skipped++; return null; }
+          var hh = new Uint8Array(hb);
+          if (!looksLikeRecord(hh)) { skipped++; if (diag.blobs.length < 12) diag.blobs.push(file.name + "（" + Math.round(file.size / 1024) + "KB） " + hexs(hh, 0, 24)); return null; }
           return file.arrayBuffer();
         });
       }).then(function (ab) {
         if (!ab) return;
         var buf = new Uint8Array(ab), n0 = found.length;
         var emit = function (k, v) {
+          if (v.length > 1000 && diag.vals.length < 25 && !keyName(k)) diag.vals.push(file.name + " 鍵[" + printable(k) + "] " + Math.round(v.length / 1024) + "KB " + hexs(v, 0, 24));
           var kn = keyName(k); if (kn) addCandidate(kn.origin, kn.name, decodeVal(v), file.name);
           if (v.length > 200) idbScan(v, function (o) { addIdbCandidate(o, file.name); });
         };
@@ -366,6 +372,12 @@
       });
     });
     seq.then(function () {
+      if (!found.length || diag.vals.length || diag.blobs.length) {
+        log("\n―― 診断情報（この部分を画面ごと送ってください）――");
+        log("大きな値: " + (diag.vals.length ? "\n" + diag.vals.join("\n") : "なし"));
+        log("読み飛ばしたファイルの先頭: " + (diag.blobs.length ? "\n" + diag.blobs.join("\n") : "なし"));
+        log("ファイル名: " + files.slice(0, 30).map(function (f) { return f.name + "(" + Math.round(f.size / 1024) + "KB)"; }).join(", "));
+      }
       if (skipped) log("（画像など記録以外のファイル " + skipped + " 個は読み飛ばしました・" + Math.round((Date.now() - t0) / 1000) + "秒）");
       render();
       log(found.length ? ("\n完了：データ候補 " + found.length + " 件見つかりました。") : "\n完了：データは見つかりませんでした。選んだフォルダ（Default / Profile 1 など）が違うかもしれません。");
