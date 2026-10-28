@@ -2106,12 +2106,23 @@ function _snRebuildCustom(d) {
   });
   // 日替わり銘柄の候補
   var rot = arr(cu.rotatingStocks), r0 = rot.length;
-  Object.keys((d && d.dailyStock) || {}).forEach(function(dt) { var v = d.dailyStock[dt]; (Array.isArray(v) ? v : [v]).forEach(function(x) { if (x && typeof x === "string" && rot.indexOf(x) < 0) rot.push(x); }); });
+  // 8/20 より前の JX金属 は過去の合計を保つための移行で入れたもの（app-01 _jx…）＝日替わり候補の根拠にしない。指定の多い順。
+  var rotCnt = {};
+  Object.keys((d && d.dailyStock) || {}).forEach(function(dt) { if (dt < "2026-08-20") return; var v = d.dailyStock[dt]; (Array.isArray(v) ? v : [v]).forEach(function(x) { if (x && typeof x === "string") rotCnt[x] = (rotCnt[x] || 0) + 1; }); });
+  Object.keys(rotCnt).sort(byCnt(rotCnt)).forEach(function(x) { if (rot.indexOf(x) < 0) rot.push(x); });
   cu.rotatingStocks = rot; rep.push({ lbl: "日替わり銘柄の候補", before: r0, after: rot.length });
-  // 銘柄タブ（日替わり候補は除く）
+  // 銘柄タブ: 日替わり候補はタブから外し（日替わりタブで見る）、記録のある固定銘柄を足す
   var stk = (Array.isArray(cu.stocks) && cu.stocks.length) ? arr(cu.stocks) : (typeof _DEF_STOCKS_FROZEN !== "undefined" ? _DEF_STOCKS_FROZEN.slice() : []), s0 = arr(cu.stocks).length;
+  var moved = stk.filter(function(x) { return rot.indexOf(x) >= 0; });
+  stk = stk.filter(function(x) { return rot.indexOf(x) < 0; });
   Object.keys(stockCnt).sort(byCnt(stockCnt)).forEach(function(x) { if (rot.indexOf(x) < 0 && stk.indexOf(x) < 0) stk.push(x); });
-  cu.stocks = stk; rep.push({ lbl: "銘柄タブ", before: s0, after: stk.length });
+  cu.stocks = stk; rep.push({ lbl: "銘柄タブ", before: s0, after: stk.length, note: moved.length ? "（" + moved.join("・") + " は日替わりへ）" : "" });
+  // 固有材料の名前（charts[*].dayMaterialTags）
+  var mt = arr(cu.materialTags), m0 = mt.length, mCnt = {};
+  Object.keys((d && d.charts) || {}).forEach(function(ck) { var c = d.charts[ck]; (c && Array.isArray(c.dayMaterialTags) ? c.dayMaterialTags : []).forEach(function(x) { if (x && typeof x === "string") mCnt[x] = (mCnt[x] || 0) + 1; }); });
+  Object.keys(mCnt).sort(byCnt(mCnt)).forEach(function(x) { if (mt.indexOf(x) < 0) mt.push(x); });
+  if (mt.length !== m0) cu.materialTags = mt;
+  rep.push({ lbl: "固有材料の名前", before: m0, after: mt.length });
   return { data: Object.assign({}, d, { custom: cu }), report: rep };
 }
 function _SnSyncDiag(props) {
@@ -2178,7 +2189,7 @@ function _SnSyncDiag(props) {
     React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
       btn("🔧 記録から設定を戻す（シグナル名・理由・銘柄）", function() {
         var r = _snRebuildCustom(data);
-        var lines = r.report.map(function(x) { return "・" + x.lbl + "：" + x.before + " → " + x.after + "件" + (x.after > x.before ? "（" + (x.after - x.before) + "件戻す）" : ""); }).join("\n");
+        var lines = r.report.map(function(x) { return "・" + x.lbl + "：" + x.before + " → " + x.after + "件" + (x.after > x.before ? "（" + (x.after - x.before) + "件戻す）" : "") + (x.note || ""); }).join("\n");
         var txt = "記録に使われている名前を、設定の一覧に戻します（足すだけ・消しません）。\n" + lines + "\nシグナル名・仮シグナルは記録の多い順に並べ直します。合計に入れる銘柄（算入銘柄）は変えません。\nよろしいですか？";
         var p = (typeof window._snConfirm === "function") ? window._snConfirm(txt) : Promise.resolve(window.confirm(txt));
         p.then(function(ok) {
