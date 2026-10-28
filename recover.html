@@ -38,6 +38,12 @@
       <li>Chrome を開くとき、「タブを復元」はしない。スキャルピングノートブックのタブは開かずに、このページだけを開く。</li>
       <li>下の「ファイルを選ぶ」で、<b>デスクトップにコピーした leveldb フォルダの中のファイルを全部</b>選ぶ（Ctrl+A）。</li>
     </ol>
+    <b>同期の控え（IndexedDB）も探す</b>
+    <ol>
+      <li>Chrome を閉じた状態で、<code>…\User Data\Default\IndexedDB</code> を開く。</li>
+      <li><code>https_silva-shin02.github.io_0.indexeddb.leveldb</code> フォルダと、あれば <code>https_silva-shin02.github.io_0.indexeddb.blob</code> フォルダを、まるごとデスクトップにコピー。</li>
+      <li>「ファイルを選ぶ」をもう一度押し、コピーした <b>.leveldb フォルダの中のファイルを全部</b>選ぶ。.blob フォルダがあれば、その中の奥のフォルダにあるファイルも同じように選ぶ（結果は前の分に追加されます）。</li>
+    </ol>
     <input type="file" id="files" multiple style="margin-top:6px">
   </div>
 
@@ -157,13 +163,89 @@
     return { origin: origin, name: name };
   }
 
+  // ---- IndexedDB（V8 シリアライズ）----
+  // アプリは同期の控え（最後にサーバーと一致した記録一式）を IndexedDB の "fb_sync_base_v1" に保存している。Chrome はそれを
+  // Blink/V8 形式（多くは Snappy 圧縮）で leveldb に書くので、ここで解凍・復号して取り出す。
+  var u16d = new TextDecoder("utf-16le"), utf8d = new TextDecoder("utf-8");
+  function v8decode(b, start) {
+    var p = start, objs = [];
+    function vu() { var r = 0, sh = 0, x; do { x = b[p++]; r += (x & 127) * Math.pow(2, sh); sh += 7; } while (x & 128); return r; }
+    function rd() {
+      for (;;) {
+        if (p >= b.length) throw new Error("end");
+        var t = b[p++];
+        switch (t) {
+          case 0x00: continue;
+          case 0xFF: vu(); continue;
+          case 0x5F: return undefined;            // _
+          case 0x30: return null;                 // 0
+          case 0x54: return true;                 // T
+          case 0x46: return false;                // F
+          case 0x49: { var z = vu(); return (z % 2) ? -(z + 1) / 2 : z / 2; }   // I
+          case 0x55: return vu();                 // U
+          case 0x4E: { var dv = new DataView(b.buffer, b.byteOffset + p, 8); p += 8; return dv.getFloat64(0, true); }   // N
+          case 0x44: { var dv2 = new DataView(b.buffer, b.byteOffset + p, 8); p += 8; var dt = new Date(dv2.getFloat64(0, true)); objs.push(dt); return dt; }   // D
+          case 0x22: { var l1 = vu(), s1 = latin.decode(b.subarray(p, p + l1)); p += l1; return s1; }   // "
+          case 0x63: { var l2 = vu(), s2 = u16d.decode(b.subarray(p, p + l2)); p += l2; return s2; }    // c
+          case 0x53: { var l3 = vu(), s3 = utf8d.decode(b.subarray(p, p + l3)); p += l3; return s3; }   // S
+          case 0x5E: return objs[vu()];           // ^
+          case 0x6F: {                            // o
+            var o = {}; objs.push(o);
+            for (;;) { while (b[p] === 0) p++; if (b[p] === 0x7B) { p++; vu(); return o; } var k = rd(); o[k] = rd(); }
+          }
+          case 0x41: {                            // A
+            var n = vu(), a = new Array(n); objs.push(a);
+            for (var i = 0; i < n; i++) { while (b[p] === 0) p++; if (b[p] === 0x2D) { p++; continue; } a[i] = rd(); }
+            for (;;) { while (b[p] === 0) p++; if (b[p] === 0x24) { p++; vu(); vu(); return a; } var k2 = rd(); a[k2] = rd(); }
+          }
+          case 0x61: {                            // a
+            var n2 = vu(), a2 = new Array(n2); objs.push(a2);
+            for (;;) { while (b[p] === 0) p++; if (b[p] === 0x40) { p++; vu(); vu(); return a2; } var k3 = rd(); a2[k3] = rd(); }
+          }
+          default: throw new Error("tag " + t.toString(16) + " @" + (p - 1));
+        }
+      }
+    }
+    return rd();
+  }
+  function findV8Objects(b, cb) {
+    for (var i = 0; i + 2 < b.length; i++) {
+      if (b[i] === 0xFF && b[i + 1] >= 12 && b[i + 1] <= 15 && b[i + 2] === 0x6F) {
+        try { cb(v8decode(b, i + 2)); } catch (e) {}
+      }
+    }
+  }
+  function idbScan(v, cb) {
+    var hit = false;
+    for (var i = 0; i + 3 < v.length; i++) {
+      if (v[i] === 0xFF && v[i + 1] === 0x11 && v[i + 2] === 0x02) {
+        try { findV8Objects(snappy(v.subarray(i + 3)), function (o) { hit = true; cb(o); }); } catch (e) {}
+      }
+    }
+    if (!hit) findV8Objects(v, cb);
+  }
+  function addIdbCandidate(o, src) {
+    if (!o || typeof o !== "object") return;
+    var d = (o.meta && typeof o.meta === "object" && (o.meta.charts || o.meta.trades)) ? o.meta : ((o.charts || o.trades) ? o : null);
+    if (!d) return;
+    d = JSON.parse(JSON.stringify(d));
+    if (typeof o.v === "number") d._v = o.v;
+    var text = JSON.stringify(d), key = hashStr(text);
+    if (found.some(function (f) { return f.key === key; })) return;
+    found.push({ key: key, origin: "IndexedDB（同期の控え）", name: "fb_sync_base_v1", data: d, st: stats(d, text.length), src: src });
+  }
+
   // ---- 集計 ----
-  function stats(d) {
+  function stats(d, size) {
     var ch = d.charts || {}, tr = d.trades || {}, sig = 0, items = 0, last = "";
     Object.keys(ch).forEach(function (k) { var c = ch[k]; if (c && Array.isArray(c.signals)) sig += c.signals.length; var dt = k.slice(k.lastIndexOf("_") + 1); if (dt > last) last = dt; });
     Object.keys(tr).forEach(function (k) { var t = tr[k]; if (t && Array.isArray(t.items)) items += t.items.length; if (k > last) last = k; });
-    return { charts: Object.keys(ch).length, sig: sig, days: Object.keys(tr).length, items: items, last: last, v: typeof d._v === "number" ? d._v : 0 };
+    var cu = d.custom || {};
+    return { charts: Object.keys(ch).length, sig: sig, days: Object.keys(tr).length, items: items, last: last, v: typeof d._v === "number" ? d._v : 0,
+      tags: Array.isArray(cu.signalTags) ? cu.signalTags.length : 0, prov: Array.isArray(cu.provSignalTags) ? cu.provSignalTags.length : 0,
+      ckeys: Object.keys(cu).length, kb: Math.round((size || JSON.stringify(d).length) / 1024) };
   }
+  function hashStr(t) { var h = 5381; for (var i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return t.length + ":" + h.toString(36); }
   function fmt(v) { if (!v) return "—"; var d = new Date(v); return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); }
   function download(obj, name) {
     var a = document.createElement("a");
@@ -176,17 +258,17 @@
     if (!/^scalping_data_v\d+$/.test(name)) return;
     var d; try { d = JSON.parse(text); } catch (e) { log("  " + src + ": " + name + " は途中までしか残っていません（読めません）"); return; }
     if (!d || typeof d !== "object" || !(d.charts || d.trades)) return;
-    var key = text.length + ":" + (d._v || 0);
+    var key = hashStr(text);
     if (found.some(function (f) { return f.key === key; })) return;
-    found.push({ key: key, origin: origin, name: name, data: d, st: stats(d), src: src });
+    found.push({ key: key, origin: origin, name: name, data: d, st: stats(d, text.length), src: src });
   }
   function render() {
     found.sort(function (a, b) { return (b.st.sig + b.st.items + b.st.charts) - (a.st.sig + a.st.items + a.st.charts) || b.st.v - a.st.v; });
     var t = document.getElementById("tbl");
-    t.innerHTML = "<tr><th></th><th>保存時刻</th><th class=num>チャート</th><th class=num>エントリー記録</th><th class=num>取引日</th><th class=num>取引</th><th>最新の日付</th><th>場所</th><th></th></tr>";
+    t.innerHTML = "<tr><th></th><th>保存時刻</th><th class=num>チャート</th><th class=num>エントリー記録</th><th class=num>取引日</th><th class=num>取引</th><th>最新の日付</th><th class=num>シグナル名</th><th class=num>仮シグナル</th><th class=num>設定の項目</th><th class=num>大きさ</th><th>場所</th><th></th></tr>";
     found.forEach(function (f, i) {
       var tr = document.createElement("tr");
-      tr.innerHTML = "<td>" + (i + 1) + "</td><td>" + fmt(f.st.v) + "</td><td class=num>" + f.st.charts + "</td><td class=num>" + f.st.sig + "</td><td class=num>" + f.st.days + "</td><td class=num>" + f.st.items + "</td><td>" + (f.st.last || "—") + "</td><td>" + f.origin + "<br><span style='color:#999;font-size:11px'>" + f.name + "・" + f.src + "</span></td><td></td>";
+      tr.innerHTML = "<td>" + (i + 1) + "</td><td>" + fmt(f.st.v) + "</td><td class=num>" + f.st.charts + "</td><td class=num>" + f.st.sig + "</td><td class=num>" + f.st.days + "</td><td class=num>" + f.st.items + "</td><td>" + (f.st.last || "—") + "</td><td class=num>" + f.st.tags + "</td><td class=num>" + f.st.prov + "</td><td class=num>" + f.st.ckeys + "</td><td class=num>" + f.st.kb + "KB</td><td>" + f.origin + "<br><span style='color:#999;font-size:11px'>" + f.name + "・" + f.src + "</span></td><td></td>";
       var b = document.createElement("button"); b.textContent = "保存";
       b.onclick = function () { download(f.data, "scalping_復元_" + (i + 1) + "_" + (f.st.last || "x") + ".json"); };
       tr.lastChild.appendChild(b); t.appendChild(tr);
@@ -228,16 +310,20 @@
 
   document.getElementById("files").onchange = function (e) {
     var files = Array.prototype.slice.call(e.target.files);
-    found = []; logEl.textContent = files.length + " 個のファイルを読みます…";
+    logEl.textContent += "\n" + files.length + " 個のファイルを読みます…（前に選んだ分の結果に追加します）";
     var seq = Promise.resolve();
     files.forEach(function (file) {
       seq = seq.then(function () { return file.arrayBuffer(); }).then(function (ab) {
         var buf = new Uint8Array(ab), n0 = found.length;
-        var emit = function (k, v) { var kn = keyName(k); if (kn) addCandidate(kn.origin, kn.name, decodeVal(v), file.name); };
+        var emit = function (k, v) {
+          var kn = keyName(k); if (kn) addCandidate(kn.origin, kn.name, decodeVal(v), file.name);
+          if (v.length > 200) idbScan(v, function (o) { addIdbCandidate(o, file.name); });
+        };
         try {
           if (/\.ldb$|\.sst$/i.test(file.name)) readTable(buf, emit);
           else if (/\.log$/i.test(file.name)) readLog(buf, emit);
-          else return;
+          else if (/^(CURRENT|LOCK|LOG(\.old)?|MANIFEST-\d+)$/.test(file.name)) return;
+          else idbScan(buf, function (o) { addIdbCandidate(o, file.name); });   // IndexedDB の .blob フォルダのファイル
           log(file.name + "：候補 " + (found.length - n0) + " 件");
         } catch (err) { log(file.name + "：読めませんでした（" + err.message + "）"); }
       });
