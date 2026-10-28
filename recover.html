@@ -36,15 +36,21 @@
         その中の <code>Default</code>（Chromeのユーザーを分けている場合は <code>Profile 1</code> など）→ <code>Local Storage</code> → <code>leveldb</code> フォルダを開く。</li>
       <li>leveldb フォルダを<b>まるごとデスクトップにコピー</b>する（元のフォルダは触らない）。</li>
       <li>Chrome を開くとき、「タブを復元」はしない。スキャルピングノートブックのタブは開かずに、このページだけを開く。</li>
-      <li>下の「ファイルを選ぶ」で、<b>デスクトップにコピーした leveldb フォルダの中のファイルを全部</b>選ぶ（Ctrl+A）。</li>
+      <li>下の「📁 フォルダを選ぶ」で、<b>デスクトップにコピーした leveldb フォルダ</b>を選ぶ。</li>
     </ol>
     <b>同期の控え（IndexedDB）も探す</b>
     <ol>
       <li>Chrome を閉じた状態で、<code>…\User Data\Default\IndexedDB</code> を開く。</li>
       <li><code>https_silva-shin02.github.io_0.indexeddb.leveldb</code> フォルダと、あれば <code>https_silva-shin02.github.io_0.indexeddb.blob</code> フォルダを、まるごとデスクトップにコピー。</li>
-      <li>「ファイルを選ぶ」をもう一度押し、コピーした <b>.leveldb フォルダの中のファイルを全部</b>選ぶ。.blob フォルダがあれば、その中の奥のフォルダにあるファイルも同じように選ぶ（結果は前の分に追加されます）。</li>
+      <li>「📁 フォルダを選ぶ」をもう一度押し、コピーした <b>.leveldb フォルダ</b>を選ぶ。.blob フォルダがあれば、もう一度押して <b>.blob フォルダ</b>を選ぶ（結果は前の分に追加されます）。</li>
     </ol>
-    <input type="file" id="files" multiple style="margin-top:6px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px">
+      <label><button type="button" class="primary" onclick="document.getElementById('dir').click()">📁 フォルダを選ぶ</button></label>
+      <input type="file" id="dir" webkitdirectory multiple style="display:none">
+      <span style="color:var(--sub);font-size:12.5px">または</span>
+      <input type="file" id="files" multiple>
+    </div>
+    <div style="color:var(--sub);font-size:12.5px;margin-top:4px">「フォルダを選ぶ」で、コピーしたフォルダ（leveldb や .blob）をそのまま選べます。中の奥のフォルダのファイルも全部読みます。ブラウザに「アップロードしますか」と聞かれますが、実際はどこにも送りません（このページの中で読むだけ）。</div>
   </div>
 
   <div class="card" id="resultCard" style="display:none">
@@ -308,12 +314,43 @@
     download(m, "scalping_復元_まとめ.json");
   };
 
-  document.getElementById("files").onchange = function (e) {
-    var files = Array.prototype.slice.call(e.target.files);
-    logEl.textContent += "\n" + files.length + " 個のファイルを読みます…（前に選んだ分の結果に追加します）";
+  // .blob フォルダのファイルは画像なども多いので、先頭だけ見て「記録一式（オブジェクト）」らしいものだけ全部読む
+  function snappyHead(src, want) {
+    var pos = { p: 0 }; varint(src, pos);
+    var out = [], p = pos.p;
+    while (p < src.length && out.length < want) {
+      var tag = src[p++], t = tag & 3, l, off;
+      if (t === 0) { l = tag >> 2; if (l >= 60) { var nb = l - 59; l = 0; for (var i = 0; i < nb; i++) l |= src[p++] << (8 * i); } l += 1; for (var j = 0; j < l && out.length < want; j++) out.push(src[p + j]); p += l; continue; }
+      if (t === 1) { l = 4 + ((tag >> 2) & 7); off = ((tag >> 5) << 8) | src[p++]; }
+      else if (t === 2) { l = (tag >> 2) + 1; off = src[p] | (src[p + 1] << 8); p += 2; }
+      else { l = (tag >> 2) + 1; off = u32(src, p); p += 4; }
+      for (var k = 0; k < l; k++) out.push(out[out.length - off]);
+    }
+    return out;
+  }
+  function looksLikeRecord(head) {
+    var h = head;
+    if (h[0] !== 0xFF || h[1] !== 0x11) return false;
+    if (h[2] === 0x02) { try { h = snappyHead(head.subarray(3), 64); } catch (e) { return false; } }
+    for (var i = 0; i + 2 < h.length; i++) if (h[i] === 0xFF && h[i + 1] >= 12 && h[i + 1] <= 15) return h[i + 2] === 0x6F;
+    return false;
+  }
+  var dbFileRe = /\.(ldb|sst|log)$|^(CURRENT|LOCK|LOG(\.old)?|MANIFEST-\d+)$/i;
+  function handleFiles(files) {
+    files = Array.prototype.slice.call(files);
+    var skipped = 0, t0 = Date.now();
+    logEl.textContent += "\n" + files.length + " 個のファイルを調べます…（前に選んだ分の結果に追加します）";
     var seq = Promise.resolve();
-    files.forEach(function (file) {
-      seq = seq.then(function () { return file.arrayBuffer(); }).then(function (ab) {
+    files.forEach(function (file, fi) {
+      seq = seq.then(function () {
+        if (fi % 200 === 0 && fi) log("  … " + fi + " / " + files.length);
+        if (dbFileRe.test(file.name)) return file.arrayBuffer();
+        return file.slice(0, 4096).arrayBuffer().then(function (hb) {
+          if (!looksLikeRecord(new Uint8Array(hb))) { skipped++; return null; }
+          return file.arrayBuffer();
+        });
+      }).then(function (ab) {
+        if (!ab) return;
         var buf = new Uint8Array(ab), n0 = found.length;
         var emit = function (k, v) {
           var kn = keyName(k); if (kn) addCandidate(kn.origin, kn.name, decodeVal(v), file.name);
@@ -324,15 +361,18 @@
           else if (/\.log$/i.test(file.name)) readLog(buf, emit);
           else if (/^(CURRENT|LOCK|LOG(\.old)?|MANIFEST-\d+)$/.test(file.name)) return;
           else idbScan(buf, function (o) { addIdbCandidate(o, file.name); });   // IndexedDB の .blob フォルダのファイル
-          log(file.name + "：候補 " + (found.length - n0) + " 件");
+          if (found.length > n0 || dbFileRe.test(file.name)) log(file.name + "：候補 " + (found.length - n0) + " 件");
         } catch (err) { log(file.name + "：読めませんでした（" + err.message + "）"); }
       });
     });
     seq.then(function () {
+      if (skipped) log("（画像など記録以外のファイル " + skipped + " 個は読み飛ばしました・" + Math.round((Date.now() - t0) / 1000) + "秒）");
       render();
       log(found.length ? ("\n完了：データ候補 " + found.length + " 件見つかりました。") : "\n完了：データは見つかりませんでした。選んだフォルダ（Default / Profile 1 など）が違うかもしれません。");
     });
-  };
+  }
+  document.getElementById("files").onchange = function (e) { handleFiles(e.target.files); e.target.value = ""; };
+  document.getElementById("dir").onchange = function (e) { handleFiles(e.target.files); e.target.value = ""; };
 })();
 </script>
 </body>
