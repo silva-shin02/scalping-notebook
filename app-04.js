@@ -2069,6 +2069,7 @@ function _SnSyncDiag(props) {
   var _u1 = useState(null), res = _u1[0], setRes = _u1[1];
   var _u2 = useState(""), busy = _u2[0], setBusy = _u2[1];
   var _u3 = useState(""), msg = _u3[0], setMsg = _u3[1];
+  var fileRef = useRef(null);
   var fmt = function(v) { if (!v) return "—"; var d = new Date(v); return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0") + ":" + String(d.getSeconds()).padStart(2, "0"); };
   var run = function() {
     var base = _fbBase(cfg), auth = _fbAuth(cfg);
@@ -2123,6 +2124,33 @@ function _SnSyncDiag(props) {
       btn(busy === "diag" ? "診断中…" : "診断する", run, false, !!busy),
       btn(busy === "send" ? "送信中…" : "この端末を正としてサーバーへ送る", function() { merge("send"); }, true, !!busy),
       btn(busy === "take" ? "取り込み中…" : "サーバーを正として取り込む", function() { merge("take"); }, true, !!busy)),
+    // バックアップの書き出し・読み込み 2026-10-28（同期オン時はヘッダの📤📥が出ないため、ここに置く）
+    React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
+      btn("📤 バックアップを書き出す", function() {
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
+        a.download = "scalping_" + new Date().toISOString().slice(0, 10) + ".json";
+        document.body.appendChild(a); a.click(); a.remove();
+      }, false, !!busy),
+      btn("📥 バックアップを読み込む（インポート）", function() { if (fileRef.current) fileRef.current.click(); }, false, !!busy),
+      React.createElement("input", { ref: fileRef, type: "file", accept: ".json,application/json", style: { display: "none" }, onChange: function(e) {
+        var f = e.target.files && e.target.files[0]; e.target.value = "";
+        if (!f) return;
+        var rd = new FileReader();
+        rd.onload = function(ev) {
+          var d; try { d = JSON.parse(ev.target.result); } catch (eP) { setMsg("ファイルを読めませんでした（.json の形式ではありません）"); return; }
+          if (!d || typeof d !== "object" || !(d.charts || d.trades)) { setMsg("このファイルにはアプリのデータが入っていません"); return; }
+          var cc = Object.keys(d.charts || {}).length, sg = 0; Object.keys(d.charts || {}).forEach(function(k) { var c = d.charts[k]; if (c && Array.isArray(c.signals)) sg += c.signals.length; });
+          var txt = "「" + f.name + "」を読み込みます。\nチャート " + cc + "件・エントリー記録 " + sg + "件\n今のこの端末の内容はこのファイルの内容に置き換わり、同期で他の端末にも送られます。よろしいですか？";
+          var p = (typeof window._snConfirm === "function") ? window._snConfirm(txt) : Promise.resolve(window.confirm(txt));
+          p.then(function(ok) {
+            if (!ok) return;
+            try { save(migrateData(d), { immediate: true }); setRes(null); setMsg("✅ 読み込みました（チャート " + cc + "件・エントリー記録 " + sg + "件）。同期済になったら、他の端末を開き直してください。"); }
+            catch (eS) { setMsg("読み込めませんでした：" + (eS && eS.message ? eS.message : eS)); }
+          });
+        };
+        rd.readAsText(f);
+      } })),
     msg ? React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: /^✅/.test(msg) ? "#166534" : "#B91C1C", marginBottom: 6 } }, msg) : null,
     res ? React.createElement(React.Fragment, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", background: "#fff", marginBottom: 6 } },
