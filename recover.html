@@ -232,6 +232,7 @@
   }
   function addIdbCandidate(o, src) {
     if (!o || typeof o !== "object") return;
+    if (typeof o.json === "string" && !o.meta) { try { o = { meta: JSON.parse(o.json), v: o.v }; } catch (eJ) {} }   // 2026-10-28 同期の控えは文字列(JSON)で保存する形式に変更
     var d = (o.meta && typeof o.meta === "object" && (o.meta.charts || o.meta.trades)) ? o.meta : ((o.charts || o.trades) ? o : null);
     if (!d) {   // 入れ子・JSON文字列の中も探す
       Object.keys(o).some(function (k) {

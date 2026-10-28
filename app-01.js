@@ -2228,16 +2228,26 @@ function _fbHashStr(s) {
 // 【保存時】fbPut の前にサーバーの版数を確認し、前回同期以降に他端末が書いていたら、先に取り込んで統合してから送る（上書きで消さない）。
 var _fbSyncBase = null, _FB_BASE_IDB = "fb_sync_base_v1", _FB_LASTV_KEY = "sn_fb_lastv_v1";
 function _fbBaseClean(m) { if (!m || typeof m !== "object") return null; var o = Object.assign({}, m); delete o._sv; delete o._svc; delete o._v; return o; }
+var _fbBaseSaveT = null;
 function _fbBaseSet(meta, v) {
   _fbSyncBase = _fbBaseClean(_stripHeavy(meta));
-  try { snIdbSet(_FB_BASE_IDB, { meta: _fbSyncBase, v: v || null }); } catch (e) {}
+  // 2026-10-28 端末内への保存は1つの文字列（JSON）で・2秒まとめ書き＝iPadのIndexedDBに大きなオブジェクトを毎回複製して書く負担を避ける（旧形式 {meta} も読める）。
+  try { clearTimeout(_fbBaseSaveT); var _snap = _fbSyncBase, _sv = v || null; _fbBaseSaveT = setTimeout(function() { try { snIdbSet(_FB_BASE_IDB, { json: JSON.stringify(_snap), v: _sv }); } catch (e2) {} }, 2000); } catch (e) {}
   try { if (v) localStorage.setItem(_FB_LASTV_KEY, String(v)); } catch (e) {}
 }
 function _fbBaseLastV() { try { var v = Number(localStorage.getItem(_FB_LASTV_KEY)); return v > 0 ? v : null; } catch (e) { return null; } }
 function _fbBaseLoad() {
   if (_fbSyncBase) return Promise.resolve(_fbSyncBase);
   var wait = function() { return new Promise(function(res) { if (_snIdbReady) return res(); var n = 0, t = setInterval(function() { n++; if (_snIdbReady || n >= 40) { clearInterval(t); res(); } }, 50); }); };
-  return wait().then(function() { return snIdbGet(_FB_BASE_IDB); }).then(function(o) { if (o && o.meta) _fbSyncBase = o.meta; return _fbSyncBase; }, function() { return null; });
+  // 2026-10-28 時間切れ3秒（ユーザー報告「iPadで更新すると読み込み中のまま動かない」）: iPadのSafariは大きな値のIndexedDB読み出しが返ってこないことがあり、
+  //   起動時の同期がこれを待つため画面ごと止まっていた。返ってこなければ基準なし（安全側の和集合統合）で先へ進む。
+  var _get = wait().then(function() { return snIdbGet(_FB_BASE_IDB); });
+  var _to = new Promise(function(res) { setTimeout(function() { res("__timeout__"); }, 3000); });
+  return Promise.race([_get, _to]).then(function(o) {
+    if (o === "__timeout__") { console.warn("[FB] sync base load timed out (IndexedDB)"); return _fbSyncBase; }
+    if (o && !_fbSyncBase) { if (typeof o.json === "string") { try { _fbSyncBase = JSON.parse(o.json); } catch (eJ) {} } else if (o.meta) _fbSyncBase = o.meta; }
+    return _fbSyncBase;
+  }, function() { return null; });
 }
 function _m3Empty(x) {
   if (x === undefined || x === null) return true;
