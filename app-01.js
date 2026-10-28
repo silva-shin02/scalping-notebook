@@ -2208,7 +2208,18 @@ var _fbLocalV = 0;
 var _fbErrState = null;
 // 同期の進み具合 2026-10-28（ユーザー報告「iPadで同期中のまま」）: どの段階で止まっているかを設定→同期の🩺同期診断に出す。
 //   2026-10-28b 段階の履歴(window._snSyncLog・最新40件)も残す＝どこで何秒止まったかを同期診断に並べる（ユーザー報告「iPadで更新するとゼロ・同期中のまま」）。
-function _fbStage(s) { try { var now = Date.now(); window._snSyncStage = { s: s, at: now }; var L = window._snSyncLog || (window._snSyncLog = []); L.push({ s: s, at: now }); if (L.length > 40) L.splice(0, L.length - 40); } catch (e) {} }
+//   2026-10-28c 経過は localStorage(sn_sync_log_v1) にも書く＝iPadが途中で画面を強制的に読み込み直しても（メモリ不足など）、次の起動で「前回の経過」として見られる。
+var _SN_SYNCLOG_KEY = "sn_sync_log_v1";
+try { window._snPrevSyncLog = JSON.parse(localStorage.getItem(_SN_SYNCLOG_KEY) || "null"); } catch (e) {}
+function _fbStage(s) { try { var now = Date.now(); window._snSyncStage = { s: s, at: now }; var L = window._snSyncLog || (window._snSyncLog = []); L.push({ s: s, at: now }); if (L.length > 40) L.splice(0, L.length - 40); try { localStorage.setItem(_SN_SYNCLOG_KEY, JSON.stringify(L)); } catch (eL) {} } catch (e) {} }
+// 捕まえられなかったエラーも経過に残す（最初の5件）
+(function() {
+  var n = 0, add = function(m) { if (n++ < 5) _fbStage("エラー：" + String(m || "").slice(0, 120)); };
+  try {
+    window.addEventListener("error", function(ev) { add(ev && (ev.message || (ev.error && ev.error.message))); });
+    window.addEventListener("unhandledrejection", function(ev) { var r = ev && ev.reason; add(r && r.message ? r.message : r); });
+  } catch (e) {}
+})();
 // 時間切れ付きの fetch 2026-10-28b: iPadのSafariで応答が返ってこないまま起動時の同期が「同期中」で止まっていた。本文の読み出しまで含めて ms で打ち切る（失敗扱い＝次のポーリングで再試行）。
 //   戻り値は Response の代わり（ok/status/text()/json()/clone()）。
 function _fbFetchT(url, opts, ms) {
@@ -2401,6 +2412,13 @@ function _fbMerge3(local, remote, pl, noBase) {
 // 起動時/定期確認でサーバーの内容を受け取ったときの統合。両方が変えた所は「後から保存した方」（基準が無い初回はこの端末を残す）。
 // 戻り値 merged（_v付き）と needPush（統合結果がサーバーと違う＝送り返す必要あり）。サーバーと一致したらそれを基準にする。
 function _fbResolveRemote(local, remote) {
+  // 2026-10-28c 端末内が空ならサーバーの内容をそのまま使う（統合の計算と複製を省く＝起動時のメモリを減らす）。
+  if (_fbVolume(local) === 0 && _fbVolume(remote) > 0) {
+    var adopt = Object.assign({}, remote); delete adopt._sv; delete adopt._svc;
+    if (typeof remote._v === "number") { try { _fbBaseSet(remote, remote._v); } catch (e) {} }
+    console.log("[FB] merge3: local empty → adopt remote");
+    return { merged: adopt, needPush: false };
+  }
   var lv = (local && typeof local._v === "number") ? local._v : 0, rv = (remote && typeof remote._v === "number") ? remote._v : 0;
   var pl = _fbSyncBase ? (lv > rv) : true;
   var merged = _fbMerge3(local, remote, pl);
@@ -2762,8 +2780,10 @@ function _fbPollFetch(cfg, localData, remoteV) {
 
 
 function fbInitialLoad(cfg, localData) {
-  _fbStage("起動時：同期の控えを読む");
-  return _fbBaseLoad().then(function() { _fbStage("起動時：版数の確認"); return fbPollV(cfg); }).then(function(rv) {
+  // 2026-10-28c 端末内が空のときは同期の控え（記録一式と同じ大きさ）を読まない＝使わない上にメモリを食う（iPadで起動中に落ちる疑い）。
+  var _empty = _fbVolume(localData) === 0;
+  _fbStage(_empty ? "起動時：端末内が空（控えは読まない）" : "起動時：同期の控えを読む");
+  return (_empty ? Promise.resolve(null) : _fbBaseLoad()).then(function() { _fbStage("起動時：版数の確認"); return fbPollV(cfg); }).then(function(rv) {
     // 2026-10-27 旧: 「この端末の更新時刻 >= サーバー」なら取得を省いていた＝更新時刻だけ新しく中身が古い端末がPCの変更を取り込まず上書きしていた。
     //   新: サーバーが「前回この端末が同期した版」から変わっていない時だけ省く（基準が無ければ必ず取得して統合）。
     if (rv && _fbSyncBase && rv === _fbBaseLastV() && !_fbLooksWiped(_fbBaseClean(localData), _fbSyncBase)) {   // 端末内が大きく減っていたら省かず取り込む 2026-10-28
