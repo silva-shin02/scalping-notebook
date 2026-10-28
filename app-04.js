@@ -2124,6 +2124,36 @@ function _snRebuildCustom(d) {
   rep.push({ lbl: "固有材料の名前", before: m0, after: mt.length });
   return { data: Object.assign({}, d, { custom: cu }), report: rep };
 }
+// ===== VAP補正の点検 2026-10-28（同期の混乱で一部の記録が古い版に戻った可能性への対処・ユーザー決定「点検して食い違いを直す」）=====
+// 対象＝8/20以降(VAP)・VAP値入力済み・実エントリー以外（一括反映と同じ）。
+//   ①水準線値が大RN×VAP0円（_vapAdjExemptSig）なのに一括反映のマイナス補正が付いている → 補正を外す。
+//   ②採用VAP（alphaVal/baseAlphaVal）が「VAP値＋補正」と食い違っている → VAP値＋補正に揃える。
+//   手で入れた補正（vapAdjBatch なし）で①に当たるものは直さず件数だけ出す。設定の補正値 custom.vapAdj は −1（ユーザー決定）。
+function _snVapCheck(d) {
+  var charts = Object.assign({}, (d && d.charts) || {}), r = { n: 0, exempt: 0, alpha: 0, manualExempt: 0 };
+  if (typeof _vapWorld !== "function" || typeof _vapOf !== "function") return { data: d, rep: r };
+  Object.keys(charts).forEach(function(ck) {
+    var c = charts[ck], i = ck.lastIndexOf("_"); if (!c || !Array.isArray(c.signals) || i < 0 || !_vapWorld(ck.slice(i + 1))) return;
+    var chg = false;
+    var sigs = c.signals.map(function(sg) {
+      if (!sg || sg.entered === true) return sg;
+      var v = _vapOf(sg); if (v == null) return sg;
+      r.n++;
+      var a = _vapAdjOf(sg), ex = _vapAdjExemptSig(sg), o = sg;
+      if (ex && a < 0) {
+        if (sg.vapAdjBatch === true) { o = Object.assign({}, o, { vapAdj: null, vapAdjBatch: null }); a = 0; r.exempt++; }
+        else r.manualExempt++;
+      }
+      if (Number(o.alphaVal) !== v + a || (o.baseAlphaVal != null && Number(o.baseAlphaVal) !== v + a)) { o = Object.assign({}, o, { alphaVal: v + a, baseAlphaVal: v + a }); r.alpha++; }
+      if (o !== sg) chg = true;
+      return o;
+    });
+    if (chg) charts[ck] = Object.assign({}, c, { signals: sigs });
+  });
+  var cu = Object.assign({}, (d && d.custom) || {});
+  r.setBefore = cu.vapAdj; cu.vapAdj = -1;
+  return { data: Object.assign({}, d, { charts: charts, custom: cu }), rep: r };
+}
 function _SnSyncDiag(props) {
   var cfg = props.cfg, data = props.data, save = props.save;
   var _u1 = useState(null), res = _u1[0], setRes = _u1[1];
@@ -2197,6 +2227,22 @@ function _SnSyncDiag(props) {
           setRes(null); setMsg("✅ 記録から設定を戻しました。" + r.report.filter(function(x) { return x.after > x.before; }).map(function(x) { return x.lbl + " +" + (x.after - x.before); }).join("・"));
         });
       }, true, !!busy)),
+    // VAP補正の点検 2026-10-28（_snVapCheck）
+    React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
+      btn("🩺 VAP補正の点検", function() {
+        var k = _snVapCheck(data), x = k.rep;
+        var txt = "8/20以降のVAP記録 " + x.n + "件を点検しました。\n"
+          + "・大RN×VAP0円なのに一括反映のマイナス補正が付いている：" + x.exempt + "件 → 補正を外す\n"
+          + "・採用VAPが「VAP値＋補正」と食い違っている：" + x.alpha + "件 → 揃える\n"
+          + (x.manualExempt ? "・大RN×VAP0円で手入力のマイナス補正がある：" + x.manualExempt + "件（手入力なので直しません）\n" : "")
+          + "・設定のVAP補正値：" + (x.setBefore == null ? "未設定" : x.setBefore) + " → −1\n直しますか？";
+        var p = (typeof window._snConfirm === "function") ? window._snConfirm(txt) : Promise.resolve(window.confirm(txt));
+        p.then(function(ok) {
+          if (!ok) return;
+          save(k.data, { immediate: true });
+          setRes(null); setMsg("✅ VAP補正を点検して直しました（補正を外す " + x.exempt + "件・採用VAPを揃える " + x.alpha + "件・設定 −1）");
+        });
+      }, false, !!busy)),
     // バックアップの書き出し・読み込み 2026-10-28（同期オン時はヘッダの📤📥が出ないため、ここに置く）
     React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
       btn("📤 バックアップを書き出す", function() {
