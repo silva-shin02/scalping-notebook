@@ -3938,7 +3938,13 @@ function _elSpnBTierOf(bName) {
   if (s.indexOf("中") >= 0) return "mid";
   return null;
 }
-function _elSpnBTierOfRec(r, sigKey) { return (r && r.signal) ? _elSpnBTierOf(_elSigDetailSec(r.signal, sigKey).b) : null; }
+// ①は複数選択あり（2026-10-29）＝選んだラインの中に大RNがあれば大RN、無くて中RNがあれば中RN（大RN優先・ユーザー決定）。返り値 {t:"big"/"mid"/null, name:該当ライン名}。
+function _elSpnBTierOfList(bs) {
+  var hit = { big: null, mid: null };
+  (bs || []).forEach(function(x) { var t = _elSpnBTierOf(x); if (t && !hit[t]) hit[t] = x; });
+  return hit.big ? { t: "big", name: hit.big } : hit.mid ? { t: "mid", name: hit.mid } : { t: null, name: (bs || []).join("・") };
+}
+function _elSpnBTierOfRec(r, sigKey) { return (r && r.signal) ? _elSpnBTierOfList(_elSigDetailSec(r.signal, sigKey).bs).t : null; }
 // recoFn（その日の推奨基本α）の作り手。_elSpNeedSectionV2 と 🔎中RN/大RN別ボードで同じ母数・同じ作り方を使うための単一源 2026-09-02。
 function _elSpNeedRecoOf(fullRecs, aiOf, byStock) {
   if (byStock) {
@@ -4050,8 +4056,9 @@ function _elSpnTierBoardV2(recs, aiOf, fullRecs, sigKey, secH) {
   var recoOf = _elSpNeedRecoOf(fullRecs, aiOf, true);   // 銘柄横断のタブなので推奨基本αは必ず銘柄ごとに作る
   var by = { mid: [], big: [], other: [] }, bigSub = {}, otherSub = {};
   pool.forEach(function(r) {
-    var b = (r && r.signal) ? (_elSigDetailSec(r.signal, sigKey).b || "") : "";
-    var t = _elSpnBTierOf(b) || "other";
+    var _tl = _elSpnBTierOfList((r && r.signal) ? _elSigDetailSec(r.signal, sigKey).bs : []);
+    var b = _tl.name || "";
+    var t = _tl.t || "other";
     by[t].push(r);
     var _k = b || "未選択";
     if (t === "big") bigSub[_k] = (bigSub[_k] || 0) + 1; else if (t === "other") otherSub[_k] = (otherSub[_k] || 0) + 1;
@@ -7923,7 +7930,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     _sigAxisGroups.forEach(function(g) {
       (g.recs || []).forEach(function(r) {
         var sec = _elSigDetailSec(r.signal, g.key);
-        if (sec.b) _put("b", sec.b, r);
+        (sec.bs || []).forEach(function(bn) { _put("b", bn, r); });   // ①は選んだ各ラインに1件ずつ 2026-10-29
         if (sec.k) _put("k", sec.k, r);
         (sec.f || []).forEach(function(fn) { _put("f", fn, r); });
       });
@@ -8006,21 +8013,22 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     // 2026-08-04 ①底抜けピル（opts.bSigKey を渡した各シグナルタブ専用）。帯ピルとANDで「1000円帯 × 底抜けA」まで絞れる。
     // 底抜けは単一選択（_EL_SIG_SECS の b は multi:false）なので1記録は1バケットにしか入らず、件数の合計が母数を超えない。
     // 選択肢はシグナル全体（pool）から作る＝帯を切り替えてもピルの並びが動かず、件数だけ変わる。0件も出す＝その帯に無いこと自体が情報。
-    var _bSecOf = function(r) { return (r && r.signal) ? (_elSigDetailSec(r.signal, _o.bSigKey).b || "") : ""; };
+    // ①は複数選択あり（2026-10-29）＝選んだ各ラインのピルに1件ずつ入る（ユーザー決定）。件数の合計は母数を超えることがある。
+    var _bSecsOf = function(r) { return (r && r.signal) ? _elSigDetailSec(r.signal, _o.bSigKey).bs : []; };
     var _bSecGroups = null, _bSecSelKey = null, _bSecSel = null;
     if (_o.bSigKey) {
       var _cand = [], _cm = {};
       var _addC = function(n) { if (n && !_cm[n]) { _cm[n] = 1; _cand.push(n); } };
       var _mB = (((custom || {}).sigDetails2 || {})[_o.bSigKey] || {}).b;   // マスター候補（設定で消した過去の選択肢は下のpool走査で拾う）
       (Array.isArray(_mB) ? _mB : []).forEach(_addC);
-      (pool || []).forEach(function(r) { _addC(_bSecOf(r)); });
+      (pool || []).forEach(function(r) { _bSecsOf(r).forEach(_addC); });
       var _inBand = _bSel ? _bSel.recs : [];
-      var _noneAll = (pool || []).filter(function(r) { return !_bSecOf(r); }).length;
+      var _noneAll = (pool || []).filter(function(r) { return !_bSecsOf(r).length; }).length;
       _bSecGroups = [{ key: "__all__", label: "すべて", recs: _inBand }]
         .concat(_cand.map(function(n) {
-          return { key: "d:" + n, label: n, recs: _inBand.filter(function(r) { return _bSecOf(r) === n; }) };
+          return { key: "d:" + n, label: n, recs: _inBand.filter(function(r) { return _bSecsOf(r).indexOf(n) >= 0; }) };
         }))
-        .concat(_noneAll ? [{ key: "__none__", label: "未選択", recs: _inBand.filter(function(r) { return !_bSecOf(r); }) }] : []);
+        .concat(_noneAll ? [{ key: "__none__", label: "未選択", recs: _inBand.filter(function(r) { return !_bSecsOf(r).length; }) }] : []);
       _bSecSelKey = _bSecGroups.some(function(g) { return g.key === sigBSel; }) ? sigBSel : "__all__";   // シグナルを切替えて無い選択肢になったら「すべて」へ戻す
       _bSecSel = _bSecGroups.filter(function(g) { return g.key === _bSecSelKey; })[0] || null;
     }
@@ -8030,7 +8038,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     return React.createElement(React.Fragment, null,
       _o.noBand ? null : React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 6px" } }, "帯＝日×銘柄で判定（手動選択＞前日終値の自動・日別ページの銘柄タブ上のバーで設定）。境界は設定「📊データ・銘柄」で変更可（現在: " + _pbB.join("・") + "円）"),
       _o.noBand ? null : _subTabBar(_bAll, _bSelKey, setBandSel),
-      _bSecGroups ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 4px" } }, "① EP基準ライン＝記録フォームのシグナル詳細①（単一選択）。上の帯ピルとANDで絞り込む。") : null,
+      _bSecGroups ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 4px" } }, "① EP基準ライン＝記録フォームのシグナル詳細①（複数選択あり＝選んだ各ラインに1件ずつ）。上の帯ピルとANDで絞り込む。") : null,
       _bSecGroups ? _subTabBar(_bSecGroups, _bSecSelKey, setSigBSel) : null,
       (_panelRecs && _panelRecs.length)
         ? React.createElement(React.Fragment, null,
@@ -8052,8 +8060,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         if (!_sc.all.length) return React.createElement("div", { key: "spnnone", style: { marginTop: 18, paddingTop: 14, borderTop: "2px solid #F0E6D2", color: "#bbb", textAlign: "center", fontSize: 12 } },
           "🩹 補正要否: 応用α〇（浮き足・RN除く）の記録がこの帯にありません");
         var _spnDetail = (_bSecSelKey == null || _bSecSelKey === "__all__") ? _sc.pool
-          : (_bSecSelKey === "__none__") ? _sc.pool.filter(function(r) { return !_bSecOf(r); })
-          : _sc.pool.filter(function(r) { return _bSecOf(r) === _bSecSelKey.slice(2); });
+          : (_bSecSelKey === "__none__") ? _sc.pool.filter(function(r) { return !_bSecsOf(r).length; })
+          : _sc.pool.filter(function(r) { return _bSecsOf(r).indexOf(_bSecSelKey.slice(2)) >= 0; });
         return React.createElement("div", { key: "spnblk", style: { marginTop: 18, paddingTop: 14, borderTop: "2px solid #F0E6D2" } },
           _sc.bar,
           _elSpnTierBoardV2(_sc.pool, _ai, pool, _o.bSigKey, _secH),
