@@ -7477,7 +7477,8 @@ function _elTagLabel(s) {
 // 2026-10-29f ②通過ライン（key p）を①と起点の間に新設（ユーザー要望）。番号は振り直し＝①EP基準ライン ②通過ライン ③起点 ④その他。
 //   p は「押した順」の配列（上から通過した順）。「無し」（_EL_PASS_NONE）は他と排他。選択肢は起点と同じ共通リスト custom.sigKitenList。必須（新規・編集とも）。
 //   直近＝通過ラインが「無し」だけ（間に通過ラインが無い）＝_elKitenNear。分析だけで使う（ユーザー決定）。
-var _EL_SIG_SECS = [{ key: "b", num: "①", name: "EP基準ライン", label: "① EP基準ライン", multi: true, req: true }, { key: "p", num: "②", name: "通過ライン", label: "② 通過ライン", multi: true, req: true, ordered: true }, { key: "k", num: "③", name: "起点", label: "③ 起点", multi: true, req: true }, { key: "f", num: "④", name: "その他", label: "④ その他", multi: true }];
+// 2026-10-29g 起点と通過ラインの位置を入れ替え（ユーザー指示）＝①EP基準ライン ②起点 ③通過ライン ④その他（寄り足ラインは①起点 ②通過ライン ③その他）。保存キーは不変。
+var _EL_SIG_SECS = [{ key: "b", num: "①", name: "EP基準ライン", label: "① EP基準ライン", multi: true, req: true }, { key: "k", num: "②", name: "起点", label: "② 起点", multi: true, req: true }, { key: "p", num: "③", name: "通過ライン", label: "③ 通過ライン", multi: true, req: true, ordered: true }, { key: "f", num: "④", name: "その他", label: "④ その他", multi: true }];
 var _EL_PASS_NONE = "無し";
 var _EL_SEC_NUMS = ["①", "②", "③", "④", "⑤", "⑥"];
 // 直近の判定（通過ラインから）: true＝直近（「無し」）／false＝直近以外（1本以上通過）／null＝未記入（旧記録）
@@ -7498,8 +7499,8 @@ function _elSigSecs(data, tag) {
     var rq = (sc.key === "k" && o.kReq === false) ? false : sc.req;
     return { key: sc.key, name: nm || sc.name, multi: sc.multi, req: rq, ordered: sc.ordered };
   });
-  // ①がEP基準ラインでないシグナル（寄り足ライン＝①起点）は通過ラインを先頭へ＝①通過ライン ②起点 ③その他（ユーザー決定 2026-10-29f）
-  if (o.bName) { var _pi = -1; _l.forEach(function(x, i) { if (x.key === "p") _pi = i; }); if (_pi > 0) _l.unshift(_l.splice(_pi, 1)[0]); }
+  // ①がEP基準ラインでないシグナル（寄り足ライン＝①起点）は 起点(b)→通過ライン(p)→その他(k) の並び＝通過ラインを b の直後へ（2026-10-29g）
+  if (o.bName) { var _pi = -1, _bi = -1; _l.forEach(function(x, i) { if (x.key === "p") _pi = i; if (x.key === "b") _bi = i; }); if (_pi >= 0 && _bi >= 0 && _pi !== _bi + 1) { var _px = _l.splice(_pi, 1)[0]; _l.splice(_l.indexOf(_l.filter(function(x) { return x.key === "b"; })[0]) + 1, 0, _px); } }
   return _l.map(function(x, i) { x.num = _EL_SEC_NUMS[i]; x.label = x.num + " " + x.name; return x; });
 }
 // 起点の選択肢は全シグナル共通 2026-10-29e（ユーザー指示「起点欄の選択肢は浮き足連続OSのものに合わせて」・共通にする＝ユーザー決定）。
