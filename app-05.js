@@ -7551,7 +7551,55 @@ function _elSigDetailList(s, t) {
 }
 function _elSigDetailOf(s, t) { var _l = _elSigDetailList(s, t); return _l.length ? _l[0] : null; }   // 後方互換の単一値（先頭）
 // セクション内の詳細名の改名を1記録へ適用（マスター改名の一括追従用）。secKey="f"は旧形式（文字列/フラット配列）も③として改名対象・対象外の記録は同一参照のまま返す。
-function _elSigDetailRenameSig(s, t, secKey, oldN, newN) {
+// 1分足／5分足の段 2026-10-29h（ユーザー要望「選択肢は1・5分足それぞれの欄で選択する形に」）。
+//   保存 sigDetail[シグナル].tf = { "1": {b:[],k:[],p:[],f:[]}, "5": {...} }（各セクション・分足ごとに選ぶ。同じ線を両方で選んでもよい）。
+//   b/bs/k/ks/p/f は両分足の合併（旧端末・合併で読む既存の読み手用にそのまま書く）。分足の個別指定 bBar/kBar/pBar/fBar は廃止（新規保存では書かない）。
+//   tf の無い旧記録は「その欄の分足（個別指定＞記録の分足欄 minBar＞1分）」で振り分けて読む＝_elSigDetailTf（ユーザー決定・データは書き換えない）。
+//   分析は分けて数える（「1分:200EMA」「5分:200EMA」は別の行）・直近も分足ごと（ユーザー決定）。
+var _EL_TFS = ["1", "5"];
+function _elSigDetailTf(s, t) {
+  var _u = function(a) { var o = []; (Array.isArray(a) ? a : []).forEach(function(x) { if (x && o.indexOf(x) < 0) o.push(x); }); return o; };
+  var _v = (s && s.sigDetail && typeof s.sigDetail === "object") ? s.sigDetail[t] : null;
+  var out = { "1": { b: [], k: [], p: [], f: [] }, "5": { b: [], k: [], p: [], f: [] } };
+  if (_v && typeof _v === "object" && !Array.isArray(_v) && _v.tf && typeof _v.tf === "object") {
+    _EL_TFS.forEach(function(tf) { var x = _v.tf[tf] || {}; out[tf] = { b: _u(x.b), k: _u(x.k), p: _u(x.p), f: _u(x.f) }; });
+    return out;
+  }
+  if (_v == null) return out;
+  var sec = _elSigDetailSec(s, t);
+  var _mb = (s && Array.isArray(s.minBar) && s.minBar.length) ? s.minBar.map(String) : ["1"];
+  var _barOf = function(k) { var bb = (_v && typeof _v === "object" && !Array.isArray(_v)) ? _v[k + "Bar"] : null; var a = (bb == null) ? [] : (Array.isArray(bb) ? bb : [bb]).map(String).filter(function(x) { return x === "1" || x === "5"; }); return a.length ? a : _mb; };
+  [["b", sec.bs], ["k", sec.ks], ["p", sec.p], ["f", sec.f]].forEach(function(pr) {
+    _barOf(pr[0]).forEach(function(tf) { if (out[tf]) out[tf][pr[0]] = pr[1].slice(); });
+  });
+  return out;
+}
+// 分足ごとの並びを1行の文字列に: 両分足が同じなら「1・5分:A・B」、違えば「1分:A 5分:B」（空の分足は出さない）。sep＝線のつなぎ（通過ラインは " → "）
+function _elTfJoin(tfo, key, sep) {
+  var a = (tfo && tfo["1"] && tfo["1"][key]) || [], b = (tfo && tfo["5"] && tfo["5"][key]) || [];
+  sep = sep || "・";
+  if (a.length && a.join("\u0000") === b.join("\u0000")) return "1・5分:" + a.join(sep);
+  var o = []; if (a.length) o.push("1分:" + a.join(sep)); if (b.length) o.push("5分:" + b.join(sep));
+  return o.join(" ");
+}
+// 起点の直近（分足ごと）2026-10-29h: tfSec＝_elSigDetailTf(...)[分足]
+function _elKitenNearTf(tfSec) { return _elKitenNear(tfSec); }
+function _elSigDetailRenameSig(s, t, secKey, oldN, newN) {   // 分足の段（tf）も追従 2026-10-29h
+  var r = _elSigDetailRenameSig0(s, t, secKey, oldN, newN);
+  var _v = (r && r.sigDetail && typeof r.sigDetail === "object") ? r.sigDetail[t] : null;
+  if (!_v || typeof _v !== "object" || Array.isArray(_v) || !_v.tf || typeof _v.tf !== "object") return r;
+  var _hit = false, _ntf = {};
+  Object.keys(_v.tf).forEach(function(tf) {
+    var x = _v.tf[tf] || {}, l = Array.isArray(x[secKey]) ? x[secKey] : [];
+    if (l.indexOf(oldN) < 0) { _ntf[tf] = x; return; }
+    _hit = true; var nl = []; l.forEach(function(y) { var z = (y === oldN) ? newN : y; if (z && nl.indexOf(z) < 0) nl.push(z); });
+    var nx = Object.assign({}, x); nx[secKey] = nl; _ntf[tf] = nx;
+  });
+  if (!_hit) return r;
+  var _nsd = Object.assign({}, r.sigDetail); _nsd[t] = Object.assign({}, _v, { tf: _ntf });
+  return Object.assign({}, r, { sigDetail: _nsd });
+}
+function _elSigDetailRenameSig0(s, t, secKey, oldN, newN) {
   var _v = (s && s.sigDetail && typeof s.sigDetail === "object") ? s.sigDetail[t] : null;
   if (_v == null) return s;
   var _isObj = (typeof _v === "object" && !Array.isArray(_v));
@@ -7612,6 +7660,7 @@ function _elSignalRenameData(prev, oldNm, newNm) {
     if (n.k || o.k) out.k = n.k || o.k;
     if (n.k ? Array.isArray(n.ks) : (o.k && Array.isArray(o.ks))) out.ks = (n.k ? n.ks : o.ks).slice();   // ②の複数選択 2026-10-29b
     var _pp = (Array.isArray(n.p) && n.p.length) ? n.p : (Array.isArray(o.p) ? o.p : []); if (_pp.length) out.p = _pp.slice();   // 通過ライン 2026-10-29f
+    if (n.tf || o.tf) out.tf = n.tf || o.tf;   // 分足の段 2026-10-29h
     var f = _mergeArr(Array.isArray(n.f) ? n.f : (n.f ? [n.f] : []), Array.isArray(o.f) ? o.f : (o.f ? [o.f] : []));
     if (f.length) out.f = f;
     return out;
@@ -7682,7 +7731,7 @@ function _elSigCellNode(s, t, key) {
   // 2026-07-09: 明細表のシグナル欄はシグナル名だけ表示（旧=底/起/特徴の詳細＋詳細未選択バッジも表示）。詳細はsigDetailに保持され分析側で使用。
   // 2026-07-09e: nowrapで1行固定（OS・損益詳細の幅圧縮で捻出した幅を使う）。
   // 2026-07-13: シグナル名の下に①底抜け(sigDetail[t].b)をプレーンで小さく表示（ユーザー「VWAPみたいにシンプルに」）。EPナビ早見カードの e.b 表示と同思想。旧記録(b無し)は名前だけ。
-  var _b = _elSigDetailSec(s, t).bs.join("・");   // ①は複数なら「・」でつなぐ 2026-10-29（ユーザー決定）
+  var _b = _elTfJoin(_elSigDetailTf(s, t), "b");   // ①は分足ごと「1分:POC 5分:VWAP」・同じなら「1・5分:POC」2026-10-29h（ユーザー決定）
   return React.createElement("div", { key: key, style: { whiteSpace: "nowrap" } },
     React.createElement("div", { style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, t),
     _b ? React.createElement("div", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", lineHeight: 1.15 } }, _b) : null);
@@ -8205,11 +8254,16 @@ function EntryRecordForm(_ref_erf) {
   var _useStateSGD = useState((function() {
     var _src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {};
     var _o = {};
-    Object.keys(_src).forEach(function(_k) { var _s = _elSigDetailSec(initSig, _k); if (_s.b || _s.k || _s.f.length || _s.p.length) _o[_k] = { b: _s.bs.slice(), p: _s.p.slice(), k: _s.ks.slice(), f: _s.f.slice() }; });   // フォーム内の b・k は配列（①②複数選択 2026-10-29）
+    // フォーム内は分足ごとの段＝{b1,b5,k1,k5,p1,p5,f1,f5}（各配列）2026-10-29h。旧記録は _elSigDetailTf が欄の分足どおりに振り分ける。
+    Object.keys(_src).forEach(function(_k) { var _tf = _elSigDetailTf(initSig, _k), _e = {}, _has = false; _EL_TFS.forEach(function(tf) { ["b", "k", "p", "f"].forEach(function(sk) { _e[sk + tf] = _tf[tf][sk].slice(); if (_e[sk + tf].length) _has = true; }); }); if (_has) _o[_k] = _e; });
     return _o;
   })()),
     _useStateSGDA = _slicedToArray(_useStateSGD, 2),
     fSigDetail = _useStateSGDA[0], setFSigDetail = _useStateSGDA[1];
+  var _SEC_RKS = ["b1", "b5", "k1", "k5", "p1", "p5", "f1", "f5"];   // フォーム状態の段キー（セクション＋分足）2026-10-29h
+  var _secClone = function(pe) { var o = {}; _SEC_RKS.forEach(function(k) { o[k] = ((pe && pe[k]) || []).slice(); }); return o; };
+  var _secAny = function(e) { return _SEC_RKS.some(function(k) { return e && e[k] && e[k].length; }); };
+  var _secUnion = function(e, sk) { var o = []; _EL_TFS.forEach(function(tf) { ((e && e[sk + tf]) || []).forEach(function(x) { if (x && o.indexOf(x) < 0) o.push(x); }); }); return o; };
   // ①②③各セクションの分足オーバーライド（フォーム状態）: signal.sigDetail[タグ].bBar/kBar/fBar(number配列)から復元。値=文字列配列["1"/"5"] or null(=分足欄fMinBarsに追従)。2026-07-09。
   var _useStateSCB = useState((function() {
     var _src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {};
@@ -8594,8 +8648,8 @@ function EntryRecordForm(_ref_erf) {
     var _pickWin = function(rs) { if (!rs || !rs.length) return { alpha: null, idealAlpha: null, ok: false, n: 0, add: null }; var _A = _elBaseAlphaA(rs, aiOf); var p = _A ? _A.pick : null; if (!p || p.alpha == null || p.status === "none") return { alpha: null, idealAlpha: null, ok: false, n: rs.length, add: _A ? _A.add : null }; return { alpha: p.alpha, idealAlpha: p.idealAlpha, ok: p.status === "ok", n: rs.length, add: _A ? _A.add : null }; };
     // 選択値ごとの参考pick（全期間・表示のみ）＝そのセクションの値が一致する記録だけに絞る（旧フラット記録は③として一致判定）。
     var _pickOf = function(rs) { if (!rs.length) return { alpha: null, n: 0 }; var p = _elBaseAlphaPick(rs, aiOf); return (p && p.alpha != null && p.status !== "none") ? { alpha: p.alpha, ok: p.status === "ok", n: rs.length } : { alpha: null, n: rs.length }; };
-    var _sel = (fSigDetail && fSigDetail[_t]) || { b: [], k: null, f: [] };
-    var _selBs = (_sel.b || []), _selKs = (_sel.k || []), _selF = (_sel.f || []);   // ①②は複数選択（配列）2026-10-29
+    var _sel = (fSigDetail && fSigDetail[_t]) || null;
+    var _selBs = _secUnion(_sel, "b"), _selKs = _secUnion(_sel, "k"), _selF = _secUnion(_sel, "f");   // 参考pickは両分足の合併で 2026-10-29h
     var picks = [];
     _selBs.forEach(function(_bn) { picks.push({ sec: "b", lb: "底", name: _bn, pick: _pickOf(recs.filter(function(r) { return _elSigDetailSec(r.signal, _t).bs.indexOf(_bn) >= 0; })) }); });
     _selKs.forEach(function(_kn) { picks.push({ sec: "k", lb: "起", name: _kn, pick: _pickOf(recs.filter(function(r) { return _elSigDetailSec(r.signal, _t).ks.indexOf(_kn) >= 0; })) }); });
@@ -9447,7 +9501,8 @@ function EntryRecordForm(_ref_erf) {
       else if (fCeOn && (fLevelPrice === "" || isNaN(Number(fLevelPrice)))) _vm.push("水準線値（直上VAPの計算に使います）");   // 新規の確定待ちは必須 2026-10-19（2026-10-21 未達でもチェックしたら必須＝ユーザー決定）
       if (!isEdit && fReview === true && (fReviewReasons || []).filter(Boolean).length === 0) _vm.push("要審議の理由（選択肢）");   // 新規の要審議も必須 2026-10-17
       // ①EP基準ライン・②起点は必須 2026-10-29（新規・編集とも・ユーザー決定）。選んだシグナルごとに1つ以上。②の名前はシグナルごとの表示名。
-      fTags.forEach(function(_t) { var _sb = fSigDetail && fSigDetail[_t]; _elSigSecs(data, _t).forEach(function(_sc) { if (_sc.req && !(_sb && Array.isArray(_sb[_sc.key]) && _sb[_sc.key].length)) _vm.push(_sc.num + _sc.name + "（" + _t + "）"); }); });
+      // 2026-10-29h 1分足・5分足の両方の段で必須（ユーザー決定）。
+      fTags.forEach(function(_t) { var _sb = fSigDetail && fSigDetail[_t]; _elSigSecs(data, _t).forEach(function(_sc) { if (!_sc.req) return; _EL_TFS.forEach(function(tf) { var _a = _sb && _sb[_sc.key + tf]; if (!(Array.isArray(_a) && _a.length)) _vm.push(_sc.num + _sc.name + "（" + tf + "分・" + _t + "）"); }); }); });
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
       if (fCeOn && _fCeTopRel != null && _fAlpha != null && !(_fCeTopRel > _fAlpha)) {
         window._snAlert("直上VAPは、VAPの株価（水準線＋VAP値＝" + (Math.round((Number(fLevelPrice) + _fAlpha) * 100) / 100) + "円）より上の株価を入れてください。");
@@ -9473,10 +9528,19 @@ function EntryRecordForm(_ref_erf) {
         var _barDiff = function(_arr) { if (!_arr || !_arr.length) return null; var _a = _arr.slice().sort(); var _same = _a.length === _mbNow.length && _a.every(function(_x, _i) { return _x === _mbNow[_i]; }); return _same ? null : _a.map(Number); };
         fTags.forEach(function(_t) {
           var _s = (fSigDetail && fSigDetail[_t]) || null;
-          var _sb = (fSecBar && fSecBar[_t]) || null;
           var _e = {}, _has = false;
-          if (_s) { var _sbs = Array.isArray(_s.b) ? _s.b.filter(Boolean) : (_s.b ? [_s.b] : []); if (_sbs.length) { _e.b = _sbs[0]; if (_sbs.length >= 2) _e.bs = _sbs.slice(); _has = true; } var _sks = Array.isArray(_s.k) ? _s.k.filter(Boolean) : (_s.k ? [_s.k] : []); if (_sks.length) { _e.k = _sks[0]; if (_sks.length >= 2) _e.ks = _sks.slice(); _has = true; } if (_s.f && _s.f.length) { _e.f = _s.f.slice(); _has = true; } if (_s.p && _s.p.length) { _e.p = _s.p.slice(); _has = true; } }
-          if (_sb) { var _bb = _barDiff(_sb.b), _pb = _barDiff(_sb.p), _kb = _barDiff(_sb.k), _fb = _barDiff(_sb.f); if (_bb) { _e.bBar = _bb; _has = true; } if (_pb) { _e.pBar = _pb; _has = true; } if (_kb) { _e.kBar = _kb; _has = true; } if (_fb) { _e.fBar = _fb; _has = true; } }
+          // 2026-10-29h 分足ごとの段を tf に保存。b/bs/k/ks/p/f は両分足の合併（旧端末・合併の読み手用）。分足の個別指定(bBar等)は書かない。
+          if (_s && _secAny(_s)) {
+            var _tfO = {};
+            _EL_TFS.forEach(function(tf) { var x = {}; ["b", "k", "p", "f"].forEach(function(sk) { var a = (_s[sk + tf] || []).filter(Boolean); if (a.length) x[sk] = a.slice(); }); if (Object.keys(x).length) _tfO[tf] = x; });
+            _e.tf = _tfO;
+            var _ub = _secUnion(_s, "b"), _uk = _secUnion(_s, "k"), _up = _secUnion(_s, "p"), _uf = _secUnion(_s, "f");
+            if (_ub.length) { _e.b = _ub[0]; if (_ub.length >= 2) _e.bs = _ub; }
+            if (_uk.length) { _e.k = _uk[0]; if (_uk.length >= 2) _e.ks = _uk; }
+            if (_up.length) _e.p = _up;
+            if (_uf.length) _e.f = _uf;
+            _has = true;
+          }
           if (_has) { _o[_ntf(_t)] = _e; _any = true; }
         });
         return _any ? _o : null;
@@ -9849,7 +9913,7 @@ function EntryRecordForm(_ref_erf) {
           var _ktK = _elKitenKey(custom, _dt);   // 起点のセクション（共通リスト）2026-10-29e
           if (Array.isArray(custom.sigKitenList)) { _m2 = Object.assign({}, _m2); _m2[_ktK] = custom.sigKitenList; }
           _m2 = Object.assign({}, _m2, { p: Array.isArray(custom.sigKitenList) ? custom.sigKitenList : [] });   // 通過ライン＝起点と同じ共通リスト 2026-10-29f
-          var _curSec = (fSigDetail && fSigDetail[_dt]) || { b: [], p: [], k: [], f: [] };
+          var _curSec = (fSigDetail && fSigDetail[_dt]) || {};   // 段キー（b1・b5…）2026-10-29h
           // セクション別リストの書き込みヘルパー（prevベース）: sigDetails2[_dt]が無ければ旧リストから3セクションを実体化してから対象セクションを更新。_listは配列 or (現リスト)=>新リスト。
           var _writeSec = function(prev, _secKey, _list) {
             var _c = Object.assign({}, prev.custom || {});
@@ -9872,9 +9936,6 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "チップをドラッグで並び替え（同セクション内）")),
             _elSigSecs(data, _dt).map(function(_sc) {
               var _cands0 = _m2[_sc.key];
-              var _cands = (fDetOrder && fDetOrder.tag === _dt && fDetOrder.sec === _sc.key) ? fDetOrder.list : _cands0;
-              var _curArr = _sc.multi ? (_curSec[_sc.key] || []) : (_curSec[_sc.key] ? [_curSec[_sc.key]] : []);
-              var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0 && !(_sc.key === "p" && _x === _EL_PASS_NONE); }));   // 選択済みのマスター外(孤児)も末尾に表示（通過ラインの「無し」は専用チップ）
               return React.createElement("div", { key: _sc.key, style: { margin: "2px 0 6px" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 3 } },
                   // セクション名はシグナルごとに変えられる。2026-09-28b まで「✎ 名前変更」モード中だけ見出しを押せる作りだったが、
@@ -9882,56 +9943,48 @@ function EntryRecordForm(_ref_erf) {
                   // 常時見える小さな ✎ を置き、モード無しで直接変えられるようにした 2026-09-28c。
                   React.createElement("span", { style: { fontSize: 10, color: "#B45309", fontWeight: 700 } }, _sc.label,
                     React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 4 } }, _sc.multi ? (_sc.req ? "（複数可・必須）" : "（複数可）") : "（1つまで）")),
-                  _sc.key === "p" ? React.createElement("button", {   // 通過ラインのリセット（選択を全部外すだけ＝確認なし・ユーザー決定）2026-10-29f
-                    type: "button",
-                    onClick: function() { setFSigDetail(function(prev) { var _pe = prev[_dt]; if (!_pe || !(_pe.p || []).length) return prev; var _o = Object.assign({}, prev); _o[_dt] = Object.assign({}, _pe, { p: [] }); return _o; }); },
-                    title: "通過ラインの選択を全部外します",
-                    style: { fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: "0 6px", border: "1px solid #E7D9C4", background: "#fff", color: "#A8977C", borderRadius: 4, cursor: "pointer" }
-                  }, "↺ リセット") : null,
                   (_sc.key === "b" || _sc.key === "p") ? null : React.createElement("button", {   // ①（EP基準ライン）・通過ラインは固定名＝✎を出さない 2026-10-21
                     onClick: function() { _renameSigSec(_dt, _sc); },
                     title: "「" + _dt + "」の" + _sc.num + "セクション名を変更します（このシグナルだけ・過去の記録の中身は変わりません）",
                     style: { fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: "0 4px", marginLeft: -2,
                       border: "1px solid #E7D9C4", background: "#fff", color: "#A8977C", borderRadius: 4, cursor: "pointer" }
-                  }, "✎"),
-                  React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
-                    React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", fontWeight: 600 } }, "分足"),
-                    React.createElement("span", { style: { display: "inline-flex", border: "1px solid #B9DCC5", borderRadius: 6, overflow: "hidden" } },
-                      ["1", "5"].map(function(_bv, _bvi) {
-                        var _eff = _secBarEff(_dt, _sc.key);
-                        var _bon = _eff.indexOf(_bv) >= 0;
-                        var _fol = _secBarFollowing(_dt, _sc.key);
-                        return React.createElement("button", { key: _bv, type: "button",
-                          onClick: function() { _toggleSecBar(_dt, _sc.key, _bv); },
-                          title: _fol ? "分足欄に従う既定（タップで個別指定）" : "個別指定中（分足欄と一致させると追従に戻る）",
-                          style: { padding: "2px 9px", fontSize: 10, fontWeight: 700, border: "none",
-                            borderLeft: _bvi > 0 ? "1px solid #B9DCC5" : "none",
-                            background: _bon ? (_fol ? "#EAF7EE" : "#166534") : "#fff",
-                            color: _bon ? (_fol ? "#166534" : "#fff") : "#999",
-                            cursor: "pointer" } }, _bv);
-                      })))),
+                  }, "✎")),
+                _EL_TFS.map(function(_tf) {   // 1分足・5分足の段（ユーザー要望 2026-10-29h）。選択肢（マスター）は共通・選択は段ごと
+                  var _rk = _sc.key + _tf;
+                  var _cands = (fDetOrder && fDetOrder.tag === _dt && fDetOrder.sec === _rk) ? fDetOrder.list : _cands0;
+                  var _curArr = _curSec[_rk] || [];
+                  var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0 && !(_sc.key === "p" && _x === _EL_PASS_NONE); }));   // 選択済みのマスター外(孤児)も末尾に表示（通過ラインの「無し」は専用チップ）
+                  return React.createElement("div", { key: _rk, style: { display: "flex", alignItems: "flex-start", gap: 6, marginTop: 3 } },
+                  React.createElement("div", { style: { flexShrink: 0, width: 50, paddingTop: 4, fontSize: 10, fontWeight: 800, color: _tf === "1" ? "#0369A1" : "#7C3AED" } }, _tf + "分",
+                    _sc.key === "p" ? React.createElement("button", {   // 通過ラインのリセット（その分足の段だけ・確認なし・ユーザー決定）2026-10-29f/h
+                      type: "button",
+                      onClick: function() { setFSigDetail(function(prev) { var _pe = prev[_dt]; if (!_pe || !(_pe[_rk] || []).length) return prev; var _o = Object.assign({}, prev); var _ne = _secClone(_pe); _ne[_rk] = []; _o[_dt] = _ne; return _o; }); },
+                      title: _tf + "分足の通過ラインの選択を全部外します",
+                      style: { display: "block", marginTop: 3, fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: "0 4px", border: "1px solid #E7D9C4", background: "#fff", color: "#A8977C", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap" }
+                    }, "↺リセット") : null),
+                  React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                 React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" } },
                   _list.map(function(_dn) {
                     var _on = _curArr.indexOf(_dn) >= 0;
                     var _isOrphan = _cands.indexOf(_dn) < 0;
                     var _dragSt = _detDragRef.current;
-                    var _dragging = !!(_dragSt && _dragSt.started && _dragSt.tag === _dt && _dragSt.sec === _sc.key && _dragSt.name === _dn);
+                    var _dragging = !!(_dragSt && _dragSt.started && _dragSt.tag === _dt && _dragSt.sec === _rk && _dragSt.name === _dn);
                     return React.createElement("span", { key: _dn,
-                      "data-dettag": _dt, "data-detsec": _sc.key, "data-detname": _dn,
+                      "data-dettag": _dt, "data-detsec": _rk, "data-detname": _dn,
                       onPointerDown: _isOrphan ? null : function(e) {
                         // setPointerCaptureはドラッグ開始時（下のpointermove）まで呼ばない＝タップ時にclickがキャプチャ先へretargetされ内側buttonのonClick（選択）が発火しない不具合の回避 2026-07-06g。
-                        _detDragRef.current = { tag: _dt, sec: _sc.key, name: _dn, sx: e.clientX, sy: e.clientY, started: false, list: null };
+                        _detDragRef.current = { tag: _dt, sec: _rk, name: _dn, sx: e.clientX, sy: e.clientY, started: false, list: null };
                       },
                       onPointerMove: function(e) {
                         var d = _detDragRef.current;
-                        if (!d || d.tag !== _dt || d.sec !== _sc.key || d.name !== _dn) return;
+                        if (!d || d.tag !== _dt || d.sec !== _rk || d.name !== _dn) return;
                         if (!d.started) {
                           if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
                           d.started = true;
                           try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
                           d.list = _cands0.slice();
                           _detMovedRef.current = true;
-                          setFDetOrder({ tag: _dt, sec: _sc.key, list: d.list.slice() });
+                          setFDetOrder({ tag: _dt, sec: _rk, list: d.list.slice() });
                           return;
                         }
                         // 2026-10-29 挿入位置を指の位置から決める（ユーザー報告「ドラッグで隣にしか動かない」）。
@@ -9942,7 +9995,7 @@ function EntryRecordForm(_ref_erf) {
                         if (!_box) return;
                         var _rects = {};
                         Array.prototype.forEach.call(_box.querySelectorAll("[data-dettag]"), function(c) {
-                          if (c.getAttribute("data-dettag") !== _dt || c.getAttribute("data-detsec") !== _sc.key) return;
+                          if (c.getAttribute("data-dettag") !== _dt || c.getAttribute("data-detsec") !== _rk) return;
                           _rects[c.getAttribute("data-detname")] = c.getBoundingClientRect();
                         });
                         var _others = d.list.filter(function(x) { return x !== d.name; });
@@ -9954,13 +10007,13 @@ function EntryRecordForm(_ref_erf) {
                         var lst = _others.slice(0, _at).concat([d.name]).concat(_others.slice(_at));
                         if (lst.join("\u0000") === d.list.join("\u0000")) return;
                         d.list = lst;
-                        setFDetOrder({ tag: _dt, sec: _sc.key, list: lst.slice() });
+                        setFDetOrder({ tag: _dt, sec: _rk, list: lst.slice() });
                       },
                       onPointerUp: function() {
                         var d = _detDragRef.current;
                         _detDragRef.current = null;
                         if (d && d.started && d.list) {
-                          var _fin = d.list.slice(), _fsec = d.sec;
+                          var _fin = d.list.slice(), _fsec = _sc.key;   // 並びは分足に関係なく共通のマスター
                           save(function(prev) { return Object.assign({}, prev, { custom: _writeSec(prev, _fsec, _fin) }); });
                           setTimeout(function() { _detMovedRef.current = false; }, 0);
                         }
@@ -9977,15 +10030,15 @@ function EntryRecordForm(_ref_erf) {
                           setFSigDetail(function(prev) {
                             var _o = Object.assign({}, prev);
                             var _pe = _o[_dt] || {};
-                            var _e = { b: (_pe.b || []).slice(), p: (_pe.p || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
+                            var _e = _secClone(_pe);
                             if (_sc.multi) {
-                              var _i = _e[_sc.key].indexOf(_dn);
-                              if (_i >= 0) _e[_sc.key].splice(_i, 1); else _e[_sc.key].push(_dn);   // 末尾に足す＝通過ラインは押した順（外すと後ろが詰まる）
-                              if (_sc.key === "p" && _i < 0) _e.p = _e.p.filter(function(x) { return x !== _EL_PASS_NONE; });   // 線を選んだら「無し」は外れる
+                              var _i = _e[_rk].indexOf(_dn);
+                              if (_i >= 0) _e[_rk].splice(_i, 1); else _e[_rk].push(_dn);   // 末尾に足す＝通過ラインは押した順（外すと後ろが詰まる）
+                              if (_sc.key === "p" && _i < 0) _e[_rk] = _e[_rk].filter(function(x) { return x !== _EL_PASS_NONE; });   // 線を選んだら「無し」は外れる
                             } else {
-                              _e[_sc.key] = (_e[_sc.key] === _dn) ? null : _dn;   // 単一セクション用（①②は2026-10-29から複数＝今は使われない）
+                              _e[_rk] = (_e[_rk] === _dn) ? null : _dn;   // 単一セクション用（①②は2026-10-29から複数＝今は使われない）
                             }
-                            if (_e.b.length || _e.p.length || _e.k.length || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
+                            if (_secAny(_e)) _o[_dt] = _e; else delete _o[_dt];
                             return _o;
                           });
                         },
@@ -9997,7 +10050,7 @@ function EntryRecordForm(_ref_erf) {
                       (fDetEdit && !_isOrphan) ? React.createElement(React.Fragment, null,
                         React.createElement("button", {
                           title: "この詳細の名前を変更（このセクションに付いた過去の記録の詳細も一括変更）",
-                          onClick: function() { if (_detMovedRef.current) { _detMovedRef.current = false; return; } _detAddValRef.current = _dn; setFDetAdd({ tag: _dt, sec: _sc.key, val: _dn, old: _dn }); },
+                          onClick: function() { if (_detMovedRef.current) { _detMovedRef.current = false; return; } _detAddValRef.current = _dn; setFDetAdd({ tag: _dt, sec: _rk, val: _dn, old: _dn }); },
                           style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" }
                         }, "✎"),
                         React.createElement("button", {
@@ -10008,11 +10061,11 @@ function EntryRecordForm(_ref_erf) {
                             save(function(prev) { return Object.assign({}, prev, { custom: _writeSec(prev, _sc.key, function(_l) { return _l.filter(function(x) { return x !== _dn; }); }) }); });
                             setFSigDetail(function(prev) {
                               var _pe = prev[_dt]; if (!_pe) return prev;
-                              var _e = { b: (_pe.b || []).slice(), p: (_pe.p || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
-                              if (_sc.multi) { if (_e[_sc.key].indexOf(_dn) < 0) return prev; _e[_sc.key] = _e[_sc.key].filter(function(x) { return x !== _dn; }); }
-                              else { if (_e[_sc.key] !== _dn) return prev; _e[_sc.key] = null; }
+                              var _e = _secClone(_pe);
+                              if (_sc.multi) { var _hitD = false; _EL_TFS.forEach(function(tf) { var _kk = _sc.key + tf; if (_e[_kk].indexOf(_dn) >= 0) { _hitD = true; _e[_kk] = _e[_kk].filter(function(x) { return x !== _dn; }); } }); if (!_hitD) return prev; }   // 両分足の段から外す 2026-10-29h
+                              else { if (_e[_rk] !== _dn) return prev; _e[_rk] = null; }
                               var _o = Object.assign({}, prev);
-                              if (_e.b.length || _e.p.length || _e.k.length || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
+                              if (_secAny(_e)) _o[_dt] = _e; else delete _o[_dt];
                               return _o;
                             });
                           },
@@ -10023,17 +10076,17 @@ function EntryRecordForm(_ref_erf) {
                   _sc.key === "p" ? (function() {   // 通過ラインの「無し」＝他と排他（選ぶと線は外れる）2026-10-29f
                     var _nOn = _curArr.indexOf(_EL_PASS_NONE) >= 0;
                     return React.createElement("button", { type: "button",
-                      onClick: function() { setFSigDetail(function(prev) { var _o = Object.assign({}, prev); var _pe = _o[_dt] || {}; _o[_dt] = Object.assign({ b: [], k: [], f: [] }, _pe, { p: _nOn ? [] : [_EL_PASS_NONE] }); return _o; }); },
+                      onClick: function() { setFSigDetail(function(prev) { var _o = Object.assign({}, prev); var _pe = _o[_dt] || {}; var _ne = _secClone(_pe); _ne[_rk] = _nOn ? [] : [_EL_PASS_NONE]; _o[_dt] = _ne; return _o; }); },
                       style: { padding: "4px 9px", fontSize: 11, fontWeight: 600, border: _nOn ? "1.5px solid #D97706" : "1px solid #ddd", background: _nOn ? "#FEF3C7" : "#fff", color: _nOn ? "#92400E" : "#777", borderRadius: 6, cursor: "pointer" }
                     }, _EL_PASS_NONE);
                   })() : null,
                   (function() {
-                    var _addOpen = !!(fDetAdd && fDetAdd.tag === _dt && fDetAdd.sec === _sc.key);
+                    var _addOpen = !!(fDetAdd && fDetAdd.tag === _dt && fDetAdd.sec === _rk);
                     return React.createElement("button", {
                       onClick: function() {
                         if (_addOpen) { setFDetAdd(null); return; }
                         _detAddValRef.current = "";
-                        setFDetAdd({ tag: _dt, sec: _sc.key, val: "" });
+                        setFDetAdd({ tag: _dt, sec: _rk, val: "" });
                       },
                       style: { padding: "4px 9px", fontSize: 11, fontWeight: 600, border: _addOpen ? "1px solid #0369A1" : "1px dashed #bbb", background: _addOpen ? "#EFF6FF" : "#fff", color: _addOpen ? "#0369A1" : "#888", borderRadius: 6, cursor: "pointer" }
                     }, _addOpen ? "✕ 閉じる" : "＋追加");
@@ -10045,12 +10098,12 @@ function EntryRecordForm(_ref_erf) {
                   }, fDetEdit ? "完了" : "編集") : null
                 ),
                 (_sc.key === "p" && _curArr.length && _curArr[0] !== _EL_PASS_NONE) ? React.createElement("div", { style: { fontSize: 10, color: "#92400E", fontWeight: 700, marginTop: 4 } }, "上から：" + _curArr.join(" → ")) : null,
-                (fDetAdd && fDetAdd.tag === _dt && fDetAdd.sec === _sc.key) ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6, alignItems: "center", flexWrap: "wrap" } },
+                (fDetAdd && fDetAdd.tag === _dt && fDetAdd.sec === _rk) ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6, alignItems: "center", flexWrap: "wrap" } },
                   fDetAdd.old != null ? React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "『" + fDetAdd.old + "』を改名:") : null,
                   React.createElement(FastInput, {
                     type: "text",
                     value: fDetAdd.val || "",
-                    onChange: function(v) { _detAddValRef.current = v; setFDetAdd(function(p) { return (p && p.tag === _dt && p.sec === _sc.key) ? Object.assign({}, p, { val: v }) : p; }); },
+                    onChange: function(v) { _detAddValRef.current = v; setFDetAdd(function(p) { return (p && p.tag === _dt && p.sec === _rk) ? Object.assign({}, p, { val: v }) : p; }); },
                     placeholder: fDetAdd.old != null ? "新しい名前" : "詳細名（例: 押し目前）",
                     style: { flex: 1, minWidth: 120, padding: "6px 9px", fontSize: 12, border: "1px solid #93C5FD", borderRadius: 6, background: "#fff", boxSizing: "border-box" }
                   }),
@@ -10080,13 +10133,14 @@ function EntryRecordForm(_ref_erf) {
                           });
                           setFSigDetail(function(prev) {
                             var _pe = prev[_dt]; if (!_pe) return prev;
-                            var _e = { b: (_pe.b || []).slice(), p: (_pe.p || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
-                            if (_sc.multi) {
-                              if (_e[_sc.key].indexOf(_old) < 0) return prev;
-                              var _nf = []; _e[_sc.key].forEach(function(x) { var _y = x === _old ? _nm : x; if (_nf.indexOf(_y) < 0) _nf.push(_y); }); _e[_sc.key] = _nf;
+                            var _e = _secClone(_pe);
+                            if (_sc.multi) {   // 改名は両分足の段へ（マスター共通）2026-10-29h
+                              var _hitR = false;
+                              _EL_TFS.forEach(function(tf) { var _kk = _sc.key + tf; if (_e[_kk].indexOf(_old) < 0) return; _hitR = true; var _nf = []; _e[_kk].forEach(function(x) { var _y = x === _old ? _nm : x; if (_nf.indexOf(_y) < 0) _nf.push(_y); }); _e[_kk] = _nf; });
+                              if (!_hitR) return prev;
                             } else {
-                              if (_e[_sc.key] !== _old) return prev;
-                              _e[_sc.key] = _nm;
+                              if (_e[_rk] !== _old) return prev;
+                              _e[_rk] = _nm;
                             }
                             var _o = Object.assign({}, prev); _o[_dt] = _e; return _o;
                           });
@@ -10096,9 +10150,9 @@ function EntryRecordForm(_ref_erf) {
                         setFSigDetail(function(prev) {
                           var _o = Object.assign({}, prev);
                           var _pe = _o[_dt] || {};
-                          var _e = { b: (_pe.b || []).slice(), p: (_pe.p || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
-                          if (_sc.multi) { if (_e[_sc.key].indexOf(_nm) < 0) _e[_sc.key].push(_nm); if (_sc.key === "p") _e.p = _e.p.filter(function(x) { return x !== _EL_PASS_NONE; }); }
-                          else _e[_sc.key] = _nm;
+                          var _e = _secClone(_pe);
+                          if (_sc.multi) { if (_e[_rk].indexOf(_nm) < 0) _e[_rk].push(_nm); if (_sc.key === "p") _e[_rk] = _e[_rk].filter(function(x) { return x !== _EL_PASS_NONE; }); }
+                          else _e[_rk] = _nm;
                           _o[_dt] = _e;
                           return _o;
                         });
@@ -10112,7 +10166,8 @@ function EntryRecordForm(_ref_erf) {
                     onClick: function() { _detAddValRef.current = ""; setFDetAdd(null); },
                     style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, background: "#fff", color: "#888", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" }
                   }, "✕")
-                ) : null
+                ) : null));
+                })
               );
             })
           );
@@ -11706,13 +11761,13 @@ function EntryLogCard(_ref_elc) {
       var _dTags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []));
       var _parts = [];
       _dTags.forEach(function(t) {
-        var _sec = _elSigDetailSec(s, t);
+        var _tfo = _elSigDetailTf(s, t);   // 分足ごと 2026-10-29h
         var _b = [];
-        if (_sec.bs.length) _b.push("底 " + _sec.bs.join("・"));
-        if (_sec.p.length) _b.push("通 " + _sec.p.join("→"));
-        if (_sec.ks.length) _b.push("起 " + _sec.ks.join("・"));
-        var _f = (_sec.f || []).filter(Boolean);
-        if (_f.length) _b.push("特徴 " + _f.join("・"));
+        var _j;
+        if ((_j = _elTfJoin(_tfo, "b"))) _b.push("底 " + _j);
+        if ((_j = _elTfJoin(_tfo, "k"))) _b.push("起 " + _j);
+        if ((_j = _elTfJoin(_tfo, "p", "→"))) _b.push("通 " + _j);
+        if ((_j = _elTfJoin(_tfo, "f"))) _b.push("特徴 " + _j);
         if (_b.length) _parts.push((_dTags.length > 1 ? t + ": " : "") + _b.join("・"));
       });
       if (!_parts.length) return null;
