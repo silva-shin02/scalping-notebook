@@ -3211,3 +3211,4 @@ HomeEventFormModal, App
 - 【直上VAPの初期値＝水準線値・▲▼ 2026-10-28q・sw v570】app-05 EntryRecordForm：state `fCeTopPxRaw`＋`fCeTopTouched`（保存値がある記録は true）。表示・計算・保存に使う `fCeTopPx` は、触るまでは水準線値（fLevelPrice）に追従、入力か▲▼で一度変えたらその値を保つ（ユーザー決定）。▲▼は `_stepBtn`（長押しで連続）・`_ceTopStep(d)` は関数形で前の値を読み、最初の1回は水準線値から（`_ceTouchRef`/`_ceLvRef`）。
 - 【直上VAPの初期値に採用VAPを込み 2026-10-28r・sw v571】app-05 EntryRecordForm `_ceTopDef`＝水準線値＋採用VAP（補正後＝`_fAlpha`・1円以上のときだけ／0円以下や未入力は水準線値のまま）。VAPちょうど＝保存には▲で1円以上上げる（ユーザー決定）。▲▼の最初の1回もこの初期値から（`_ceLvRef`）。
 - 【直上VAPの初期値を+10円 2026-10-29・sw v572】app-05 EntryRecordForm `_ceTopDef`＝水準線値＋採用VAP（1円以上のとき）＋10円。+10は採用VAPの有無に関わらず常に足す（ユーザー決定）。初期値のままでVAPより上になるので、そのまま保存できる。
+- 【🗂記録一覧の銘柄絞り込み 2026-10-29・sw v573】app-06 EntryLogView：state `listStk`（""＝全て）。`_groupPanel` の記録一覧に銘柄ボタン（全て／各銘柄）を追加＝記録に2銘柄以上あるときだけ表示（銘柄別タブでは出ない）。件数は被り除外／要審議／確定待ちの絞り込み後（`_shBase`）を数え、表の行数と一致・件数の多い順（ユーザー決定）。0件の銘柄は選択中のときだけ残す。表示のみ（集計/KPIは不変）。
