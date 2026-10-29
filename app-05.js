@@ -9876,15 +9876,25 @@ function EntryRecordForm(_ref_erf) {
                           setFDetOrder({ tag: _dt, sec: _sc.key, list: d.list.slice() });
                           return;
                         }
-                        var el = document.elementFromPoint(e.clientX, e.clientY);
-                        var chip = (el && el.closest) ? el.closest("[data-dettag]") : null;
-                        if (!chip || chip.getAttribute("data-dettag") !== _dt || chip.getAttribute("data-detsec") !== _sc.key) return;
-                        var over = chip.getAttribute("data-detname");
-                        if (!over || over === d.name) return;
-                        var lst = d.list.slice();
-                        var fi = lst.indexOf(d.name), ti = lst.indexOf(over);
-                        if (fi < 0 || ti < 0 || fi === ti) return;
-                        lst.splice(fi, 1); lst.splice(ti, 0, d.name);
+                        // 2026-10-29 挿入位置を指の位置から決める（ユーザー報告「ドラッグで隣にしか動かない」）。
+                        //   旧＝指の下のチップと入れ替え。指の下はたいてい掴んだチップ自身で、並びが詰め直されると指の下がずれて隣と行ったり来たりした。
+                        //   新＝掴んだチップ以外の各チップについて「指がそのチップより後ろか」（下の行／同じ行で中心より右）を数え、その数＝挿入位置。
+                        //   他のチップの並びは変わらないので、遠くへ一気に動かせて、往復もしない。
+                        var _box = e.currentTarget.parentNode;
+                        if (!_box) return;
+                        var _rects = {};
+                        Array.prototype.forEach.call(_box.querySelectorAll("[data-dettag]"), function(c) {
+                          if (c.getAttribute("data-dettag") !== _dt || c.getAttribute("data-detsec") !== _sc.key) return;
+                          _rects[c.getAttribute("data-detname")] = c.getBoundingClientRect();
+                        });
+                        var _others = d.list.filter(function(x) { return x !== d.name; });
+                        var _at = 0, _px = e.clientX, _py = e.clientY;
+                        _others.forEach(function(x) {
+                          var rc = _rects[x]; if (!rc) return;
+                          if (_py > rc.bottom || (_py >= rc.top && _px > rc.left + rc.width / 2)) _at++;
+                        });
+                        var lst = _others.slice(0, _at).concat([d.name]).concat(_others.slice(_at));
+                        if (lst.join("\u0000") === d.list.join("\u0000")) return;
                         d.list = lst;
                         setFDetOrder({ tag: _dt, sec: _sc.key, list: lst.slice() });
                       },
