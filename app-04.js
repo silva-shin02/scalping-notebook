@@ -1166,7 +1166,7 @@ function SearchView(_ref45) {
       if (v == null) return;
       if (Array.isArray(v)) { v.forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); return; }
       if (typeof v === "string") { if (out.indexOf(v) < 0) out.push(v); return; }
-      if (typeof v === "object") { [v.b, v.k].concat(Array.isArray(v.bs) ? v.bs : []).forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); (Array.isArray(v.f) ? v.f : []).forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); }
+      if (typeof v === "object") { [v.b, v.k].concat(Array.isArray(v.bs) ? v.bs : []).concat(Array.isArray(v.ks) ? v.ks : []).forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); (Array.isArray(v.f) ? v.f : []).forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); }
     });
     return out;
   };
@@ -2137,7 +2137,7 @@ function _snRebuildSigDetails(d) {
         if (!t) return;
         var sec = _elSigDetailSec(sg, t), m = cnt[t] || (cnt[t] = { b: {}, k: {}, f: {} });
         (sec.bs || []).forEach(function(x) { if (x) m.b[x] = (m.b[x] || 0) + 1; });   // ①は複数選択 2026-10-29
-        if (sec.k) m.k[sec.k] = (m.k[sec.k] || 0) + 1;
+        (sec.ks || []).forEach(function(x) { if (x) m.k[x] = (m.k[x] || 0) + 1; });   // ②も複数選択 2026-10-29b
         (sec.f || []).forEach(function(x) { if (x) m.f[x] = (m.f[x] || 0) + 1; });
       });
     });
@@ -3774,7 +3774,7 @@ function _epnCascade(data, stock, tag, sel, beforeDate) {
   var detRecs = (_selB || _selK || _selF.length) ? recs.filter(function(r) {
     var _sc = _elSigDetailSec(r.signal, tag);
     if (_selB && _sc.bs.indexOf(_selB) < 0) return false;   // 記録側の①は複数選択あり 2026-10-29＝そのどれかに一致
-    if (_selK && _sc.k !== _selK) return false;
+    if (_selK && _sc.ks.indexOf(_selK) < 0) return false;   // ②も複数選択あり 2026-10-29b
     for (var i = 0; i < _selF.length; i++) { if (_sc.f.indexOf(_selF[i]) < 0) return false; }
     return true;
   }) : null;

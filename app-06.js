@@ -7931,7 +7931,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       (g.recs || []).forEach(function(r) {
         var sec = _elSigDetailSec(r.signal, g.key);
         (sec.bs || []).forEach(function(bn) { _put("b", bn, r); });   // ①は選んだ各ラインに1件ずつ 2026-10-29
-        if (sec.k) _put("k", sec.k, r);
+        (sec.ks || []).forEach(function(kn) { _put("k", kn, r); });   // ②も各起点に1件ずつ 2026-10-29b
         (sec.f || []).forEach(function(fn) { _put("f", fn, r); });
       });
     });
