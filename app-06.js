@@ -7939,8 +7939,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           var sec = _tfo[tf], _pf = tf + "分:";
           if (_kOnB) sec.b.forEach(function(bn) { _put("k", _pf + bn, r); });   // 寄り足ラインの①起点は分足ごと
           sec.p.forEach(function(pn) { if (pn !== _EL_PASS_NONE) _put("p", _pf + pn, r); });   // 通過ラインは通った各線に1件ずつ 2026-10-29f（ユーザー決定）
-          sec.k.forEach(function(kn) { _put(_kOnB ? "f" : "k", _pf + kn, r); });   // 起点も各起点に1件ずつ 2026-10-29b
-          sec.f.forEach(function(fn) { _put("f", _pf + fn, r); });
+          if (!_kOnB) sec.k.forEach(function(kn) { _put("k", _pf + kn, r); });   // 起点も各起点に1件ずつ 2026-10-29b。その他（f・寄り足ラインのk）は集計から外す 2026-10-29k
           var _nr = _elKitenNearTf(sec);
           if (_nr != null) _put("kn", _pf + (_nr ? "直近" : "直近以外"), r);
         });
