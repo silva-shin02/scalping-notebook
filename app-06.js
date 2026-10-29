@@ -7934,7 +7934,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         var _tfo = _elSigDetailTf(r.signal, g.key);
         // ①が起点のシグナル（寄り足ライン）は ①→起点・②→その他 の行へ入れる＝全シグナル横断で同じ意味の行にまとまる 2026-10-29f
         var _kOnB = _elKitenKey(custom, g.key) === "b";
-        if (!_kOnB) _elSigDetailSec(r.signal, g.key).bs.forEach(function(bn) { _put("b", bn, r); });   // EP基準ラインは1・5分共通＝分足を付けない 2026-10-29j
+        if (!_kOnB && !_elBTfOne(custom, g.key)) _elSigDetailSec(r.signal, g.key).bs.forEach(function(bn) { _put("b", bn, r); });   // EP基準ラインは1・5分共通＝分足を付けない 2026-10-29j
+        if (!_kOnB && _elBTfOne(custom, g.key)) _EL_TFS.forEach(function(tf) { _tfo[tf].b.forEach(function(bn) { _put("b", tf + "分:" + bn, r); }); });   // 指標線底抜けは分足付き 2026-10-29m
         _EL_TFS.forEach(function(tf) {
           var sec = _tfo[tf], _pf = tf + "分:";
           if (_kOnB) sec.b.forEach(function(bn) { _put("k", _pf + bn, r); });   // 寄り足ラインの①起点は分足ごと
@@ -8026,7 +8027,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     // ①は複数選択あり（2026-10-29）＝選んだ各ラインのピルに1件ずつ入る（ユーザー決定）。件数の合計は母数を超えることがある。
     // 2026-10-29h 1分足・5分足は分けて数える（ユーザー決定）＝ピルは「1分:POC」「5分:POC」。
     // 2026-10-29j EP基準ラインは1・5分共通＝分足を付けない（寄り足ラインの①起点だけ分足付き）
-    var _bShP = _o.bSigKey ? _elBShared(custom, _o.bSigKey) : true;
+    var _bShP = _o.bSigKey ? (_elBShared(custom, _o.bSigKey) && !_elBTfOne(custom, _o.bSigKey)) : true;   // 指標線底抜けは分足付き 2026-10-29m
     var _bSecsOf = function(r) { if (!r || !r.signal) return []; if (_bShP) return _elSigDetailSec(r.signal, _o.bSigKey).bs; var _tfo = _elSigDetailTf(r.signal, _o.bSigKey), o = []; _EL_TFS.forEach(function(tf) { _tfo[tf].b.forEach(function(n) { o.push(tf + "分:" + n); }); }); return o; };
     var _bSecGroups = null, _bSecSelKey = null, _bSecSel = null;
     if (_o.bSigKey) {
