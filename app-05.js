@@ -8780,11 +8780,11 @@ function EntryRecordForm(_ref_erf) {
     fCeTopPxRaw = _useStateCET[0], setFCeTopPxRaw = _useStateCET[1];
   // 2026-10-28b 初期値＝水準線値（ユーザー決定）: 自分で変える（入力・▲▼）までは水準線値（＋採用VAP・下記）に追従。保存済みの値がある記録はそれを使う。
   var _useStateCETT = useState(initSig.ceTopPx != null), fCeTopTouched = _useStateCETT[0], setFCeTopTouched = _useStateCETT[1];
-  // 2026-10-28c 採用VAP（補正後＝_fAlpha）が1円以上なら、その分も込み＝水準線＋採用VAP（ユーザー決定）。
+  // 2026-10-28c 採用VAP（補正後＝_fAlpha）が1円以上なら、その分も込み＝水準線＋採用VAP（ユーザー決定）。2026-10-29 そこから+10円。
   var _ceTopDef = (function() {
     if (fLevelPrice == null || fLevelPrice === "" || isNaN(Number(fLevelPrice))) return fLevelPrice != null ? String(fLevelPrice) : "";
     var lv = Number(fLevelPrice), a = (_fAlpha != null && !isNaN(Number(_fAlpha)) && Number(_fAlpha) >= 1) ? Number(_fAlpha) : 0;
-    return String(Math.round((lv + a) * 100) / 100);
+    return String(Math.round((lv + a + 10) * 100) / 100);   // 2026-10-29 さらに+10円（ユーザー決定・採用VAPの有無に関わらず）
   })();
   var fCeTopPx = fCeTopTouched ? fCeTopPxRaw : _ceTopDef;
   var _ceTouchRef = useRef(initSig.ceTopPx != null), _ceLvRef = useRef(_ceTopDef);
