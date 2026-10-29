@@ -1641,6 +1641,21 @@ function migrateData(d) {
       }
     } catch(e) { console.warn("[migrateData] kiten1029 error:", e); }
   }
+  // 【一回性 _migLine1029・2026-10-29f】ユーザー要望「EP基準ラインと起点の間に通過ライン欄」＋「起点の選択肢を通過ラインと合わせて」。
+  //   共通リスト custom.sigKitenList（起点・通過ラインで共用）を 200EMA・50EMA・22EMA・9EMA・VWAP・大RN・中RN に置き換えて全シグナルへ配る。
+  //   過去記録の起点は 大RN耐え→大RN・中RN耐え→中RN に変換（ユーザー決定）。他（指標線底支え(直近) など）は線を特定できないのでそのまま。
+  if (!d._migLine1029 && typeof _elKitenWrite === "function" && typeof _elKitenRenameSig === "function") {
+    try {
+      d.custom = _elKitenWrite(Object.assign({}, d.custom), ["200EMA", "50EMA", "22EMA", "9EMA", "VWAP", "大RN", "中RN"]);
+      var _lnN = 0;
+      Object.keys(d.charts || {}).forEach(function(ck) {
+        var c = d.charts[ck]; if (!c || !Array.isArray(c.signals)) return;
+        c.signals = c.signals.map(function(s) { var n1 = _elKitenRenameSig(d.custom, s, "大RN耐え", "大RN"); n1 = _elKitenRenameSig(d.custom, n1, "中RN耐え", "中RN"); if (n1 !== s) _lnN++; return n1; });
+      });
+      d._migLine1029 = true;
+      console.log("[migrateData] line1029: 起点・通過ラインの共通リストを置き換え／起点の変換 " + _lnN + " 件");
+    } catch(e) { console.warn("[migrateData] line1029 error:", e); }
+  }
   // 【一回性 _migRestore1028b・2026-10-28】シグナル詳細の選択肢（①②③）を記録から戻す（ユーザー報告「シグナルの詳細は戻らないの」）。足すだけ。
   if (!d._migRestore1028b && typeof _snRebuildSigDetails === "function") {
     try { var _sdM = _snRebuildSigDetails(d); d.custom.sigDetails2 = _sdM.sigDetails2; d._migRestore1028b = true; console.log("[migrateData] restore1028b: シグナル詳細 +" + _sdM.added); } catch(e) { console.warn("[migrateData] restore1028b error:", e); }

@@ -7921,6 +7921,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _detTagGroups = (function() {
     var secMap = {};
     _EL_SIG_SECS.forEach(function(sec) { secMap[sec.key] = { order: [], byName: {} }; });
+    secMap.kn = { order: [], byName: {} };   // 起点の直近／直近以外（通過ラインから自動判定・分析だけで使う）2026-10-29f
     var _put = function(secKey, name, r) {
       if (!name) return;
       var bk = secMap[secKey];
@@ -7930,12 +7931,17 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     _sigAxisGroups.forEach(function(g) {
       (g.recs || []).forEach(function(r) {
         var sec = _elSigDetailSec(r.signal, g.key);
-        (sec.bs || []).forEach(function(bn) { _put("b", bn, r); });   // ①は選んだ各ラインに1件ずつ 2026-10-29
-        (sec.ks || []).forEach(function(kn) { _put("k", kn, r); });   // ②も各起点に1件ずつ 2026-10-29b
+        // ①が起点のシグナル（寄り足ライン）は ①→起点・②→その他 の行へ入れる＝全シグナル横断で同じ意味の行にまとまる 2026-10-29f
+        var _kOnB = _elKitenKey(custom, g.key) === "b";
+        (sec.bs || []).forEach(function(bn) { _put(_kOnB ? "k" : "b", bn, r); });   // ①は選んだ各ラインに1件ずつ 2026-10-29
+        (sec.p || []).forEach(function(pn) { if (pn !== _EL_PASS_NONE) _put("p", pn, r); });   // 通過ラインは通った各線に1件ずつ 2026-10-29f（ユーザー決定）
+        (sec.ks || []).forEach(function(kn) { _put(_kOnB ? "f" : "k", kn, r); });   // 起点も各起点に1件ずつ 2026-10-29b
         (sec.f || []).forEach(function(fn) { _put("f", fn, r); });
+        var _nr = _elKitenNear(sec);
+        if (_nr != null) _put("kn", _nr ? "直近" : "直近以外", r);
       });
     });
-    return _EL_SIG_SECS.map(function(sec) {
+    return _EL_SIG_SECS.concat([{ key: "kn", label: "起点の直近（通過ラインから判定）" }]).map(function(sec) {
       var bk = secMap[sec.key];
       var tags = bk.order.map(function(nm) { return { name: nm, recs: bk.byName[nm] }; });
       tags.sort(function(a, b) { return b.recs.length - a.recs.length; });
@@ -8670,7 +8676,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       if (detTagMode === "band") {
         _tabBody = React.createElement(React.Fragment, null, _detTagToggle, _bandAxisBody(_v2recsAllData, false));
       } else if (detTagMode === "det" && _hasDetTags) {
-        var _secLabelOf = function(sk) { for (var _si = 0; _si < _EL_SIG_SECS.length; _si++) { if (_EL_SIG_SECS[_si].key === sk) return _EL_SIG_SECS[_si].label; } return ""; };
+        var _secLabelOf = function(sk) { if (sk === "kn") return "起点の直近"; for (var _si = 0; _si < _EL_SIG_SECS.length; _si++) { if (_EL_SIG_SECS[_si].key === sk) return _EL_SIG_SECS[_si].label; } return ""; };
         _tabBody = React.createElement(React.Fragment, null, _detTagToggle,
           React.createElement("div", { style: { display: "grid", gridTemplateColumns: "minmax(0, 168px) minmax(0, 1fr)", gap: 14 } },
             React.createElement("div", { style: { borderRight: "1px solid #eee", paddingRight: 8 } },
