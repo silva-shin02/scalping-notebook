@@ -8294,6 +8294,7 @@ function EntryRecordForm(_ref_erf) {
   var _useStateSGO = useState(null),
     _useStateSGOA = _slicedToArray(_useStateSGO, 2),
     fDetOrder = _useStateSGOA[0], setFDetOrder = _useStateSGOA[1];
+  var _useStateDTF = useState({}), fDetTf = _useStateDTF[0], setFDetTf = _useStateDTF[1];   // 詳細の分足タブ（シグナルごと・既定1分）2026-10-29l
   var _detDragRef = useRef(null);
   var _detMovedRef = useRef(false);
   // ＋追加をインライン入力欄に変更（2026-07-06d）: iPadのホーム画面起動(standalone)ではwindow.prompt/confirmが無反応（即null）になるため、詳細まわりのネイティブダイアログを廃止。
@@ -9923,6 +9924,19 @@ function EntryRecordForm(_ref_erf) {
           var _m2 = (_m2raw && typeof _m2raw === "object") ? { b: (_m2raw.b || []), k: (_m2raw.k || []), f: (_m2raw.f || []) } : { b: _seed, k: _seed, f: _seed };
           var _ktK = _elKitenKey(custom, _dt);   // 起点のセクション（共通リスト）2026-10-29e
           var _rowTfs = function(sc) { return (sc.key === "b" && _elBShared(custom, _dt)) ? [""] : _EL_TFS; };   // EP基準ラインは1・5分共通の1行 2026-10-29j
+          // 2026-10-29l 分足ごとの欄はタブで切り替え（ユーザー決定「分足のタブで切替」）。1・5分共通の欄（EP基準ライン）はタブの上。
+          //   タブには未入力の印（その分足で必須の欄が空）＝「●未」。選んだ分足の段だけを描く（保存の中身は不変）。
+          var _selTf = (fDetTf && fDetTf[_dt]) || "1";
+          var _secsAll = _elSigSecs(data, _dt);
+          var _firstTfIdx = -1; _secsAll.forEach(function(sc, i) { if (_firstTfIdx < 0 && _rowTfs(sc).length > 1) _firstTfIdx = i; });
+          var _tfMissing = function(tf) { return _secsAll.some(function(sc) { return sc.req && _rowTfs(sc).length > 1 && !((((fSigDetail && fSigDetail[_dt]) || {})[sc.key + tf] || []).length); }); };
+          var _tabBar = React.createElement("div", { style: { display: "flex", gap: 4, margin: "4px 0 6px", borderBottom: "1px solid #FED7AA" } },
+            _EL_TFS.map(function(tf) {
+              var on = tf === _selTf, miss = _tfMissing(tf);
+              return React.createElement("button", { key: tf, type: "button", onClick: function() { setFDetTf(function(p) { var o = Object.assign({}, p); o[_dt] = tf; return o; }); },
+                style: { padding: "4px 14px", fontSize: 11, fontWeight: 800, cursor: "pointer", border: "1px solid " + (on ? "#FDBA74" : "transparent"), borderBottom: on ? "1px solid #FFFBF5" : "1px solid transparent", marginBottom: -1, borderRadius: "6px 6px 0 0", background: on ? "#FFFBF5" : "transparent", color: on ? (tf === "1" ? "#0369A1" : "#7C3AED") : "#A8977C" } },
+                tf + "分足", miss ? React.createElement("span", { style: { marginLeft: 4, fontSize: 9, color: "#DC2626" } }, "●未") : null);
+            }));
           if (Array.isArray(custom.sigKitenList)) { _m2 = Object.assign({}, _m2); _m2[_ktK] = custom.sigKitenList; }
           _m2 = Object.assign({}, _m2, { p: Array.isArray(custom.sigKitenList) ? custom.sigKitenList : [] });   // 通過ライン＝起点と同じ共通リスト 2026-10-29f
           var _curSec = (fSigDetail && fSigDetail[_dt]) || {};   // 段キー（b1・b5…）2026-10-29h
@@ -9946,9 +9960,9 @@ function EntryRecordForm(_ref_erf) {
           return React.createElement("div", { key: "det_" + _dt, style: { margin: "0 0 6px 12px", padding: "7px 9px", borderLeft: "2px solid #FDBA74", background: "#FFFBF5" } },
             React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（" + _elSigSecs(data, _dt).filter(function(x) { return x.req; }).map(function(x) { return x.num; }).join("") + "は必須）",
               React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "チップをドラッグで並び替え（同セクション内）")),
-            _elSigSecs(data, _dt).map(function(_sc) {
+            _secsAll.map(function(_sc, _si) {
               var _cands0 = _m2[_sc.key];
-              return React.createElement("div", { key: _sc.key, style: { margin: "2px 0 6px" } },
+              return React.createElement(React.Fragment, { key: _sc.key }, _si === _firstTfIdx ? _tabBar : null, React.createElement("div", { style: { margin: "2px 0 6px" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 3 } },
                   // セクション名はシグナルごとに変えられる。2026-09-28b まで「✎ 名前変更」モード中だけ見出しを押せる作りだったが、
                   // モードの裏に隠れていて気づけなかった（仮シグナル行を条件付き表示にしたときと同じ失敗）。
@@ -9961,19 +9975,20 @@ function EntryRecordForm(_ref_erf) {
                     style: { fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: "0 4px", marginLeft: -2,
                       border: "1px solid #E7D9C4", background: "#fff", color: "#A8977C", borderRadius: 4, cursor: "pointer" }
                   }, "✎")),
-                _rowTfs(_sc).map(function(_tf) {   // 1分足・5分足の段（ユーザー要望 2026-10-29h）。選択肢（マスター）は共通・選択は段ごと。EP基準ラインは共通の1行（_tf ""）
+                _rowTfs(_sc).filter(function(t) { return !t || t === _selTf; }).map(function(_tf) {   // 1分足・5分足の段（ユーザー要望 2026-10-29h）。選択肢（マスター）は共通・選択は段ごと。EP基準ラインは共通の1行（_tf ""）
                   var _rk = _sc.key + _tf;
                   var _cands = (fDetOrder && fDetOrder.tag === _dt && fDetOrder.sec === _rk) ? fDetOrder.list : _cands0;
+                  if (_sc.key === "p") _cands = _cands.filter(function(x) { return x !== _EL_PASS_NONE; });   // 「無し」は専用チップ＝リストに入っていても重ねて出さない 2026-10-29l
                   var _curArr = _curSec[_rk] || [];
                   var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0 && !(_sc.key === "p" && _x === _EL_PASS_NONE); }));   // 選択済みのマスター外(孤児)も末尾に表示（通過ラインの「無し」は専用チップ）
                   return React.createElement("div", { key: _rk, style: { display: "flex", alignItems: "flex-start", gap: 6, marginTop: 3 } },
-                  React.createElement("div", { style: { flexShrink: 0, width: 50, paddingTop: 4, fontSize: 10, fontWeight: 800, color: _tf === "1" ? "#0369A1" : (_tf ? "#7C3AED" : "#B45309") } }, _tf ? _tf + "分" : "1・5分",
+                  (!_tf || _sc.key === "p") ? React.createElement("div", { style: { flexShrink: 0, width: _tf ? "auto" : 50, paddingTop: _tf ? 1 : 4, fontSize: 10, fontWeight: 800, color: "#B45309" } }, _tf ? null : "1・5分",
                     _sc.key === "p" ? React.createElement("button", {   // 通過ラインのリセット（その分足の段だけ・確認なし・ユーザー決定）2026-10-29f/h
                       type: "button",
                       onClick: function() { setFSigDetail(function(prev) { var _pe = prev[_dt]; if (!_pe || !(_pe[_rk] || []).length) return prev; var _o = Object.assign({}, prev); var _ne = _secClone(_pe); _ne[_rk] = []; _o[_dt] = _ne; return _o; }); },
                       title: _tf + "分足の通過ラインの選択を全部外します",
                       style: { display: "block", marginTop: 3, fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: "0 4px", border: "1px solid #E7D9C4", background: "#fff", color: "#A8977C", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap" }
-                    }, "↺リセット") : null),
+                    }, "↺リセット") : null) : null,
                   React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                 React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" } },
                   _list.map(function(_dn) {
@@ -10180,7 +10195,7 @@ function EntryRecordForm(_ref_erf) {
                   }, "✕")
                 ) : null));
                 })
-              );
+              ));
             })
           );
         })
