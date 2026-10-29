@@ -1656,6 +1656,14 @@ function migrateData(d) {
       console.log("[migrateData] line1029: 起点・通過ラインの共通リストを置き換え／起点の変換 " + _lnN + " 件");
     } catch(e) { console.warn("[migrateData] line1029 error:", e); }
   }
+  // 【一回性 _migBTfOne1029・2026-10-29m】指標線底抜けだけ①EP基準ラインはどちらか一方の分足を選ぶ（ユーザー指示）＝sigSecLabels[指標線底抜け].bTfOne。
+  if (!d._migBTfOne1029) {
+    try {
+      var _sslB = Object.assign({}, d.custom.sigSecLabels || {});
+      _sslB["指標線底抜け"] = Object.assign({}, _sslB["指標線底抜け"] || {}, { bTfOne: true });
+      d.custom.sigSecLabels = _sslB; d._migBTfOne1029 = true;
+    } catch(e) { console.warn("[migrateData] bTfOne1029 error:", e); }
+  }
   // 【一回性 _migRestore1028b・2026-10-28】シグナル詳細の選択肢（①②③）を記録から戻す（ユーザー報告「シグナルの詳細は戻らないの」）。足すだけ。
   if (!d._migRestore1028b && typeof _snRebuildSigDetails === "function") {
     try { var _sdM = _snRebuildSigDetails(d); d.custom.sigDetails2 = _sdM.sigDetails2; d._migRestore1028b = true; console.log("[migrateData] restore1028b: シグナル詳細 +" + _sdM.added); } catch(e) { console.warn("[migrateData] restore1028b error:", e); }
