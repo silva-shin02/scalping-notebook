@@ -7470,7 +7470,10 @@ function _elTagLabel(s) {
 // _elSigDetailSec がセクション読み取りの正本・_elSigDetailList は全セクションをフラット配列へ正規化（詳細サブタブ等の従来読者用＝名前ベースの集計は不変）。
 // 表示(_elTagDisp)は「タグ（底:X・起:Y・特徴名...）」。分析のグループ化(_elTagEntries)は素のタグ名のまま＝シグナル全体の集計・名寄せは不変。
 // 2026-10-21 ①の表示名を「底抜け」→「EP基準ライン」に改称（ユーザー指示）。保存キー b・保存値は不変＝表示名だけ。
-var _EL_SIG_SECS = [{ key: "b", num: "①", name: "EP基準ライン", label: "① EP基準ライン", multi: false }, { key: "k", num: "②", name: "起点", label: "② 起点", multi: false }, { key: "f", num: "③", name: "その他", label: "③ その他", multi: true }];
+// 2026-10-29 ①は複数選択・選択必須（新規・編集とも・ユーザー決定）。保存は b＝1つ目（旧端末・旧コードの読み手用に文字列のまま）＋ bs＝全部（2つ以上のときだけ）。
+//   読むときは _elSigDetailSec(...).bs（配列）を使う。bs[0]がbと食い違う（旧端末がbだけ書き換えた）ときは b だけを正とする。
+//   分析は「選んだ各ラインに1件ずつ数える」（ユーザー決定）＝①別の行の件数合計は母数を超えることがある。
+var _EL_SIG_SECS = [{ key: "b", num: "①", name: "EP基準ライン", label: "① EP基準ライン", multi: true, req: true }, { key: "k", num: "②", name: "起点", label: "② 起点", multi: false }, { key: "f", num: "③", name: "その他", label: "③ その他", multi: true }];
 // セクション名はシグナルごとに変えられる 2026-09-28（ユーザー要望「シグナルによって詳細の内容が変わるようにしたい」）。
 // 正本は custom.sigSecLabels = { <シグナル名>: { b:"区切りライン", k:"起点", f:"その他" } }。未設定のキーは上の既定に落ちる。
 // ⚠️**セクションの数と key/multi は共通のまま**（記録側 sigDetail は {b,k,f} 固定なので、ここを可変にすると過去記録が読めなくなる）。変わるのは表示名だけ。
@@ -7488,18 +7491,21 @@ function _elSigSecs(data, tag) {
 }
 function _elSigDetailSec(s, t) {
   var _v = (s && s.sigDetail && typeof s.sigDetail === "object") ? s.sigDetail[t] : null;
-  if (_v == null) return { b: null, k: null, f: [] };
+  if (_v == null) return { b: null, bs: [], k: null, f: [] };
   if (typeof _v === "object" && !Array.isArray(_v)) {
     var _f = Array.isArray(_v.f) ? _v.f.filter(function(x) { return x; }) : (_v.f ? [_v.f] : []);
-    return { b: _v.b || null, k: _v.k || null, f: _f };
+    var _b = _v.b || null, _bs = [];
+    if (_b && Array.isArray(_v.bs) && _v.bs[0] === _b) _v.bs.forEach(function(x) { if (x && _bs.indexOf(x) < 0) _bs.push(x); });
+    else if (_b) _bs = [_b];
+    return { b: _b, bs: _bs, k: _v.k || null, f: _f };
   }
-  if (Array.isArray(_v)) return { b: null, k: null, f: _v.filter(function(x) { return x; }) };
-  return { b: null, k: null, f: [_v] };
+  if (Array.isArray(_v)) return { b: null, bs: [], k: null, f: _v.filter(function(x) { return x; }) };
+  return { b: null, bs: [], k: null, f: [_v] };
 }
 function _elSigDetailList(s, t) {
   var _sec = _elSigDetailSec(s, t);
   var _out = [];
-  [_sec.b, _sec.k].concat(_sec.f).forEach(function(x) { if (x && _out.indexOf(x) < 0) _out.push(x); });
+  _sec.bs.concat([_sec.k]).concat(_sec.f).forEach(function(x) { if (x && _out.indexOf(x) < 0) _out.push(x); });
   return _out;
 }
 function _elSigDetailOf(s, t) { var _l = _elSigDetailList(s, t); return _l.length ? _l[0] : null; }   // 後方互換の単一値（先頭）
@@ -7514,6 +7520,14 @@ function _elSigDetailRenameSig(s, t, secKey, oldN, newN) {
     if (_l.indexOf(oldN) < 0) return s;
     var _nl = []; _l.forEach(function(x) { var _y = (x === oldN) ? newN : x; if (_y && _nl.indexOf(_y) < 0) _nl.push(_y); });
     return _set(_isObj ? Object.assign({}, _v, { f: _nl }) : _nl);
+  }
+  if (secKey === "b" && _isObj && Array.isArray(_v.bs)) {   // ①の複数選択（bs）も追従 2026-10-29
+    var _bs0 = _elSigDetailSec(s, t).bs;
+    if (_bs0.indexOf(oldN) < 0) return s;
+    var _nbs = []; _bs0.forEach(function(x) { var _y = (x === oldN) ? newN : x; if (_y && _nbs.indexOf(_y) < 0) _nbs.push(_y); });
+    var _nvb = Object.assign({}, _v, { b: _nbs[0] || null });
+    if (_nbs.length >= 2) _nvb.bs = _nbs; else delete _nvb.bs;
+    return _set(_nvb);
   }
   if (!_isObj || _v[secKey] !== oldN) return s;
   var _nv = Object.assign({}, _v); _nv[secKey] = newN;
@@ -7547,6 +7561,7 @@ function _elSignalRenameData(prev, oldNm, newNm) {
     var n = (nw && typeof nw === "object") ? nw : {}, o = (od && typeof od === "object") ? od : {};
     var out = {};
     if (n.b || o.b) out.b = n.b || o.b;
+    if (n.b ? Array.isArray(n.bs) : (o.b && Array.isArray(o.bs))) out.bs = (n.b ? n.bs : o.bs).slice();   // ①の複数選択 2026-10-29
     if (n.k || o.k) out.k = n.k || o.k;
     var f = _mergeArr(Array.isArray(n.f) ? n.f : (n.f ? [n.f] : []), Array.isArray(o.f) ? o.f : (o.f ? [o.f] : []));
     if (f.length) out.f = f;
@@ -7608,7 +7623,7 @@ function _elSignalRenameData(prev, oldNm, newNm) {
 function _elTagDisp(s, t) {
   var _sec = _elSigDetailSec(s, t);
   var _ps = [];
-  if (_sec.b) _ps.push("底:" + _sec.b);
+  if (_sec.bs.length) _ps.push("底:" + _sec.bs.join("・"));
   if (_sec.k) _ps.push("起:" + _sec.k);
   _sec.f.forEach(function(x) { _ps.push(x); });
   return _ps.length ? t + "（" + _ps.join("・") + "）" : t;
@@ -7618,7 +7633,7 @@ function _elSigCellNode(s, t, key) {
   // 2026-07-09: 明細表のシグナル欄はシグナル名だけ表示（旧=底/起/特徴の詳細＋詳細未選択バッジも表示）。詳細はsigDetailに保持され分析側で使用。
   // 2026-07-09e: nowrapで1行固定（OS・損益詳細の幅圧縮で捻出した幅を使う）。
   // 2026-07-13: シグナル名の下に①底抜け(sigDetail[t].b)をプレーンで小さく表示（ユーザー「VWAPみたいにシンプルに」）。EPナビ早見カードの e.b 表示と同思想。旧記録(b無し)は名前だけ。
-  var _b = _elSigDetailSec(s, t).b;
+  var _b = _elSigDetailSec(s, t).bs.join("・");   // ①は複数なら「・」でつなぐ 2026-10-29（ユーザー決定）
   return React.createElement("div", { key: key, style: { whiteSpace: "nowrap" } },
     React.createElement("div", { style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, t),
     _b ? React.createElement("div", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", lineHeight: 1.15 } }, _b) : null);
@@ -8141,7 +8156,7 @@ function EntryRecordForm(_ref_erf) {
   var _useStateSGD = useState((function() {
     var _src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {};
     var _o = {};
-    Object.keys(_src).forEach(function(_k) { var _s = _elSigDetailSec(initSig, _k); if (_s.b || _s.k || _s.f.length) _o[_k] = { b: _s.b, k: _s.k, f: _s.f.slice() }; });
+    Object.keys(_src).forEach(function(_k) { var _s = _elSigDetailSec(initSig, _k); if (_s.b || _s.k || _s.f.length) _o[_k] = { b: _s.bs.slice(), k: _s.k, f: _s.f.slice() }; });   // フォーム内の b は配列（①複数選択 2026-10-29）
     return _o;
   })()),
     _useStateSGDA = _slicedToArray(_useStateSGD, 2),
@@ -8530,16 +8545,16 @@ function EntryRecordForm(_ref_erf) {
     var _pickWin = function(rs) { if (!rs || !rs.length) return { alpha: null, idealAlpha: null, ok: false, n: 0, add: null }; var _A = _elBaseAlphaA(rs, aiOf); var p = _A ? _A.pick : null; if (!p || p.alpha == null || p.status === "none") return { alpha: null, idealAlpha: null, ok: false, n: rs.length, add: _A ? _A.add : null }; return { alpha: p.alpha, idealAlpha: p.idealAlpha, ok: p.status === "ok", n: rs.length, add: _A ? _A.add : null }; };
     // 選択値ごとの参考pick（全期間・表示のみ）＝そのセクションの値が一致する記録だけに絞る（旧フラット記録は③として一致判定）。
     var _pickOf = function(rs) { if (!rs.length) return { alpha: null, n: 0 }; var p = _elBaseAlphaPick(rs, aiOf); return (p && p.alpha != null && p.status !== "none") ? { alpha: p.alpha, ok: p.status === "ok", n: rs.length } : { alpha: null, n: rs.length }; };
-    var _sel = (fSigDetail && fSigDetail[_t]) || { b: null, k: null, f: [] };
-    var _selB = _sel.b || null, _selK = _sel.k || null, _selF = (_sel.f || []);
+    var _sel = (fSigDetail && fSigDetail[_t]) || { b: [], k: null, f: [] };
+    var _selBs = (_sel.b || []), _selK = _sel.k || null, _selF = (_sel.f || []);   // ①は複数選択（配列）2026-10-29
     var picks = [];
-    if (_selB) picks.push({ sec: "b", lb: "底", name: _selB, pick: _pickOf(recs.filter(function(r) { return _elSigDetailSec(r.signal, _t).b === _selB; })) });
+    _selBs.forEach(function(_bn) { picks.push({ sec: "b", lb: "底", name: _bn, pick: _pickOf(recs.filter(function(r) { return _elSigDetailSec(r.signal, _t).bs.indexOf(_bn) >= 0; })) }); });
     if (_selK) picks.push({ sec: "k", lb: "起", name: _selK, pick: _pickOf(recs.filter(function(r) { return _elSigDetailSec(r.signal, _t).k === _selK; })) });
     _selF.forEach(function(_dn) { picks.push({ sec: "f", lb: "特", name: _dn, pick: _pickOf(recs.filter(function(r) { return _elSigDetailSec(r.signal, _t).f.indexOf(_dn) >= 0; })) }); });
     // 詳細の組み合わせ（選択した①②③をすべて満たす記録）＝最も具体的な母数。①②③とも未選択ならnull。
-    var det = (_selB || _selK || _selF.length) ? _pickWin(recs.filter(function(r) {
+    var det = (_selBs.length || _selK || _selF.length) ? _pickWin(recs.filter(function(r) {
       var _sc = _elSigDetailSec(r.signal, _t);
-      if (_selB && _sc.b !== _selB) return false;
+      for (var j = 0; j < _selBs.length; j++) { if (_sc.bs.indexOf(_selBs[j]) < 0) return false; }
       if (_selK && _sc.k !== _selK) return false;
       for (var i = 0; i < _selF.length; i++) { if (_sc.f.indexOf(_selF[i]) < 0) return false; }
       return true;
@@ -9382,6 +9397,8 @@ function EntryRecordForm(_ref_erf) {
       if (fCeOn && (fCeTopPx === "" || isNaN(Number(fCeTopPx)))) _vm.push("直上VAP（株価）");
       else if (fCeOn && (fLevelPrice === "" || isNaN(Number(fLevelPrice)))) _vm.push("水準線値（直上VAPの計算に使います）");   // 新規の確定待ちは必須 2026-10-19（2026-10-21 未達でもチェックしたら必須＝ユーザー決定）
       if (!isEdit && fReview === true && (fReviewReasons || []).filter(Boolean).length === 0) _vm.push("要審議の理由（選択肢）");   // 新規の要審議も必須 2026-10-17
+      // ①EP基準ラインは必須 2026-10-29（新規・編集とも・ユーザー決定）。選んだシグナルごとに1つ以上。
+      fTags.forEach(function(_t) { var _sb = fSigDetail && fSigDetail[_t]; if (!(_sb && Array.isArray(_sb.b) && _sb.b.length)) _vm.push("①EP基準ライン（" + _t + "）"); });
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
       if (fCeOn && _fCeTopRel != null && _fAlpha != null && !(_fCeTopRel > _fAlpha)) {
         window._snAlert("直上VAPは、VAPの株価（水準線＋VAP値＝" + (Math.round((Number(fLevelPrice) + _fAlpha) * 100) / 100) + "円）より上の株価を入れてください。");
@@ -9409,7 +9426,7 @@ function EntryRecordForm(_ref_erf) {
           var _s = (fSigDetail && fSigDetail[_t]) || null;
           var _sb = (fSecBar && fSecBar[_t]) || null;
           var _e = {}, _has = false;
-          if (_s) { if (_s.b) { _e.b = _s.b; _has = true; } if (_s.k) { _e.k = _s.k; _has = true; } if (_s.f && _s.f.length) { _e.f = _s.f.slice(); _has = true; } }
+          if (_s) { var _sbs = Array.isArray(_s.b) ? _s.b.filter(Boolean) : (_s.b ? [_s.b] : []); if (_sbs.length) { _e.b = _sbs[0]; if (_sbs.length >= 2) _e.bs = _sbs.slice(); _has = true; } if (_s.k) { _e.k = _s.k; _has = true; } if (_s.f && _s.f.length) { _e.f = _s.f.slice(); _has = true; } }
           if (_sb) { var _bb = _barDiff(_sb.b), _kb = _barDiff(_sb.k), _fb = _barDiff(_sb.f); if (_bb) { _e.bBar = _bb; _has = true; } if (_kb) { _e.kBar = _kb; _has = true; } if (_fb) { _e.fBar = _fb; _has = true; } }
           if (_has) { _o[_ntf(_t)] = _e; _any = true; }
         });
@@ -9780,7 +9797,7 @@ function EntryRecordForm(_ref_erf) {
           var _m2raw = (custom.sigDetails2 || {})[_dt];
           var _seed = ((custom.sigDetails || {})[_dt] || []);
           var _m2 = (_m2raw && typeof _m2raw === "object") ? { b: (_m2raw.b || []), k: (_m2raw.k || []), f: (_m2raw.f || []) } : { b: _seed, k: _seed, f: _seed };
-          var _curSec = (fSigDetail && fSigDetail[_dt]) || { b: null, k: null, f: [] };
+          var _curSec = (fSigDetail && fSigDetail[_dt]) || { b: [], k: null, f: [] };
           // セクション別リストの書き込みヘルパー（prevベース）: sigDetails2[_dt]が無ければ旧リストから3セクションを実体化してから対象セクションを更新。_listは配列 or (現リスト)=>新リスト。
           var _writeSec = function(prev, _secKey, _list) {
             var _c = Object.assign({}, prev.custom || {});
@@ -9795,12 +9812,12 @@ function EntryRecordForm(_ref_erf) {
             return _c;
           };
           return React.createElement("div", { key: "det_" + _dt, style: { margin: "0 0 6px 12px", padding: "7px 9px", borderLeft: "2px solid #FDBA74", background: "#FFFBF5" } },
-            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（任意）",
+            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（①は必須）",
               React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "チップをドラッグで並び替え（同セクション内）")),
             _elSigSecs(data, _dt).map(function(_sc) {
               var _cands0 = _m2[_sc.key];
               var _cands = (fDetOrder && fDetOrder.tag === _dt && fDetOrder.sec === _sc.key) ? fDetOrder.list : _cands0;
-              var _curArr = _sc.multi ? (_curSec.f || []) : (_curSec[_sc.key] ? [_curSec[_sc.key]] : []);
+              var _curArr = _sc.multi ? (_curSec[_sc.key] || []) : (_curSec[_sc.key] ? [_curSec[_sc.key]] : []);
               var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0; }));   // 選択済みのマスター外(孤児)も末尾に表示
               return React.createElement("div", { key: _sc.key, style: { margin: "2px 0 6px" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 3 } },
@@ -9808,7 +9825,7 @@ function EntryRecordForm(_ref_erf) {
                   // モードの裏に隠れていて気づけなかった（仮シグナル行を条件付き表示にしたときと同じ失敗）。
                   // 常時見える小さな ✎ を置き、モード無しで直接変えられるようにした 2026-09-28c。
                   React.createElement("span", { style: { fontSize: 10, color: "#B45309", fontWeight: 700 } }, _sc.label,
-                    React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 4 } }, _sc.multi ? "（複数可）" : "（1つまで）")),
+                    React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 4 } }, _sc.multi ? (_sc.req ? "（複数可・必須）" : "（複数可）") : "（1つまで）")),
                   _sc.key === "b" ? null : React.createElement("button", {   // ①（EP基準ライン）は固定名＝✎を出さない 2026-10-21
                     onClick: function() { _renameSigSec(_dt, _sc); },
                     title: "「" + _dt + "」の" + _sc.num + "セクション名を変更します（このシグナルだけ・過去の記録の中身は変わりません）",
@@ -9888,14 +9905,14 @@ function EntryRecordForm(_ref_erf) {
                           setFSigDetail(function(prev) {
                             var _o = Object.assign({}, prev);
                             var _pe = _o[_dt] || {};
-                            var _e = { b: _pe.b || null, k: _pe.k || null, f: (_pe.f || []).slice() };
+                            var _e = { b: (_pe.b || []).slice(), k: _pe.k || null, f: (_pe.f || []).slice() };
                             if (_sc.multi) {
-                              var _i = _e.f.indexOf(_dn);
-                              if (_i >= 0) _e.f.splice(_i, 1); else _e.f.push(_dn);
+                              var _i = _e[_sc.key].indexOf(_dn);
+                              if (_i >= 0) _e[_sc.key].splice(_i, 1); else _e[_sc.key].push(_dn);
                             } else {
-                              _e[_sc.key] = (_e[_sc.key] === _dn) ? null : _dn;   // ①②は単一＝再タップで解除・別チップで置き換え
+                              _e[_sc.key] = (_e[_sc.key] === _dn) ? null : _dn;   // ②は単一＝再タップで解除・別チップで置き換え（①は2026-10-29から複数）
                             }
-                            if (_e.b || _e.k || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
+                            if (_e.b.length || _e.k || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
                             return _o;
                           });
                         },
@@ -9918,11 +9935,11 @@ function EntryRecordForm(_ref_erf) {
                             save(function(prev) { return Object.assign({}, prev, { custom: _writeSec(prev, _sc.key, function(_l) { return _l.filter(function(x) { return x !== _dn; }); }) }); });
                             setFSigDetail(function(prev) {
                               var _pe = prev[_dt]; if (!_pe) return prev;
-                              var _e = { b: _pe.b || null, k: _pe.k || null, f: (_pe.f || []).slice() };
-                              if (_sc.multi) { if (_e.f.indexOf(_dn) < 0) return prev; _e.f = _e.f.filter(function(x) { return x !== _dn; }); }
+                              var _e = { b: (_pe.b || []).slice(), k: _pe.k || null, f: (_pe.f || []).slice() };
+                              if (_sc.multi) { if (_e[_sc.key].indexOf(_dn) < 0) return prev; _e[_sc.key] = _e[_sc.key].filter(function(x) { return x !== _dn; }); }
                               else { if (_e[_sc.key] !== _dn) return prev; _e[_sc.key] = null; }
                               var _o = Object.assign({}, prev);
-                              if (_e.b || _e.k || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
+                              if (_e.b.length || _e.k || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
                               return _o;
                             });
                           },
@@ -9981,10 +9998,10 @@ function EntryRecordForm(_ref_erf) {
                           });
                           setFSigDetail(function(prev) {
                             var _pe = prev[_dt]; if (!_pe) return prev;
-                            var _e = { b: _pe.b || null, k: _pe.k || null, f: (_pe.f || []).slice() };
+                            var _e = { b: (_pe.b || []).slice(), k: _pe.k || null, f: (_pe.f || []).slice() };
                             if (_sc.multi) {
-                              if (_e.f.indexOf(_old) < 0) return prev;
-                              var _nf = []; _e.f.forEach(function(x) { var _y = x === _old ? _nm : x; if (_nf.indexOf(_y) < 0) _nf.push(_y); }); _e.f = _nf;
+                              if (_e[_sc.key].indexOf(_old) < 0) return prev;
+                              var _nf = []; _e[_sc.key].forEach(function(x) { var _y = x === _old ? _nm : x; if (_nf.indexOf(_y) < 0) _nf.push(_y); }); _e[_sc.key] = _nf;
                             } else {
                               if (_e[_sc.key] !== _old) return prev;
                               _e[_sc.key] = _nm;
@@ -9997,8 +10014,8 @@ function EntryRecordForm(_ref_erf) {
                         setFSigDetail(function(prev) {
                           var _o = Object.assign({}, prev);
                           var _pe = _o[_dt] || {};
-                          var _e = { b: _pe.b || null, k: _pe.k || null, f: (_pe.f || []).slice() };
-                          if (_sc.multi) { if (_e.f.indexOf(_nm) < 0) _e.f.push(_nm); }
+                          var _e = { b: (_pe.b || []).slice(), k: _pe.k || null, f: (_pe.f || []).slice() };
+                          if (_sc.multi) { if (_e[_sc.key].indexOf(_nm) < 0) _e[_sc.key].push(_nm); }
                           else _e[_sc.key] = _nm;
                           _o[_dt] = _e;
                           return _o;
@@ -11609,7 +11626,7 @@ function EntryLogCard(_ref_elc) {
       _dTags.forEach(function(t) {
         var _sec = _elSigDetailSec(s, t);
         var _b = [];
-        if (_sec.b) _b.push("底 " + _sec.b);
+        if (_sec.bs.length) _b.push("底 " + _sec.bs.join("・"));
         if (_sec.k) _b.push("起 " + _sec.k);
         var _f = (_sec.f || []).filter(Boolean);
         if (_f.length) _b.push("特徴 " + _f.join("・"));
