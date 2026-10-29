@@ -7934,9 +7934,10 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         var _tfo = _elSigDetailTf(r.signal, g.key);
         // ①が起点のシグナル（寄り足ライン）は ①→起点・②→その他 の行へ入れる＝全シグナル横断で同じ意味の行にまとまる 2026-10-29f
         var _kOnB = _elKitenKey(custom, g.key) === "b";
+        if (!_kOnB) _elSigDetailSec(r.signal, g.key).bs.forEach(function(bn) { _put("b", bn, r); });   // EP基準ラインは1・5分共通＝分足を付けない 2026-10-29j
         _EL_TFS.forEach(function(tf) {
           var sec = _tfo[tf], _pf = tf + "分:";
-          sec.b.forEach(function(bn) { _put(_kOnB ? "k" : "b", _pf + bn, r); });   // ①は選んだ各ラインに1件ずつ 2026-10-29
+          if (_kOnB) sec.b.forEach(function(bn) { _put("k", _pf + bn, r); });   // 寄り足ラインの①起点は分足ごと
           sec.p.forEach(function(pn) { if (pn !== _EL_PASS_NONE) _put("p", _pf + pn, r); });   // 通過ラインは通った各線に1件ずつ 2026-10-29f（ユーザー決定）
           sec.k.forEach(function(kn) { _put(_kOnB ? "f" : "k", _pf + kn, r); });   // 起点も各起点に1件ずつ 2026-10-29b
           sec.f.forEach(function(fn) { _put("f", _pf + fn, r); });
@@ -8025,13 +8026,15 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     // 選択肢はシグナル全体（pool）から作る＝帯を切り替えてもピルの並びが動かず、件数だけ変わる。0件も出す＝その帯に無いこと自体が情報。
     // ①は複数選択あり（2026-10-29）＝選んだ各ラインのピルに1件ずつ入る（ユーザー決定）。件数の合計は母数を超えることがある。
     // 2026-10-29h 1分足・5分足は分けて数える（ユーザー決定）＝ピルは「1分:POC」「5分:POC」。
-    var _bSecsOf = function(r) { if (!r || !r.signal) return []; var _tfo = _elSigDetailTf(r.signal, _o.bSigKey), o = []; _EL_TFS.forEach(function(tf) { _tfo[tf].b.forEach(function(n) { o.push(tf + "分:" + n); }); }); return o; };
+    // 2026-10-29j EP基準ラインは1・5分共通＝分足を付けない（寄り足ラインの①起点だけ分足付き）
+    var _bShP = _o.bSigKey ? _elBShared(custom, _o.bSigKey) : true;
+    var _bSecsOf = function(r) { if (!r || !r.signal) return []; if (_bShP) return _elSigDetailSec(r.signal, _o.bSigKey).bs; var _tfo = _elSigDetailTf(r.signal, _o.bSigKey), o = []; _EL_TFS.forEach(function(tf) { _tfo[tf].b.forEach(function(n) { o.push(tf + "分:" + n); }); }); return o; };
     var _bSecGroups = null, _bSecSelKey = null, _bSecSel = null;
     if (_o.bSigKey) {
       var _cand = [], _cm = {};
       var _addC = function(n) { if (n && !_cm[n]) { _cm[n] = 1; _cand.push(n); } };
       var _mB = (((custom || {}).sigDetails2 || {})[_o.bSigKey] || {}).b;   // マスター候補（設定で消した過去の選択肢は下のpool走査で拾う）
-      _EL_TFS.forEach(function(tf) { (Array.isArray(_mB) ? _mB : []).forEach(function(n) { _addC(tf + "分:" + n); }); });
+      (_bShP ? [""] : _EL_TFS).forEach(function(tf) { (Array.isArray(_mB) ? _mB : []).forEach(function(n) { _addC(tf ? tf + "分:" + n : n); }); });
       (pool || []).forEach(function(r) { _bSecsOf(r).forEach(_addC); });
       var _inBand = _bSel ? _bSel.recs : [];
       var _noneAll = (pool || []).filter(function(r) { return !_bSecsOf(r).length; }).length;
