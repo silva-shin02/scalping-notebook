@@ -6569,6 +6569,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
   var _uRO = useState(false), reviewOnly = _uRO[0], setReviewOnly = _uRO[1];
   var _uCeF = useState("all"), ceFil = _uCeF[0], setCeFil = _uCeF[1];
+  var _uLSt = useState(""), listStk = _uLSt[0], setListStk = _uLSt[1];   // 🗂記録一覧の銘柄絞り込み（""＝全て・表示のみ）2026-10-29 ユーザー要望
   var _uThO = useState(null), thruOpen = _uThO[0], setThruOpen = _uThO[1];   // サマリーの「スルー理由」帯で開いている理由（その理由の記録をボタンで並べる）2026-10-17   // 🗂記録一覧の5分足確定足の絞り込み（all/ce＝時刻が確定足の記録すべて/un＝そのうち未チェック・表示のみ）2026-10-17b   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
   var _uSO = useState("desc"), recOrder = _uSO[0], setRecOrder = _uSO[1];   // 記録一覧の並び順 2026-07-27（ユーザー指定）: "desc"=日付が新しい順（既定）／"asc"=古い順。どちらでも各日付の中は時間が早い順。全一覧で共通の1つの状態＝どこで切り替えても全部に効く
   var _uFR = useState(false), riskOpen = _uFR[0], setRiskOpen = _uFR[1];   // 「指値同値」セクションの該当記録リスト開閉（表示のみ・集計は不変）2026-07-20
@@ -8239,7 +8240,22 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       _secH(legacy ? "🗂 記録一覧（行タップで明細・分類トグルに連動）" : "🗂 記録一覧（行タップで明細）", null, _ctl("gp_recs", recs)), _addFilBar(),
       _bodyOf("gp_recs", recs, function(_drs, _dv) {
         var _fr = _addFilOf(_drs);
+        // 被り除外／要審議／確定待ちの絞り込み後（銘柄ボタンの件数はこれを数える＝表の行数と一致・ユーザー決定）2026-10-29
+        var _shBase = (function(){ var _sh = _fr; if (collOnly) _sh = _sh.filter(function(r){ return _elCollExcluded(data, r, _collScope); }); if (reviewOnly) _sh = _sh.filter(function(r){ return r.signal && _elIsReview(r.signal); }); if (ceFil !== "all") _sh = _sh.filter(function(r){ var _c = r.signal && _elCeCand(r.signal, _ai(r).alpha); return !!_c; }); return _sh; })();
+        // 銘柄ボタン（件数の多い順・ユーザー決定）。記録に2銘柄以上あるときだけ出す。0件の銘柄は選択中のときだけ残す。
+        var _stkN = {}, _stkAll = {};
+        _fr.forEach(function(r){ if (r.stock) _stkAll[r.stock] = 1; });
+        _shBase.forEach(function(r){ if (r.stock) _stkN[r.stock] = (_stkN[r.stock] || 0) + 1; });
+        var _stkSel = (listStk && _stkAll[listStk]) ? listStk : "";
+        var _stkList = Object.keys(_stkAll).filter(function(k){ return _stkN[k] > 0 || k === _stkSel; }).sort(function(a, b){ return (_stkN[b] || 0) - (_stkN[a] || 0) || a.localeCompare(b); });
+        var _stkSeg = Object.keys(_stkAll).length >= 2 ? React.createElement("div", { style: { marginBottom: 6, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 } },
+          [["", "全て（" + _shBase.length + "）"]].concat(_stkList.map(function(k){ return [k, k + "（" + (_stkN[k] || 0) + "）"]; })).map(function(o) {
+            var _on = _stkSel === o[0];
+            return React.createElement("button", { key: "stk_" + o[0], type: "button", onClick: function(){ setListStk(o[0]); },
+              style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (_on ? "#92400E" : "#FCD34D"), background: _on ? "#92400E" : "#FFFBEB", color: _on ? "#fff" : "#92400E" } }, o[1]);
+          })) : null;
         return React.createElement(React.Fragment, null,
+          _stkSeg,
           (function(){
             var _cn = _elCollExclCountRecs(data, _fr, _collScope);
             var _rvN = _fr.filter(function(r){ return r.signal && _elIsReview(r.signal); }).length;   // この銘柄・このビューの要審議件数 2026-07-18g
@@ -8262,7 +8278,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
               reviewOnly ? React.createElement("span", { style: { fontSize: 10, color: "#BE185D", fontWeight: 700 } }, "要審議（審）の記録だけ表示中（タップで解除・行タップで明細→編集）") : null,
               _ceSeg);
           })(),
-          _recTable((function(){ var _sh = _fr; if (collOnly) _sh = _sh.filter(function(r){ return _elCollExcluded(data, r, _collScope); }); if (reviewOnly) _sh = _sh.filter(function(r){ return r.signal && _elIsReview(r.signal); }); if (ceFil !== "all") _sh = _sh.filter(function(r){ var _c = r.signal && _elCeCand(r.signal, _ai(r).alpha); return !!_c; }); return _sh; })().slice().sort(_byDateAsc), "full", "gp_" + (_dv === "all" ? "" : _dv + "_")));
+          _recTable((_stkSel ? _shBase.filter(function(r){ return r.stock === _stkSel; }) : _shBase).slice().sort(_byDateAsc), "full", "gp_" + (_dv === "all" ? "" : _dv + "_")));
       })]);
   };
 
