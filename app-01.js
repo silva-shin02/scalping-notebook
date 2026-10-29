@@ -1629,6 +1629,18 @@ function migrateData(d) {
       console.log("[migrateData] yoriSec1029: 寄り足ラインの記録 " + _yN + " 件をずらした");
     } catch(e) { console.warn("[migrateData] yoriSec1029 error:", e); }
   }
+  // 【一回性 _migKiten1029・2026-10-29e】ユーザー指示「起点欄の選択肢は浮き足連続OSのものに合わせて」（全シグナル＋寄り足ラインの①起点・置き換え・以後は共通＝ユーザー決定）。
+  //   正本 custom.sigKitenList＝浮き足連続OSの②起点の並び。_elKitenWrite（app-05）で全シグナルの起点セクションへ配る。記録に付いている古い選択肢はそのまま（フォームで末尾に出る）。
+  if (!d._migKiten1029 && typeof _elKitenWrite === "function") {
+    try {
+      var _kSrc = ((d.custom.sigDetails2 || {})["浮き足連続OS"] || {}).k;
+      if (Array.isArray(_kSrc) && _kSrc.length) {
+        d.custom = _elKitenWrite(Object.assign({}, d.custom), _kSrc);
+        d._migKiten1029 = true;
+        console.log("[migrateData] kiten1029: 起点の選択肢を共通化 " + _kSrc.join("・"));
+      }
+    } catch(e) { console.warn("[migrateData] kiten1029 error:", e); }
+  }
   // 【一回性 _migRestore1028b・2026-10-28】シグナル詳細の選択肢（①②③）を記録から戻す（ユーザー報告「シグナルの詳細は戻らないの」）。足すだけ。
   if (!d._migRestore1028b && typeof _snRebuildSigDetails === "function") {
     try { var _sdM = _snRebuildSigDetails(d); d.custom.sigDetails2 = _sdM.sigDetails2; d._migRestore1028b = true; console.log("[migrateData] restore1028b: シグナル詳細 +" + _sdM.added); } catch(e) { console.warn("[migrateData] restore1028b error:", e); }

@@ -7492,6 +7492,33 @@ function _elSigSecs(data, tag) {
     return (nm || rq !== sc.req) ? { key: sc.key, num: sc.num, name: nm || sc.name, label: sc.num + " " + (nm || sc.name), multi: sc.multi, req: rq } : sc;
   });
 }
+// 起点の選択肢は全シグナル共通 2026-10-29e（ユーザー指示「起点欄の選択肢は浮き足連続OSのものに合わせて」・共通にする＝ユーザー決定）。
+//   正本＝custom.sigKitenList。起点のセクションは通常②(k)、①の表示名が「起点」のシグナル（寄り足ライン）は①(b)＝_elKitenKey。
+//   書き込みは _elKitenWrite だけ＝正本と全シグナルの sigDetails2[tag][起点キー] へ同じ並びを配る（app-06 等の読み手・旧端末はそのまま読める）。
+//   読み手（記録フォーム・EPナビ）は正本があればそれを使う＝まだ sigDetails2 が無い新しいシグナルにも出る。
+function _elKitenKey(custom, tag) { var o = custom && custom.sigSecLabels && custom.sigSecLabels[tag]; return (o && o.bName === "起点") ? "b" : "k"; }
+function _elKitenWrite(c, list) {   // c＝書き換えてよい custom のコピー。返り値も c
+  var _l = (list || []).filter(function(x, i, a) { return x && a.indexOf(x) === i; });
+  c.sigKitenList = _l.slice();
+  var all = Object.assign({}, c.sigDetails2 || {});
+  Object.keys(all).concat(Array.isArray(c.signalTags) ? c.signalTags : []).concat(Array.isArray(c.provSignalTags) ? c.provSignalTags : []).forEach(function(t) {
+    if (!t || typeof t !== "string") return;
+    var cur = (all[t] && typeof all[t] === "object" && !Array.isArray(all[t])) ? all[t] : null;
+    var base = cur ? Object.assign({}, cur, { b: (cur.b || []).slice(), k: (cur.k || []).slice(), f: (cur.f || []).slice() })
+      : (function() { var s0 = ((c.sigDetails || {})[t] || []); s0 = Array.isArray(s0) ? s0 : []; return { b: s0.slice(), k: s0.slice(), f: s0.slice() }; })();
+    base[_elKitenKey(c, t)] = _l.slice();
+    all[t] = base;
+  });
+  c.sigDetails2 = all;
+  return c;
+}
+// 起点の選択肢の改名を1記録の全シグナルへ（共通リストなので、どのシグナルの起点に付いていても追従）
+function _elKitenRenameSig(custom, s, oldN, newN) {
+  if (!s || !s.sigDetail || typeof s.sigDetail !== "object") return s;
+  var ns = s;
+  Object.keys(s.sigDetail).forEach(function(t) { ns = _elSigDetailRenameSig(ns, t, _elKitenKey(custom, t), oldN, newN); });
+  return ns;
+}
 function _elSigDetailSec(s, t) {
   var _v = (s && s.sigDetail && typeof s.sigDetail === "object") ? s.sigDetail[t] : null;
   if (_v == null) return { b: null, bs: [], k: null, ks: [], f: [] };
@@ -9801,6 +9828,8 @@ function EntryRecordForm(_ref_erf) {
           var _m2raw = (custom.sigDetails2 || {})[_dt];
           var _seed = ((custom.sigDetails || {})[_dt] || []);
           var _m2 = (_m2raw && typeof _m2raw === "object") ? { b: (_m2raw.b || []), k: (_m2raw.k || []), f: (_m2raw.f || []) } : { b: _seed, k: _seed, f: _seed };
+          var _ktK = _elKitenKey(custom, _dt);   // 起点のセクション（共通リスト）2026-10-29e
+          if (Array.isArray(custom.sigKitenList)) { _m2 = Object.assign({}, _m2); _m2[_ktK] = custom.sigKitenList; }
           var _curSec = (fSigDetail && fSigDetail[_dt]) || { b: [], k: [], f: [] };
           // セクション別リストの書き込みヘルパー（prevベース）: sigDetails2[_dt]が無ければ旧リストから3セクションを実体化してから対象セクションを更新。_listは配列 or (現リスト)=>新リスト。
           var _writeSec = function(prev, _secKey, _list) {
@@ -9810,6 +9839,10 @@ function EntryRecordForm(_ref_erf) {
             var _base = (_cur && typeof _cur === "object")
               ? { b: (_cur.b || []).slice(), k: (_cur.k || []).slice(), f: (_cur.f || []).slice() }
               : (function() { var _s0 = (((prev.custom || {}).sigDetails || {})[_dt] || []); return { b: _s0.slice(), k: _s0.slice(), f: _s0.slice() }; })();
+            if (_secKey === _elKitenKey(_c, _dt)) {   // 起点は全シグナル共通＝正本へ書いて全シグナルに配る 2026-10-29e
+              var _kt0 = Array.isArray(_c.sigKitenList) ? _c.sigKitenList.slice() : _base[_secKey];
+              return _elKitenWrite(_c, (typeof _list === "function") ? _list(_kt0) : _list);
+            }
             _base[_secKey] = (typeof _list === "function") ? _list(_base[_secKey]) : _list;
             _all[_dt] = _base;
             _c.sigDetails2 = _all;
@@ -9997,7 +10030,7 @@ function EntryRecordForm(_ref_erf) {
                         var _old = fDetAdd.old;
                         if (_nm !== _old) {
                           save(function(prev) {
-                            var _curList = (function() { var _cur = ((prev.custom || {}).sigDetails2 || {})[_dt]; if (_cur && typeof _cur === "object") return (_cur[_sc.key] || []); return (((prev.custom || {}).sigDetails || {})[_dt] || []); })();
+                            var _curList = (_sc.key === _elKitenKey(prev.custom, _dt) && Array.isArray((prev.custom || {}).sigKitenList)) ? prev.custom.sigKitenList : (function() { var _cur = ((prev.custom || {}).sigDetails2 || {})[_dt]; if (_cur && typeof _cur === "object") return (_cur[_sc.key] || []); return (((prev.custom || {}).sigDetails || {})[_dt] || []); })();
                             var _rnL = _curList.map(function(x) { return x === _old ? _nm : x; });
                             var _c = _writeSec(prev, _sc.key, _rnL.filter(function(x, i) { return x && _rnL.indexOf(x) === i; }));
                             var _pCharts = prev.charts || {}, _nCharts = {};
@@ -10005,7 +10038,8 @@ function EntryRecordForm(_ref_erf) {
                               var cc = _pCharts[ck];
                               if (!cc || !Array.isArray(cc.signals)) { _nCharts[ck] = cc; return; }
                               var _ch = false;
-                              var sigs = cc.signals.map(function(s) { var _ns = _elSigDetailRenameSig(s, _dt, _sc.key, _old, _nm); if (_ns !== s) _ch = true; return _ns; });
+                              var _isKt = _sc.key === _elKitenKey(prev.custom, _dt);
+                              var sigs = cc.signals.map(function(s) { var _ns = _isKt ? _elKitenRenameSig(prev.custom, s, _old, _nm) : _elSigDetailRenameSig(s, _dt, _sc.key, _old, _nm); if (_ns !== s) _ch = true; return _ns; });
                               _nCharts[ck] = _ch ? Object.assign({}, cc, { signals: sigs }) : cc;
                             });
                             return Object.assign({}, prev, { custom: _c, charts: _nCharts });
