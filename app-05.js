@@ -7582,6 +7582,15 @@ function _elTfJoin(tfo, key, sep) {
   var o = []; if (a.length) o.push("1分:" + a.join(sep)); if (b.length) o.push("5分:" + b.join(sep));
   return o.join(" ");
 }
+// 2026-10-29j EP基準ラインは1分・5分共通（ユーザー指示「EP基準ラインは1・5共通だから分けなくていい」）＝フォームは1行・tf に b を書かない・分析も分足を付けない。
+//   ①が起点のシグナル（寄り足ライン＝_elKitenKey が "b"）の①は起点なので分けたまま。
+function _elBShared(custom, tag) { return _elKitenKey(custom, tag) !== "b"; }
+// ①の表示用: 記録の tf に b が入っていれば分足付き（寄り足ラインの起点）、無ければ合併を「・」でつなぐ
+function _elBJoin(s, t) {
+  var _v = (s && s.sigDetail && typeof s.sigDetail === "object") ? s.sigDetail[t] : null;
+  var _tfHasB = !!(_v && typeof _v === "object" && _v.tf && ((_v.tf["1"] && (_v.tf["1"].b || []).length) || (_v.tf["5"] && (_v.tf["5"].b || []).length)));
+  return _tfHasB ? _elTfJoin(_elSigDetailTf(s, t), "b") : _elSigDetailSec(s, t).bs.join("・");
+}
 // 起点の直近（分足ごと）2026-10-29h: tfSec＝_elSigDetailTf(...)[分足]
 function _elKitenNearTf(tfSec) { return _elKitenNear(tfSec); }
 function _elSigDetailRenameSig(s, t, secKey, oldN, newN) {   // 分足の段（tf）も追従 2026-10-29h
@@ -7731,7 +7740,7 @@ function _elSigCellNode(s, t, key) {
   // 2026-07-09: 明細表のシグナル欄はシグナル名だけ表示（旧=底/起/特徴の詳細＋詳細未選択バッジも表示）。詳細はsigDetailに保持され分析側で使用。
   // 2026-07-09e: nowrapで1行固定（OS・損益詳細の幅圧縮で捻出した幅を使う）。
   // 2026-07-13: シグナル名の下に①底抜け(sigDetail[t].b)をプレーンで小さく表示（ユーザー「VWAPみたいにシンプルに」）。EPナビ早見カードの e.b 表示と同思想。旧記録(b無し)は名前だけ。
-  var _b = _elTfJoin(_elSigDetailTf(s, t), "b");   // ①は分足ごと「1分:POC 5分:VWAP」・同じなら「1・5分:POC」2026-10-29h（ユーザー決定）
+  var _b = _elBJoin(s, t);   // ①EP基準ラインは1・5分共通（2026-10-29j）。寄り足ラインの①起点は分足付き
   return React.createElement("div", { key: key, style: { whiteSpace: "nowrap" } },
     React.createElement("div", { style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, t),
     _b ? React.createElement("div", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", lineHeight: 1.15 } }, _b) : null);
@@ -8255,15 +8264,16 @@ function EntryRecordForm(_ref_erf) {
     var _src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {};
     var _o = {};
     // フォーム内は分足ごとの段＝{b1,b5,k1,k5,p1,p5,f1,f5}（各配列）2026-10-29h。旧記録は _elSigDetailTf が欄の分足どおりに振り分ける。
-    Object.keys(_src).forEach(function(_k) { var _tf = _elSigDetailTf(initSig, _k), _e = {}, _has = false; _EL_TFS.forEach(function(tf) { ["b", "k", "p", "f"].forEach(function(sk) { _e[sk + tf] = _tf[tf][sk].slice(); if (_e[sk + tf].length) _has = true; }); }); if (_has) _o[_k] = _e; });
+    // EP基準ラインは1・5分共通＝段キー "b"（合併で読む）2026-10-29j。寄り足ラインの①（起点）は b1/b5。
+    Object.keys(_src).forEach(function(_k) { var _tf = _elSigDetailTf(initSig, _k), _e = {}, _has = false, _bSh = _elBShared(custom, _k); _EL_TFS.forEach(function(tf) { ["b", "k", "p", "f"].forEach(function(sk) { if (sk === "b" && _bSh) return; _e[sk + tf] = _tf[tf][sk].slice(); if (_e[sk + tf].length) _has = true; }); }); if (_bSh) { _e.b = _elSigDetailSec(initSig, _k).bs.slice(); if (_e.b.length) _has = true; } if (_has) _o[_k] = _e; });
     return _o;
   })()),
     _useStateSGDA = _slicedToArray(_useStateSGD, 2),
     fSigDetail = _useStateSGDA[0], setFSigDetail = _useStateSGDA[1];
-  var _SEC_RKS = ["b1", "b5", "k1", "k5", "p1", "p5", "f1", "f5"];   // フォーム状態の段キー（セクション＋分足）2026-10-29h
+  var _SEC_RKS = ["b", "b1", "b5", "k1", "k5", "p1", "p5", "f1", "f5"];   // フォーム状態の段キー（セクション＋分足）2026-10-29h。"b"＝1・5分共通のEP基準ライン 2026-10-29j
   var _secClone = function(pe) { var o = {}; _SEC_RKS.forEach(function(k) { o[k] = ((pe && pe[k]) || []).slice(); }); return o; };
   var _secAny = function(e) { return _SEC_RKS.some(function(k) { return e && e[k] && e[k].length; }); };
-  var _secUnion = function(e, sk) { var o = []; _EL_TFS.forEach(function(tf) { ((e && e[sk + tf]) || []).forEach(function(x) { if (x && o.indexOf(x) < 0) o.push(x); }); }); return o; };
+  var _secUnion = function(e, sk) { var o = []; [""].concat(_EL_TFS).forEach(function(tf) { ((e && e[sk + tf]) || []).forEach(function(x) { if (x && o.indexOf(x) < 0) o.push(x); }); }); return o; };
   // ①②③各セクションの分足オーバーライド（フォーム状態）: signal.sigDetail[タグ].bBar/kBar/fBar(number配列)から復元。値=文字列配列["1"/"5"] or null(=分足欄fMinBarsに追従)。2026-07-09。
   var _useStateSCB = useState((function() {
     var _src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {};
@@ -9502,7 +9512,7 @@ function EntryRecordForm(_ref_erf) {
       if (!isEdit && fReview === true && (fReviewReasons || []).filter(Boolean).length === 0) _vm.push("要審議の理由（選択肢）");   // 新規の要審議も必須 2026-10-17
       // ①EP基準ライン・②起点は必須 2026-10-29（新規・編集とも・ユーザー決定）。選んだシグナルごとに1つ以上。②の名前はシグナルごとの表示名。
       // 2026-10-29h 1分足・5分足の両方の段で必須（ユーザー決定）。
-      fTags.forEach(function(_t) { var _sb = fSigDetail && fSigDetail[_t]; _elSigSecs(data, _t).forEach(function(_sc) { if (!_sc.req) return; _EL_TFS.forEach(function(tf) { var _a = _sb && _sb[_sc.key + tf]; if (!(Array.isArray(_a) && _a.length)) _vm.push(_sc.num + _sc.name + "（" + tf + "分・" + _t + "）"); }); }); });
+      fTags.forEach(function(_t) { var _sb = fSigDetail && fSigDetail[_t]; _elSigSecs(data, _t).forEach(function(_sc) { if (!_sc.req) return; ((_sc.key === "b" && _elBShared(custom, _t)) ? [""] : _EL_TFS).forEach(function(tf) { var _a = _sb && _sb[_sc.key + tf]; if (!(Array.isArray(_a) && _a.length)) _vm.push(_sc.num + _sc.name + "（" + (tf ? tf + "分・" : "") + _t + "）"); }); }); });
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
       if (fCeOn && _fCeTopRel != null && _fAlpha != null && !(_fCeTopRel > _fAlpha)) {
         window._snAlert("直上VAPは、VAPの株価（水準線＋VAP値＝" + (Math.round((Number(fLevelPrice) + _fAlpha) * 100) / 100) + "円）より上の株価を入れてください。");
@@ -9532,7 +9542,7 @@ function EntryRecordForm(_ref_erf) {
           // 2026-10-29h 分足ごとの段を tf に保存。b/bs/k/ks/p/f は両分足の合併（旧端末・合併の読み手用）。分足の個別指定(bBar等)は書かない。
           if (_s && _secAny(_s)) {
             var _tfO = {};
-            _EL_TFS.forEach(function(tf) { var x = {}; ["b", "k", "p", "f"].forEach(function(sk) { var a = (_s[sk + tf] || []).filter(Boolean); if (a.length) x[sk] = a.slice(); }); if (Object.keys(x).length) _tfO[tf] = x; });
+            _EL_TFS.forEach(function(tf) { var x = {}; ["b", "k", "p", "f"].forEach(function(sk) { if (sk === "b" && _elBShared(custom, _t)) return; var a = (_s[sk + tf] || []).filter(Boolean); if (a.length) x[sk] = a.slice(); }); if (Object.keys(x).length) _tfO[tf] = x; });
             _e.tf = _tfO;
             var _ub = _secUnion(_s, "b"), _uk = _secUnion(_s, "k"), _up = _secUnion(_s, "p"), _uf = _secUnion(_s, "f");
             if (_ub.length) { _e.b = _ub[0]; if (_ub.length >= 2) _e.bs = _ub; }
@@ -9911,6 +9921,7 @@ function EntryRecordForm(_ref_erf) {
           var _seed = ((custom.sigDetails || {})[_dt] || []);
           var _m2 = (_m2raw && typeof _m2raw === "object") ? { b: (_m2raw.b || []), k: (_m2raw.k || []), f: (_m2raw.f || []) } : { b: _seed, k: _seed, f: _seed };
           var _ktK = _elKitenKey(custom, _dt);   // 起点のセクション（共通リスト）2026-10-29e
+          var _rowTfs = function(sc) { return (sc.key === "b" && _elBShared(custom, _dt)) ? [""] : _EL_TFS; };   // EP基準ラインは1・5分共通の1行 2026-10-29j
           if (Array.isArray(custom.sigKitenList)) { _m2 = Object.assign({}, _m2); _m2[_ktK] = custom.sigKitenList; }
           _m2 = Object.assign({}, _m2, { p: Array.isArray(custom.sigKitenList) ? custom.sigKitenList : [] });   // 通過ライン＝起点と同じ共通リスト 2026-10-29f
           var _curSec = (fSigDetail && fSigDetail[_dt]) || {};   // 段キー（b1・b5…）2026-10-29h
@@ -9949,13 +9960,13 @@ function EntryRecordForm(_ref_erf) {
                     style: { fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: "0 4px", marginLeft: -2,
                       border: "1px solid #E7D9C4", background: "#fff", color: "#A8977C", borderRadius: 4, cursor: "pointer" }
                   }, "✎")),
-                _EL_TFS.map(function(_tf) {   // 1分足・5分足の段（ユーザー要望 2026-10-29h）。選択肢（マスター）は共通・選択は段ごと
+                _rowTfs(_sc).map(function(_tf) {   // 1分足・5分足の段（ユーザー要望 2026-10-29h）。選択肢（マスター）は共通・選択は段ごと。EP基準ラインは共通の1行（_tf ""）
                   var _rk = _sc.key + _tf;
                   var _cands = (fDetOrder && fDetOrder.tag === _dt && fDetOrder.sec === _rk) ? fDetOrder.list : _cands0;
                   var _curArr = _curSec[_rk] || [];
                   var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0 && !(_sc.key === "p" && _x === _EL_PASS_NONE); }));   // 選択済みのマスター外(孤児)も末尾に表示（通過ラインの「無し」は専用チップ）
                   return React.createElement("div", { key: _rk, style: { display: "flex", alignItems: "flex-start", gap: 6, marginTop: 3 } },
-                  React.createElement("div", { style: { flexShrink: 0, width: 50, paddingTop: 4, fontSize: 10, fontWeight: 800, color: _tf === "1" ? "#0369A1" : "#7C3AED" } }, _tf + "分",
+                  React.createElement("div", { style: { flexShrink: 0, width: 50, paddingTop: 4, fontSize: 10, fontWeight: 800, color: _tf === "1" ? "#0369A1" : (_tf ? "#7C3AED" : "#B45309") } }, _tf ? _tf + "分" : "1・5分",
                     _sc.key === "p" ? React.createElement("button", {   // 通過ラインのリセット（その分足の段だけ・確認なし・ユーザー決定）2026-10-29f/h
                       type: "button",
                       onClick: function() { setFSigDetail(function(prev) { var _pe = prev[_dt]; if (!_pe || !(_pe[_rk] || []).length) return prev; var _o = Object.assign({}, prev); var _ne = _secClone(_pe); _ne[_rk] = []; _o[_dt] = _ne; return _o; }); },
@@ -10062,7 +10073,7 @@ function EntryRecordForm(_ref_erf) {
                             setFSigDetail(function(prev) {
                               var _pe = prev[_dt]; if (!_pe) return prev;
                               var _e = _secClone(_pe);
-                              if (_sc.multi) { var _hitD = false; _EL_TFS.forEach(function(tf) { var _kk = _sc.key + tf; if (_e[_kk].indexOf(_dn) >= 0) { _hitD = true; _e[_kk] = _e[_kk].filter(function(x) { return x !== _dn; }); } }); if (!_hitD) return prev; }   // 両分足の段から外す 2026-10-29h
+                              if (_sc.multi) { var _hitD = false; _rowTfs(_sc).forEach(function(tf) { var _kk = _sc.key + tf; if (_e[_kk].indexOf(_dn) >= 0) { _hitD = true; _e[_kk] = _e[_kk].filter(function(x) { return x !== _dn; }); } }); if (!_hitD) return prev; }   // 両分足の段から外す 2026-10-29h
                               else { if (_e[_rk] !== _dn) return prev; _e[_rk] = null; }
                               var _o = Object.assign({}, prev);
                               if (_secAny(_e)) _o[_dt] = _e; else delete _o[_dt];
@@ -10136,7 +10147,7 @@ function EntryRecordForm(_ref_erf) {
                             var _e = _secClone(_pe);
                             if (_sc.multi) {   // 改名は両分足の段へ（マスター共通）2026-10-29h
                               var _hitR = false;
-                              _EL_TFS.forEach(function(tf) { var _kk = _sc.key + tf; if (_e[_kk].indexOf(_old) < 0) return; _hitR = true; var _nf = []; _e[_kk].forEach(function(x) { var _y = x === _old ? _nm : x; if (_nf.indexOf(_y) < 0) _nf.push(_y); }); _e[_kk] = _nf; });
+                              _rowTfs(_sc).forEach(function(tf) { var _kk = _sc.key + tf; if (_e[_kk].indexOf(_old) < 0) return; _hitR = true; var _nf = []; _e[_kk].forEach(function(x) { var _y = x === _old ? _nm : x; if (_nf.indexOf(_y) < 0) _nf.push(_y); }); _e[_kk] = _nf; });
                               if (!_hitR) return prev;
                             } else {
                               if (_e[_rk] !== _old) return prev;
@@ -11764,7 +11775,7 @@ function EntryLogCard(_ref_elc) {
         var _tfo = _elSigDetailTf(s, t);   // 分足ごと 2026-10-29h
         var _b = [];
         var _j;
-        if ((_j = _elTfJoin(_tfo, "b"))) _b.push("底 " + _j);
+        if ((_j = _elBJoin(s, t))) _b.push("底 " + _j);
         if ((_j = _elTfJoin(_tfo, "k"))) _b.push("起 " + _j);
         if ((_j = _elTfJoin(_tfo, "p", "→"))) _b.push("通 " + _j);
         if ((_j = _elTfJoin(_tfo, "f"))) _b.push("特徴 " + _j);
