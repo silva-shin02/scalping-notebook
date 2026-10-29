@@ -1593,6 +1593,42 @@ function migrateData(d) {
       console.log("[migrateData] restore1028: タブ=" + _rc.stocks.join("・") + " 日替わり候補=" + _rot.join("・"));
     } catch(e) { console.warn("[migrateData] restore1028 error:", e); }
   }
+  // 【一回性 _migYoriSec1029・2026-10-29】ユーザー指示「寄り足ラインは①が起点、②がその他」（中身ごとずらす・③は出さない・①だけ必須＝ユーザー決定）。
+  //   寄り足ラインの記録 sigDetail[寄り足ライン]: ②(k/ks)→①(b/bs)、③(f)→②(k/ks)、分足も kBar→bBar・fBar→kBar。旧①に値があれば新①の後ろへ足す。
+  //   選択肢 sigDetails2[寄り足ライン]: k→b（旧bも合流）・f→k・f=[]。段組み sigSecLabels[寄り足ライン]={bName:"起点",k:"その他",kReq:false,fHide:true}（_elSigSecs）。
+  if (!d._migYoriSec1029) {
+    try {
+      var _YT = "寄り足ライン", _yN = 0;
+      var _yU = function(a) { var o = []; a.forEach(function(x) { if (x && o.indexOf(x) < 0) o.push(x); }); return o; };
+      var _yArr = function(one, many) { return (one && Array.isArray(many) && many[0] === one) ? many.slice() : (one ? [one] : []); };
+      Object.keys(d.charts || {}).forEach(function(ck) {
+        var c = d.charts[ck]; if (!c || !Array.isArray(c.signals)) return;
+        c.signals.forEach(function(s) {
+          var v = s && s.sigDetail && typeof s.sigDetail === "object" ? s.sigDetail[_YT] : null;
+          if (v == null) return;
+          var ob = [], ok = [], of = [], bB = null, kB = null;
+          if (typeof v === "string") of = [v];
+          else if (Array.isArray(v)) of = v.slice();
+          else { ob = _yArr(v.b, v.bs); ok = _yArr(v.k, v.ks); of = Array.isArray(v.f) ? v.f.slice() : (v.f ? [v.f] : []); bB = v.kBar || null; kB = v.fBar || null; }
+          var nb = _yU(ok.concat(ob)), nk = _yU(of), nv = {};
+          if (nb.length) { nv.b = nb[0]; if (nb.length >= 2) nv.bs = nb; }
+          if (nk.length) { nv.k = nk[0]; if (nk.length >= 2) nv.ks = nk; }
+          if (bB) nv.bBar = bB; if (kB) nv.kBar = kB;
+          var nsd = Object.assign({}, s.sigDetail);
+          if (Object.keys(nv).length) nsd[_YT] = nv; else delete nsd[_YT];
+          s.sigDetail = nsd; _yN++;
+        });
+      });
+      var _sd2 = Object.assign({}, d.custom.sigDetails2 || {}), _cur = _sd2[_YT];
+      if (_cur && typeof _cur === "object") _sd2[_YT] = Object.assign({}, _cur, { b: _yU((_cur.k || []).concat(_cur.b || [])), k: _yU((_cur.f || []).slice()), f: [] });
+      d.custom.sigDetails2 = _sd2;
+      var _ssl = Object.assign({}, d.custom.sigSecLabels || {}), _lo = Object.assign({}, _ssl[_YT] || {});
+      delete _lo.f; _lo.bName = "起点"; _lo.k = "その他"; _lo.kReq = false; _lo.fHide = true;
+      _ssl[_YT] = _lo; d.custom.sigSecLabels = _ssl;
+      d._migYoriSec1029 = true;
+      console.log("[migrateData] yoriSec1029: 寄り足ラインの記録 " + _yN + " 件をずらした");
+    } catch(e) { console.warn("[migrateData] yoriSec1029 error:", e); }
+  }
   // 【一回性 _migRestore1028b・2026-10-28】シグナル詳細の選択肢（①②③）を記録から戻す（ユーザー報告「シグナルの詳細は戻らないの」）。足すだけ。
   if (!d._migRestore1028b && typeof _snRebuildSigDetails === "function") {
     try { var _sdM = _snRebuildSigDetails(d); d.custom.sigDetails2 = _sdM.sigDetails2; d._migRestore1028b = true; console.log("[migrateData] restore1028b: シグナル詳細 +" + _sdM.added); } catch(e) { console.warn("[migrateData] restore1028b error:", e); }

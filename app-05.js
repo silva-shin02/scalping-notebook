@@ -7479,15 +7479,17 @@ var _EL_SIG_SECS = [{ key: "b", num: "①", name: "EP基準ライン", label: "�
 // 正本は custom.sigSecLabels = { <シグナル名>: { b:"区切りライン", k:"起点", f:"その他" } }。未設定のキーは上の既定に落ちる。
 // ⚠️**セクションの数と key/multi は共通のまま**（記録側 sigDetail は {b,k,f} 固定なので、ここを可変にすると過去記録が読めなくなる）。変わるのは表示名だけ。
 // ⚠️app-06 の詳細別集計は全シグナル横断の集計なので、シグナルが特定できない＝既定名のまま出る。
+// 2026-10-29c シグナル別の段組み（ユーザー指示「寄り足ラインは①が起点、②がその他」）: sigSecLabels[tag] の追加キー
+//   bName＝①の表示名（①固定名の例外・✎は出さないまま）／kReq:false＝②を任意に／fHide:true＝③を出さない。設定は app-01 の一回性 _migYoriSec1029。
 function _elSigSecs(data, tag) {
   var m = (data && data.custom && data.custom.sigSecLabels) || null;
   var o = (m && tag) ? m[tag] : null;
   if (!o) return _EL_SIG_SECS;
-  return _EL_SIG_SECS.map(function(sc) {
-    if (sc.key === "b") return sc;   // 2026-10-21 ①は全シグナル共通で「EP基準ライン」に固定（ユーザー決定）＝シグナルごとの付け替え(sigSecLabels[tag].b)は無視
-    var nm = o[sc.key];
+  return _EL_SIG_SECS.filter(function(sc) { return !(sc.key === "f" && o.fHide); }).map(function(sc) {
+    var nm = sc.key === "b" ? o.bName : o[sc.key];   // 2026-10-21 ①は全シグナル共通で「EP基準ライン」に固定（ユーザー決定）＝sigSecLabels[tag].b は無視。例外は bName だけ
     nm = (nm == null) ? "" : String(nm).trim();
-    return nm ? { key: sc.key, num: sc.num, name: nm, label: sc.num + " " + nm, multi: sc.multi, req: sc.req } : sc;
+    var rq = (sc.key === "k" && o.kReq === false) ? false : sc.req;
+    return (nm || rq !== sc.req) ? { key: sc.key, num: sc.num, name: nm || sc.name, label: sc.num + " " + (nm || sc.name), multi: sc.multi, req: rq } : sc;
   });
 }
 function _elSigDetailSec(s, t) {
@@ -9814,7 +9816,7 @@ function EntryRecordForm(_ref_erf) {
             return _c;
           };
           return React.createElement("div", { key: "det_" + _dt, style: { margin: "0 0 6px 12px", padding: "7px 9px", borderLeft: "2px solid #FDBA74", background: "#FFFBF5" } },
-            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（①②は必須）",
+            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（" + _elSigSecs(data, _dt).filter(function(x) { return x.req; }).map(function(x) { return x.num; }).join("") + "は必須）",
               React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "チップをドラッグで並び替え（同セクション内）")),
             _elSigSecs(data, _dt).map(function(_sc) {
               var _cands0 = _m2[_sc.key];
