@@ -7930,15 +7930,19 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     };
     _sigAxisGroups.forEach(function(g) {
       (g.recs || []).forEach(function(r) {
-        var sec = _elSigDetailSec(r.signal, g.key);
+        // 2026-10-29h 1分足・5分足は分けて数える（ユーザー決定）＝「1分:200EMA」「5分:200EMA」は別の行。直近も分足ごと。
+        var _tfo = _elSigDetailTf(r.signal, g.key);
         // ①が起点のシグナル（寄り足ライン）は ①→起点・②→その他 の行へ入れる＝全シグナル横断で同じ意味の行にまとまる 2026-10-29f
         var _kOnB = _elKitenKey(custom, g.key) === "b";
-        (sec.bs || []).forEach(function(bn) { _put(_kOnB ? "k" : "b", bn, r); });   // ①は選んだ各ラインに1件ずつ 2026-10-29
-        (sec.p || []).forEach(function(pn) { if (pn !== _EL_PASS_NONE) _put("p", pn, r); });   // 通過ラインは通った各線に1件ずつ 2026-10-29f（ユーザー決定）
-        (sec.ks || []).forEach(function(kn) { _put(_kOnB ? "f" : "k", kn, r); });   // 起点も各起点に1件ずつ 2026-10-29b
-        (sec.f || []).forEach(function(fn) { _put("f", fn, r); });
-        var _nr = _elKitenNear(sec);
-        if (_nr != null) _put("kn", _nr ? "直近" : "直近以外", r);
+        _EL_TFS.forEach(function(tf) {
+          var sec = _tfo[tf], _pf = tf + "分:";
+          sec.b.forEach(function(bn) { _put(_kOnB ? "k" : "b", _pf + bn, r); });   // ①は選んだ各ラインに1件ずつ 2026-10-29
+          sec.p.forEach(function(pn) { if (pn !== _EL_PASS_NONE) _put("p", _pf + pn, r); });   // 通過ラインは通った各線に1件ずつ 2026-10-29f（ユーザー決定）
+          sec.k.forEach(function(kn) { _put(_kOnB ? "f" : "k", _pf + kn, r); });   // 起点も各起点に1件ずつ 2026-10-29b
+          sec.f.forEach(function(fn) { _put("f", _pf + fn, r); });
+          var _nr = _elKitenNearTf(sec);
+          if (_nr != null) _put("kn", _pf + (_nr ? "直近" : "直近以外"), r);
+        });
       });
     });
     return _EL_SIG_SECS.concat([{ key: "kn", label: "起点の直近（通過ラインから判定）" }]).map(function(sec) {
@@ -8020,13 +8024,14 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     // 底抜けは単一選択（_EL_SIG_SECS の b は multi:false）なので1記録は1バケットにしか入らず、件数の合計が母数を超えない。
     // 選択肢はシグナル全体（pool）から作る＝帯を切り替えてもピルの並びが動かず、件数だけ変わる。0件も出す＝その帯に無いこと自体が情報。
     // ①は複数選択あり（2026-10-29）＝選んだ各ラインのピルに1件ずつ入る（ユーザー決定）。件数の合計は母数を超えることがある。
-    var _bSecsOf = function(r) { return (r && r.signal) ? _elSigDetailSec(r.signal, _o.bSigKey).bs : []; };
+    // 2026-10-29h 1分足・5分足は分けて数える（ユーザー決定）＝ピルは「1分:POC」「5分:POC」。
+    var _bSecsOf = function(r) { if (!r || !r.signal) return []; var _tfo = _elSigDetailTf(r.signal, _o.bSigKey), o = []; _EL_TFS.forEach(function(tf) { _tfo[tf].b.forEach(function(n) { o.push(tf + "分:" + n); }); }); return o; };
     var _bSecGroups = null, _bSecSelKey = null, _bSecSel = null;
     if (_o.bSigKey) {
       var _cand = [], _cm = {};
       var _addC = function(n) { if (n && !_cm[n]) { _cm[n] = 1; _cand.push(n); } };
       var _mB = (((custom || {}).sigDetails2 || {})[_o.bSigKey] || {}).b;   // マスター候補（設定で消した過去の選択肢は下のpool走査で拾う）
-      (Array.isArray(_mB) ? _mB : []).forEach(_addC);
+      _EL_TFS.forEach(function(tf) { (Array.isArray(_mB) ? _mB : []).forEach(function(n) { _addC(tf + "分:" + n); }); });
       (pool || []).forEach(function(r) { _bSecsOf(r).forEach(_addC); });
       var _inBand = _bSel ? _bSel.recs : [];
       var _noneAll = (pool || []).filter(function(r) { return !_bSecsOf(r).length; }).length;
