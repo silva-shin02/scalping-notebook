@@ -7474,7 +7474,14 @@ function _elTagLabel(s) {
 //   読むときは _elSigDetailSec(...).bs（配列）を使う。bs[0]がbと食い違う（旧端末がbだけ書き換えた）ときは b だけを正とする。
 //   分析は「選んだ各ラインに1件ずつ数える」（ユーザー決定）＝①別の行の件数合計は母数を超えることがある。
 // 2026-10-29b ②起点も同様（ユーザー指示「②も同様に」）＝複数選択・必須。保存は k＝1つ目＋ ks＝全部（2つ以上のとき）。読み手は .ks。
-var _EL_SIG_SECS = [{ key: "b", num: "①", name: "EP基準ライン", label: "① EP基準ライン", multi: true, req: true }, { key: "k", num: "②", name: "起点", label: "② 起点", multi: true, req: true }, { key: "f", num: "③", name: "その他", label: "③ その他", multi: true }];
+// 2026-10-29f ②通過ライン（key p）を①と起点の間に新設（ユーザー要望）。番号は振り直し＝①EP基準ライン ②通過ライン ③起点 ④その他。
+//   p は「押した順」の配列（上から通過した順）。「無し」（_EL_PASS_NONE）は他と排他。選択肢は起点と同じ共通リスト custom.sigKitenList。必須（新規・編集とも）。
+//   直近＝通過ラインが「無し」だけ（間に通過ラインが無い）＝_elKitenNear。分析だけで使う（ユーザー決定）。
+var _EL_SIG_SECS = [{ key: "b", num: "①", name: "EP基準ライン", label: "① EP基準ライン", multi: true, req: true }, { key: "p", num: "②", name: "通過ライン", label: "② 通過ライン", multi: true, req: true, ordered: true }, { key: "k", num: "③", name: "起点", label: "③ 起点", multi: true, req: true }, { key: "f", num: "④", name: "その他", label: "④ その他", multi: true }];
+var _EL_PASS_NONE = "無し";
+var _EL_SEC_NUMS = ["①", "②", "③", "④", "⑤", "⑥"];
+// 直近の判定（通過ラインから）: true＝直近（「無し」）／false＝直近以外（1本以上通過）／null＝未記入（旧記録）
+function _elKitenNear(sec) { var p = (sec && sec.p) || []; if (!p.length) return null; return !p.some(function(x) { return x !== _EL_PASS_NONE; }); }
 // セクション名はシグナルごとに変えられる 2026-09-28（ユーザー要望「シグナルによって詳細の内容が変わるようにしたい」）。
 // 正本は custom.sigSecLabels = { <シグナル名>: { b:"区切りライン", k:"起点", f:"その他" } }。未設定のキーは上の既定に落ちる。
 // ⚠️**セクションの数と key/multi は共通のまま**（記録側 sigDetail は {b,k,f} 固定なので、ここを可変にすると過去記録が読めなくなる）。変わるのは表示名だけ。
@@ -7485,12 +7492,15 @@ function _elSigSecs(data, tag) {
   var m = (data && data.custom && data.custom.sigSecLabels) || null;
   var o = (m && tag) ? m[tag] : null;
   if (!o) return _EL_SIG_SECS;
-  return _EL_SIG_SECS.filter(function(sc) { return !(sc.key === "f" && o.fHide); }).map(function(sc) {
-    var nm = sc.key === "b" ? o.bName : o[sc.key];   // 2026-10-21 ①は全シグナル共通で「EP基準ライン」に固定（ユーザー決定）＝sigSecLabels[tag].b は無視。例外は bName だけ
+  var _l = _EL_SIG_SECS.filter(function(sc) { return !(sc.key === "f" && o.fHide); }).map(function(sc) {
+    var nm = sc.key === "b" ? o.bName : (sc.key === "p" ? null : o[sc.key]);   // 2026-10-21 ①は全シグナル共通で「EP基準ライン」に固定（ユーザー決定）＝sigSecLabels[tag].b は無視。例外は bName だけ。通過ラインも固定名
     nm = (nm == null) ? "" : String(nm).trim();
     var rq = (sc.key === "k" && o.kReq === false) ? false : sc.req;
-    return (nm || rq !== sc.req) ? { key: sc.key, num: sc.num, name: nm || sc.name, label: sc.num + " " + (nm || sc.name), multi: sc.multi, req: rq } : sc;
+    return { key: sc.key, name: nm || sc.name, multi: sc.multi, req: rq, ordered: sc.ordered };
   });
+  // ①がEP基準ラインでないシグナル（寄り足ライン＝①起点）は通過ラインを先頭へ＝①通過ライン ②起点 ③その他（ユーザー決定 2026-10-29f）
+  if (o.bName) { var _pi = -1; _l.forEach(function(x, i) { if (x.key === "p") _pi = i; }); if (_pi > 0) _l.unshift(_l.splice(_pi, 1)[0]); }
+  return _l.map(function(x, i) { x.num = _EL_SEC_NUMS[i]; x.label = x.num + " " + x.name; return x; });
 }
 // 起点の選択肢は全シグナル共通 2026-10-29e（ユーザー指示「起点欄の選択肢は浮き足連続OSのものに合わせて」・共通にする＝ユーザー決定）。
 //   正本＝custom.sigKitenList。起点のセクションは通常②(k)、①の表示名が「起点」のシグナル（寄り足ライン）は①(b)＝_elKitenKey。
@@ -7516,25 +7526,26 @@ function _elKitenWrite(c, list) {   // c＝書き換えてよい custom のコ�
 function _elKitenRenameSig(custom, s, oldN, newN) {
   if (!s || !s.sigDetail || typeof s.sigDetail !== "object") return s;
   var ns = s;
-  Object.keys(s.sigDetail).forEach(function(t) { ns = _elSigDetailRenameSig(ns, t, _elKitenKey(custom, t), oldN, newN); });
+  Object.keys(s.sigDetail).forEach(function(t) { ns = _elSigDetailRenameSig(ns, t, _elKitenKey(custom, t), oldN, newN); ns = _elSigDetailRenameSig(ns, t, "p", oldN, newN); });   // 通過ラインも同じリスト 2026-10-29f
   return ns;
 }
 function _elSigDetailSec(s, t) {
   var _v = (s && s.sigDetail && typeof s.sigDetail === "object") ? s.sigDetail[t] : null;
-  if (_v == null) return { b: null, bs: [], k: null, ks: [], f: [] };
+  if (_v == null) return { b: null, bs: [], p: [], k: null, ks: [], f: [] };
   if (typeof _v === "object" && !Array.isArray(_v)) {
     var _f = Array.isArray(_v.f) ? _v.f.filter(function(x) { return x; }) : (_v.f ? [_v.f] : []);
     var _arrOf = function(one, many) { var o = []; if (one && Array.isArray(many) && many[0] === one) many.forEach(function(x) { if (x && o.indexOf(x) < 0) o.push(x); }); else if (one) o = [one]; return o; };
     var _b = _v.b || null, _k = _v.k || null;
-    return { b: _b, bs: _arrOf(_b, _v.bs), k: _k, ks: _arrOf(_k, _v.ks), f: _f };
+    var _p = []; if (Array.isArray(_v.p)) _v.p.forEach(function(x) { if (x && _p.indexOf(x) < 0) _p.push(x); });   // 通過ライン（押した順）2026-10-29f
+    return { b: _b, bs: _arrOf(_b, _v.bs), p: _p, k: _k, ks: _arrOf(_k, _v.ks), f: _f };
   }
-  if (Array.isArray(_v)) return { b: null, bs: [], k: null, ks: [], f: _v.filter(function(x) { return x; }) };
-  return { b: null, bs: [], k: null, ks: [], f: [_v] };
+  if (Array.isArray(_v)) return { b: null, bs: [], p: [], k: null, ks: [], f: _v.filter(function(x) { return x; }) };
+  return { b: null, bs: [], p: [], k: null, ks: [], f: [_v] };
 }
 function _elSigDetailList(s, t) {
   var _sec = _elSigDetailSec(s, t);
   var _out = [];
-  _sec.bs.concat(_sec.ks).concat(_sec.f).forEach(function(x) { if (x && _out.indexOf(x) < 0) _out.push(x); });
+  _sec.bs.concat(_sec.p.filter(function(x) { return x !== _EL_PASS_NONE; })).concat(_sec.ks).concat(_sec.f).forEach(function(x) { if (x && _out.indexOf(x) < 0) _out.push(x); });
   return _out;
 }
 function _elSigDetailOf(s, t) { var _l = _elSigDetailList(s, t); return _l.length ? _l[0] : null; }   // 後方互換の単一値（先頭）
@@ -7549,6 +7560,11 @@ function _elSigDetailRenameSig(s, t, secKey, oldN, newN) {
     if (_l.indexOf(oldN) < 0) return s;
     var _nl = []; _l.forEach(function(x) { var _y = (x === oldN) ? newN : x; if (_y && _nl.indexOf(_y) < 0) _nl.push(_y); });
     return _set(_isObj ? Object.assign({}, _v, { f: _nl }) : _nl);
+  }
+  if (secKey === "p") {   // 通過ライン（配列・押した順を保つ）2026-10-29f
+    if (!_isObj || !Array.isArray(_v.p) || _v.p.indexOf(oldN) < 0) return s;
+    var _np = []; _v.p.forEach(function(x) { var _y = (x === oldN) ? newN : x; if (_y && _np.indexOf(_y) < 0) _np.push(_y); });
+    return _set(Object.assign({}, _v, { p: _np }));
   }
   var _mk = secKey + "s";   // ①②の複数選択（bs/ks）も追従 2026-10-29
   if ((secKey === "b" || secKey === "k") && _isObj && Array.isArray(_v[_mk])) {
@@ -7594,6 +7610,7 @@ function _elSignalRenameData(prev, oldNm, newNm) {
     if (n.b ? Array.isArray(n.bs) : (o.b && Array.isArray(o.bs))) out.bs = (n.b ? n.bs : o.bs).slice();   // ①の複数選択 2026-10-29
     if (n.k || o.k) out.k = n.k || o.k;
     if (n.k ? Array.isArray(n.ks) : (o.k && Array.isArray(o.ks))) out.ks = (n.k ? n.ks : o.ks).slice();   // ②の複数選択 2026-10-29b
+    var _pp = (Array.isArray(n.p) && n.p.length) ? n.p : (Array.isArray(o.p) ? o.p : []); if (_pp.length) out.p = _pp.slice();   // 通過ライン 2026-10-29f
     var f = _mergeArr(Array.isArray(n.f) ? n.f : (n.f ? [n.f] : []), Array.isArray(o.f) ? o.f : (o.f ? [o.f] : []));
     if (f.length) out.f = f;
     return out;
@@ -8187,7 +8204,7 @@ function EntryRecordForm(_ref_erf) {
   var _useStateSGD = useState((function() {
     var _src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {};
     var _o = {};
-    Object.keys(_src).forEach(function(_k) { var _s = _elSigDetailSec(initSig, _k); if (_s.b || _s.k || _s.f.length) _o[_k] = { b: _s.bs.slice(), k: _s.ks.slice(), f: _s.f.slice() }; });   // フォーム内の b・k は配列（①②複数選択 2026-10-29）
+    Object.keys(_src).forEach(function(_k) { var _s = _elSigDetailSec(initSig, _k); if (_s.b || _s.k || _s.f.length || _s.p.length) _o[_k] = { b: _s.bs.slice(), p: _s.p.slice(), k: _s.ks.slice(), f: _s.f.slice() }; });   // フォーム内の b・k は配列（①②複数選択 2026-10-29）
     return _o;
   })()),
     _useStateSGDA = _slicedToArray(_useStateSGD, 2),
@@ -8197,7 +8214,7 @@ function EntryRecordForm(_ref_erf) {
     var _src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {};
     var _rd = function(_val) { if (_val == null) return null; var _a = Array.isArray(_val) ? _val : [_val]; var _out = []; _a.forEach(function(_x) { var _sx = String(_x); if ((_sx === "1" || _sx === "5") && _out.indexOf(_sx) < 0) _out.push(_sx); }); return _out.length ? _out.sort() : null; };
     var _o = {};
-    Object.keys(_src).forEach(function(_k) { var _v = _src[_k]; if (!_v || typeof _v !== "object" || Array.isArray(_v)) return; var _b = _rd(_v.bBar), _kk = _rd(_v.kBar), _f = _rd(_v.fBar); if (_b || _kk || _f) _o[_k] = { b: _b, k: _kk, f: _f }; });
+    Object.keys(_src).forEach(function(_k) { var _v = _src[_k]; if (!_v || typeof _v !== "object" || Array.isArray(_v)) return; var _b = _rd(_v.bBar), _pp = _rd(_v.pBar), _kk = _rd(_v.kBar), _f = _rd(_v.fBar); if (_b || _pp || _kk || _f) _o[_k] = { b: _b, p: _pp, k: _kk, f: _f }; });
     return _o;
   })()),
     _useStateSCBA = _slicedToArray(_useStateSCB, 2),
@@ -8398,7 +8415,7 @@ function EntryRecordForm(_ref_erf) {
   var _toggleSecBar = function(_tag, _sk, _v) {
     setFSecBar(function(_prev) {
       var _o = Object.assign({}, _prev);
-      var _cur = _o[_tag] ? Object.assign({}, _o[_tag]) : { b: null, k: null, f: null };
+      var _cur = _o[_tag] ? Object.assign({}, _o[_tag]) : { b: null, p: null, k: null, f: null };
       var _eff = (_cur[_sk] != null) ? _cur[_sk] : fMinBars;
       var _next = (_eff.indexOf(_v) >= 0) ? _eff.filter(function(_x) { return _x !== _v; }) : _eff.concat([_v]);
       _next = _next.slice().sort();
@@ -9457,8 +9474,8 @@ function EntryRecordForm(_ref_erf) {
           var _s = (fSigDetail && fSigDetail[_t]) || null;
           var _sb = (fSecBar && fSecBar[_t]) || null;
           var _e = {}, _has = false;
-          if (_s) { var _sbs = Array.isArray(_s.b) ? _s.b.filter(Boolean) : (_s.b ? [_s.b] : []); if (_sbs.length) { _e.b = _sbs[0]; if (_sbs.length >= 2) _e.bs = _sbs.slice(); _has = true; } var _sks = Array.isArray(_s.k) ? _s.k.filter(Boolean) : (_s.k ? [_s.k] : []); if (_sks.length) { _e.k = _sks[0]; if (_sks.length >= 2) _e.ks = _sks.slice(); _has = true; } if (_s.f && _s.f.length) { _e.f = _s.f.slice(); _has = true; } }
-          if (_sb) { var _bb = _barDiff(_sb.b), _kb = _barDiff(_sb.k), _fb = _barDiff(_sb.f); if (_bb) { _e.bBar = _bb; _has = true; } if (_kb) { _e.kBar = _kb; _has = true; } if (_fb) { _e.fBar = _fb; _has = true; } }
+          if (_s) { var _sbs = Array.isArray(_s.b) ? _s.b.filter(Boolean) : (_s.b ? [_s.b] : []); if (_sbs.length) { _e.b = _sbs[0]; if (_sbs.length >= 2) _e.bs = _sbs.slice(); _has = true; } var _sks = Array.isArray(_s.k) ? _s.k.filter(Boolean) : (_s.k ? [_s.k] : []); if (_sks.length) { _e.k = _sks[0]; if (_sks.length >= 2) _e.ks = _sks.slice(); _has = true; } if (_s.f && _s.f.length) { _e.f = _s.f.slice(); _has = true; } if (_s.p && _s.p.length) { _e.p = _s.p.slice(); _has = true; } }
+          if (_sb) { var _bb = _barDiff(_sb.b), _pb = _barDiff(_sb.p), _kb = _barDiff(_sb.k), _fb = _barDiff(_sb.f); if (_bb) { _e.bBar = _bb; _has = true; } if (_pb) { _e.pBar = _pb; _has = true; } if (_kb) { _e.kBar = _kb; _has = true; } if (_fb) { _e.fBar = _fb; _has = true; } }
           if (_has) { _o[_ntf(_t)] = _e; _any = true; }
         });
         return _any ? _o : null;
@@ -9830,7 +9847,8 @@ function EntryRecordForm(_ref_erf) {
           var _m2 = (_m2raw && typeof _m2raw === "object") ? { b: (_m2raw.b || []), k: (_m2raw.k || []), f: (_m2raw.f || []) } : { b: _seed, k: _seed, f: _seed };
           var _ktK = _elKitenKey(custom, _dt);   // 起点のセクション（共通リスト）2026-10-29e
           if (Array.isArray(custom.sigKitenList)) { _m2 = Object.assign({}, _m2); _m2[_ktK] = custom.sigKitenList; }
-          var _curSec = (fSigDetail && fSigDetail[_dt]) || { b: [], k: [], f: [] };
+          _m2 = Object.assign({}, _m2, { p: Array.isArray(custom.sigKitenList) ? custom.sigKitenList : [] });   // 通過ライン＝起点と同じ共通リスト 2026-10-29f
+          var _curSec = (fSigDetail && fSigDetail[_dt]) || { b: [], p: [], k: [], f: [] };
           // セクション別リストの書き込みヘルパー（prevベース）: sigDetails2[_dt]が無ければ旧リストから3セクションを実体化してから対象セクションを更新。_listは配列 or (現リスト)=>新リスト。
           var _writeSec = function(prev, _secKey, _list) {
             var _c = Object.assign({}, prev.custom || {});
@@ -9839,7 +9857,7 @@ function EntryRecordForm(_ref_erf) {
             var _base = (_cur && typeof _cur === "object")
               ? { b: (_cur.b || []).slice(), k: (_cur.k || []).slice(), f: (_cur.f || []).slice() }
               : (function() { var _s0 = (((prev.custom || {}).sigDetails || {})[_dt] || []); return { b: _s0.slice(), k: _s0.slice(), f: _s0.slice() }; })();
-            if (_secKey === _elKitenKey(_c, _dt)) {   // 起点は全シグナル共通＝正本へ書いて全シグナルに配る 2026-10-29e
+            if (_secKey === "p" || _secKey === _elKitenKey(_c, _dt)) {   // 起点・通過ラインは全シグナル共通＝正本へ書いて全シグナルに配る 2026-10-29e/f
               var _kt0 = Array.isArray(_c.sigKitenList) ? _c.sigKitenList.slice() : _base[_secKey];
               return _elKitenWrite(_c, (typeof _list === "function") ? _list(_kt0) : _list);
             }
@@ -9855,7 +9873,7 @@ function EntryRecordForm(_ref_erf) {
               var _cands0 = _m2[_sc.key];
               var _cands = (fDetOrder && fDetOrder.tag === _dt && fDetOrder.sec === _sc.key) ? fDetOrder.list : _cands0;
               var _curArr = _sc.multi ? (_curSec[_sc.key] || []) : (_curSec[_sc.key] ? [_curSec[_sc.key]] : []);
-              var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0; }));   // 選択済みのマスター外(孤児)も末尾に表示
+              var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0 && !(_sc.key === "p" && _x === _EL_PASS_NONE); }));   // 選択済みのマスター外(孤児)も末尾に表示（通過ラインの「無し」は専用チップ）
               return React.createElement("div", { key: _sc.key, style: { margin: "2px 0 6px" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 3 } },
                   // セクション名はシグナルごとに変えられる。2026-09-28b まで「✎ 名前変更」モード中だけ見出しを押せる作りだったが、
@@ -9863,7 +9881,13 @@ function EntryRecordForm(_ref_erf) {
                   // 常時見える小さな ✎ を置き、モード無しで直接変えられるようにした 2026-09-28c。
                   React.createElement("span", { style: { fontSize: 10, color: "#B45309", fontWeight: 700 } }, _sc.label,
                     React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 4 } }, _sc.multi ? (_sc.req ? "（複数可・必須）" : "（複数可）") : "（1つまで）")),
-                  _sc.key === "b" ? null : React.createElement("button", {   // ①（EP基準ライン）は固定名＝✎を出さない 2026-10-21
+                  _sc.key === "p" ? React.createElement("button", {   // 通過ラインのリセット（選択を全部外すだけ＝確認なし・ユーザー決定）2026-10-29f
+                    type: "button",
+                    onClick: function() { setFSigDetail(function(prev) { var _pe = prev[_dt]; if (!_pe || !(_pe.p || []).length) return prev; var _o = Object.assign({}, prev); _o[_dt] = Object.assign({}, _pe, { p: [] }); return _o; }); },
+                    title: "通過ラインの選択を全部外します",
+                    style: { fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: "0 6px", border: "1px solid #E7D9C4", background: "#fff", color: "#A8977C", borderRadius: 4, cursor: "pointer" }
+                  }, "↺ リセット") : null,
+                  (_sc.key === "b" || _sc.key === "p") ? null : React.createElement("button", {   // ①（EP基準ライン）・通過ラインは固定名＝✎を出さない 2026-10-21
                     onClick: function() { _renameSigSec(_dt, _sc); },
                     title: "「" + _dt + "」の" + _sc.num + "セクション名を変更します（このシグナルだけ・過去の記録の中身は変わりません）",
                     style: { fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: "0 4px", marginLeft: -2,
@@ -9952,14 +9976,15 @@ function EntryRecordForm(_ref_erf) {
                           setFSigDetail(function(prev) {
                             var _o = Object.assign({}, prev);
                             var _pe = _o[_dt] || {};
-                            var _e = { b: (_pe.b || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
+                            var _e = { b: (_pe.b || []).slice(), p: (_pe.p || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
                             if (_sc.multi) {
                               var _i = _e[_sc.key].indexOf(_dn);
-                              if (_i >= 0) _e[_sc.key].splice(_i, 1); else _e[_sc.key].push(_dn);
+                              if (_i >= 0) _e[_sc.key].splice(_i, 1); else _e[_sc.key].push(_dn);   // 末尾に足す＝通過ラインは押した順（外すと後ろが詰まる）
+                              if (_sc.key === "p" && _i < 0) _e.p = _e.p.filter(function(x) { return x !== _EL_PASS_NONE; });   // 線を選んだら「無し」は外れる
                             } else {
                               _e[_sc.key] = (_e[_sc.key] === _dn) ? null : _dn;   // 単一セクション用（①②は2026-10-29から複数＝今は使われない）
                             }
-                            if (_e.b.length || _e.k.length || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
+                            if (_e.b.length || _e.p.length || _e.k.length || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
                             return _o;
                           });
                         },
@@ -9967,7 +9992,7 @@ function EntryRecordForm(_ref_erf) {
                           border: _on ? "1.5px solid #D97706" : "1px solid #ddd",
                           background: _on ? "#FEF3C7" : "#fff", color: _on ? "#92400E" : "#777",
                           borderRadius: 6, cursor: "pointer" }
-                      }, _dn),
+                      }, (_sc.ordered && _on) ? React.createElement("span", { style: { display: "inline-block", minWidth: 13, marginRight: 4, padding: "0 3px", fontSize: 9, fontWeight: 800, lineHeight: "13px", borderRadius: 7, background: "#D97706", color: "#fff", textAlign: "center" } }, String(_curArr.indexOf(_dn) + 1)) : null, _dn),
                       (fDetEdit && !_isOrphan) ? React.createElement(React.Fragment, null,
                         React.createElement("button", {
                           title: "この詳細の名前を変更（このセクションに付いた過去の記録の詳細も一括変更）",
@@ -9982,11 +10007,11 @@ function EntryRecordForm(_ref_erf) {
                             save(function(prev) { return Object.assign({}, prev, { custom: _writeSec(prev, _sc.key, function(_l) { return _l.filter(function(x) { return x !== _dn; }); }) }); });
                             setFSigDetail(function(prev) {
                               var _pe = prev[_dt]; if (!_pe) return prev;
-                              var _e = { b: (_pe.b || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
+                              var _e = { b: (_pe.b || []).slice(), p: (_pe.p || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
                               if (_sc.multi) { if (_e[_sc.key].indexOf(_dn) < 0) return prev; _e[_sc.key] = _e[_sc.key].filter(function(x) { return x !== _dn; }); }
                               else { if (_e[_sc.key] !== _dn) return prev; _e[_sc.key] = null; }
                               var _o = Object.assign({}, prev);
-                              if (_e.b.length || _e.k.length || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
+                              if (_e.b.length || _e.p.length || _e.k.length || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
                               return _o;
                             });
                           },
@@ -9994,6 +10019,13 @@ function EntryRecordForm(_ref_erf) {
                         }, "×")
                       ) : null);
                   }),
+                  _sc.key === "p" ? (function() {   // 通過ラインの「無し」＝他と排他（選ぶと線は外れる）2026-10-29f
+                    var _nOn = _curArr.indexOf(_EL_PASS_NONE) >= 0;
+                    return React.createElement("button", { type: "button",
+                      onClick: function() { setFSigDetail(function(prev) { var _o = Object.assign({}, prev); var _pe = _o[_dt] || {}; _o[_dt] = Object.assign({ b: [], k: [], f: [] }, _pe, { p: _nOn ? [] : [_EL_PASS_NONE] }); return _o; }); },
+                      style: { padding: "4px 9px", fontSize: 11, fontWeight: 600, border: _nOn ? "1.5px solid #D97706" : "1px solid #ddd", background: _nOn ? "#FEF3C7" : "#fff", color: _nOn ? "#92400E" : "#777", borderRadius: 6, cursor: "pointer" }
+                    }, _EL_PASS_NONE);
+                  })() : null,
                   (function() {
                     var _addOpen = !!(fDetAdd && fDetAdd.tag === _dt && fDetAdd.sec === _sc.key);
                     return React.createElement("button", {
@@ -10011,6 +10043,7 @@ function EntryRecordForm(_ref_erf) {
                     style: { padding: "4px 8px", fontSize: 10, fontWeight: 700, border: "1px solid " + (fDetEdit ? "#B91C1C" : "#ddd"), background: fDetEdit ? "#FEF2F2" : "#fff", color: fDetEdit ? "#B91C1C" : "#999", borderRadius: 6, cursor: "pointer" }
                   }, fDetEdit ? "完了" : "編集") : null
                 ),
+                (_sc.key === "p" && _curArr.length && _curArr[0] !== _EL_PASS_NONE) ? React.createElement("div", { style: { fontSize: 10, color: "#92400E", fontWeight: 700, marginTop: 4 } }, "上から：" + _curArr.join(" → ")) : null,
                 (fDetAdd && fDetAdd.tag === _dt && fDetAdd.sec === _sc.key) ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6, alignItems: "center", flexWrap: "wrap" } },
                   fDetAdd.old != null ? React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "『" + fDetAdd.old + "』を改名:") : null,
                   React.createElement(FastInput, {
@@ -10030,7 +10063,7 @@ function EntryRecordForm(_ref_erf) {
                         var _old = fDetAdd.old;
                         if (_nm !== _old) {
                           save(function(prev) {
-                            var _curList = (_sc.key === _elKitenKey(prev.custom, _dt) && Array.isArray((prev.custom || {}).sigKitenList)) ? prev.custom.sigKitenList : (function() { var _cur = ((prev.custom || {}).sigDetails2 || {})[_dt]; if (_cur && typeof _cur === "object") return (_cur[_sc.key] || []); return (((prev.custom || {}).sigDetails || {})[_dt] || []); })();
+                            var _curList = ((_sc.key === "p" || _sc.key === _elKitenKey(prev.custom, _dt)) && Array.isArray((prev.custom || {}).sigKitenList)) ? prev.custom.sigKitenList : (function() { var _cur = ((prev.custom || {}).sigDetails2 || {})[_dt]; if (_cur && typeof _cur === "object") return (_cur[_sc.key] || []); return (((prev.custom || {}).sigDetails || {})[_dt] || []); })();
                             var _rnL = _curList.map(function(x) { return x === _old ? _nm : x; });
                             var _c = _writeSec(prev, _sc.key, _rnL.filter(function(x, i) { return x && _rnL.indexOf(x) === i; }));
                             var _pCharts = prev.charts || {}, _nCharts = {};
@@ -10038,7 +10071,7 @@ function EntryRecordForm(_ref_erf) {
                               var cc = _pCharts[ck];
                               if (!cc || !Array.isArray(cc.signals)) { _nCharts[ck] = cc; return; }
                               var _ch = false;
-                              var _isKt = _sc.key === _elKitenKey(prev.custom, _dt);
+                              var _isKt = _sc.key === "p" || _sc.key === _elKitenKey(prev.custom, _dt);
                               var sigs = cc.signals.map(function(s) { var _ns = _isKt ? _elKitenRenameSig(prev.custom, s, _old, _nm) : _elSigDetailRenameSig(s, _dt, _sc.key, _old, _nm); if (_ns !== s) _ch = true; return _ns; });
                               _nCharts[ck] = _ch ? Object.assign({}, cc, { signals: sigs }) : cc;
                             });
@@ -10046,7 +10079,7 @@ function EntryRecordForm(_ref_erf) {
                           });
                           setFSigDetail(function(prev) {
                             var _pe = prev[_dt]; if (!_pe) return prev;
-                            var _e = { b: (_pe.b || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
+                            var _e = { b: (_pe.b || []).slice(), p: (_pe.p || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
                             if (_sc.multi) {
                               if (_e[_sc.key].indexOf(_old) < 0) return prev;
                               var _nf = []; _e[_sc.key].forEach(function(x) { var _y = x === _old ? _nm : x; if (_nf.indexOf(_y) < 0) _nf.push(_y); }); _e[_sc.key] = _nf;
@@ -10062,8 +10095,8 @@ function EntryRecordForm(_ref_erf) {
                         setFSigDetail(function(prev) {
                           var _o = Object.assign({}, prev);
                           var _pe = _o[_dt] || {};
-                          var _e = { b: (_pe.b || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
-                          if (_sc.multi) { if (_e[_sc.key].indexOf(_nm) < 0) _e[_sc.key].push(_nm); }
+                          var _e = { b: (_pe.b || []).slice(), p: (_pe.p || []).slice(), k: (_pe.k || []).slice(), f: (_pe.f || []).slice() };
+                          if (_sc.multi) { if (_e[_sc.key].indexOf(_nm) < 0) _e[_sc.key].push(_nm); if (_sc.key === "p") _e.p = _e.p.filter(function(x) { return x !== _EL_PASS_NONE; }); }
                           else _e[_sc.key] = _nm;
                           _o[_dt] = _e;
                           return _o;
@@ -11675,6 +11708,7 @@ function EntryLogCard(_ref_elc) {
         var _sec = _elSigDetailSec(s, t);
         var _b = [];
         if (_sec.bs.length) _b.push("底 " + _sec.bs.join("・"));
+        if (_sec.p.length) _b.push("通 " + _sec.p.join("→"));
         if (_sec.ks.length) _b.push("起 " + _sec.ks.join("・"));
         var _f = (_sec.f || []).filter(Boolean);
         if (_f.length) _b.push("特徴 " + _f.join("・"));

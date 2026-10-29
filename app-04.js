@@ -1166,7 +1166,7 @@ function SearchView(_ref45) {
       if (v == null) return;
       if (Array.isArray(v)) { v.forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); return; }
       if (typeof v === "string") { if (out.indexOf(v) < 0) out.push(v); return; }
-      if (typeof v === "object") { [v.b, v.k].concat(Array.isArray(v.bs) ? v.bs : []).concat(Array.isArray(v.ks) ? v.ks : []).forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); (Array.isArray(v.f) ? v.f : []).forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); }
+      if (typeof v === "object") { [v.b, v.k].concat(Array.isArray(v.bs) ? v.bs : []).concat(Array.isArray(v.ks) ? v.ks : []).concat(Array.isArray(v.p) ? v.p.filter(function(x) { return x !== "無し"; }) : []).forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); (Array.isArray(v.f) ? v.f : []).forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); }
     });
     return out;
   };
