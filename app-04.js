@@ -4773,10 +4773,11 @@ function _EpnCalcForm(_p) {
   var cands = useMemo(function() {
     if (!nTag) return { b: [], k: [], f: [] };
     var m2 = (custom.sigDetails2 || {})[nTag];
-    if (m2 && typeof m2 === "object" && !Array.isArray(m2)) return { b: Array.isArray(m2.b) ? m2.b : [], k: Array.isArray(m2.k) ? m2.k : [], f: Array.isArray(m2.f) ? m2.f : [] };
-    var old = (custom.sigDetails || {})[nTag];
-    var oldArr = Array.isArray(old) ? old : [];
-    return { b: oldArr, k: oldArr, f: oldArr };
+    var _r;
+    if (m2 && typeof m2 === "object" && !Array.isArray(m2)) _r = { b: Array.isArray(m2.b) ? m2.b : [], k: Array.isArray(m2.k) ? m2.k : [], f: Array.isArray(m2.f) ? m2.f : [] };
+    else { var old = (custom.sigDetails || {})[nTag]; var oldArr = Array.isArray(old) ? old : []; _r = { b: oldArr, k: oldArr, f: oldArr }; }
+    if (Array.isArray(custom.sigKitenList)) _r[_elKitenKey(custom, nTag)] = custom.sigKitenList;   // 起点は全シグナル共通 2026-10-29e
+    return _r;
   }, [custom, nTag]);
   var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk, band = casc && casc.band;
   // 採用基本α: 詳細別ok→シグナル別ok→銘柄全体ok→株価帯ok。全段データ不足なら仮値（参考推奨）を同順で採用＝フォームと違い場中は値を出すのが仕事（（仮）表示で明示）。帯＝第2弾フォールバック 2026-07-22f
@@ -4926,6 +4927,10 @@ function _EpnCalcForm(_p) {
     var _all = Object.assign({}, _c.sigDetails2 || {});
     var _cur = _all[nTag];
     var _base = (_cur && typeof _cur === "object") ? { b: (_cur.b || []).slice(), k: (_cur.k || []).slice(), f: (_cur.f || []).slice() } : (function() { var _s0 = (((prev.custom || {}).sigDetails || {})[nTag] || []); return { b: _s0.slice(), k: _s0.slice(), f: _s0.slice() }; })();
+    if (secKey === _elKitenKey(_c, nTag)) {   // 起点は全シグナル共通＝正本へ書いて全シグナルに配る 2026-10-29e
+      var _kt0 = Array.isArray(_c.sigKitenList) ? _c.sigKitenList.slice() : _base[secKey];
+      return _elKitenWrite(_c, (typeof listOrFn === "function") ? listOrFn(_kt0) : listOrFn);
+    }
     _base[secKey] = (typeof listOrFn === "function") ? listOrFn(_base[secKey]) : listOrFn;
     _all[nTag] = _base; _c.sigDetails2 = _all; return _c;
   };
@@ -4939,7 +4944,8 @@ function _EpnCalcForm(_p) {
   var _detReorder = function(secKey, list) { save(function(prev) { return Object.assign({}, prev, { custom: _detWrite(prev, secKey, list.slice()) }); }); };
   var _detRename = function(secKey, oldNm, newNm) {
     save(function(prev) {
-      var _curList = (function() { var _cur = ((prev.custom || {}).sigDetails2 || {})[nTag]; if (_cur && typeof _cur === "object") return (_cur[secKey] || []); return (((prev.custom || {}).sigDetails || {})[nTag] || []); })();
+      var _isKt = secKey === _elKitenKey(prev.custom, nTag);
+      var _curList = (_isKt && Array.isArray((prev.custom || {}).sigKitenList)) ? prev.custom.sigKitenList : (function() { var _cur = ((prev.custom || {}).sigDetails2 || {})[nTag]; if (_cur && typeof _cur === "object") return (_cur[secKey] || []); return (((prev.custom || {}).sigDetails || {})[nTag] || []); })();
       // 既存名への改名も「統合」として実行（候補はdedupe・記録側は_elSigDetailRenameSigがf重複を除去）2026-07-07g（旧: 同名ありは中断）
       var _renamed = _curList.map(function(x) { return x === oldNm ? newNm : x; });
       var _c = _detWrite(prev, secKey, _renamed.filter(function(x, i) { return x && _renamed.indexOf(x) === i; }));
@@ -4948,7 +4954,7 @@ function _EpnCalcForm(_p) {
         var cc = _pCharts[ck];
         if (!cc || !Array.isArray(cc.signals)) { _nCharts[ck] = cc; return; }
         var _ch = false;
-        var sigs = cc.signals.map(function(s) { var _ns = _elSigDetailRenameSig(s, nTag, secKey, oldNm, newNm); if (_ns !== s) _ch = true; return _ns; });
+        var sigs = cc.signals.map(function(s) { var _ns = _isKt ? _elKitenRenameSig(prev.custom, s, oldNm, newNm) : _elSigDetailRenameSig(s, nTag, secKey, oldNm, newNm); if (_ns !== s) _ch = true; return _ns; });
         _nCharts[ck] = _ch ? Object.assign({}, cc, { signals: sigs }) : cc;
       });
       return Object.assign({}, prev, { custom: _c, charts: _nCharts });
@@ -5337,7 +5343,7 @@ function EpNaviPanel(_refEPN) {
     var mbBadge = (has5 || has1) ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, borderRadius: 3, padding: "0 3px", marginRight: 3, color: C.bc, background: C.bbg, border: "0.5px solid " + C.bd, whiteSpace: "nowrap", flexShrink: 0 } }, mb.join("・") + "分") : null;
     var _isEditingThis = _editingMap[st] === e.id;
     var _cand = (custom.sigDetails2 || {})[e.tag] || {};
-    var _candK = Array.isArray(_cand.k) ? _cand.k.slice() : [];
+    var _candK = Array.isArray(custom.sigKitenList) && _elKitenKey(custom, e.tag) === "k" ? custom.sigKitenList.slice() : (Array.isArray(_cand.k) ? _cand.k.slice() : []);   // 起点は全シグナル共通 2026-10-29e
     if (e.k && _candK.indexOf(e.k) < 0) _candK.unshift(e.k);
     var _candF = Array.isArray(_cand.f) ? _cand.f.slice() : [];
     (e.f || []).forEach(function(x) { if (_candF.indexOf(x) < 0) _candF.push(x); });
