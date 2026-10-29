@@ -7478,7 +7478,9 @@ function _elTagLabel(s) {
 //   p は「押した順」の配列（上から通過した順）。「無し」（_EL_PASS_NONE）は他と排他。選択肢は起点と同じ共通リスト custom.sigKitenList。必須（新規・編集とも）。
 //   直近＝通過ラインが「無し」だけ（間に通過ラインが無い）＝_elKitenNear。分析だけで使う（ユーザー決定）。
 // 2026-10-29g 起点と通過ラインの位置を入れ替え（ユーザー指示）＝①EP基準ライン ②起点 ③通過ライン ④その他（寄り足ラインは①起点 ②通過ライン ③その他）。保存キーは不変。
-var _EL_SIG_SECS = [{ key: "b", num: "①", name: "EP基準ライン", label: "① EP基準ライン", multi: true, req: true }, { key: "k", num: "②", name: "起点", label: "② 起点", multi: true, req: true }, { key: "p", num: "③", name: "通過ライン", label: "③ 通過ライン", multi: true, req: true, ordered: true }, { key: "f", num: "④", name: "その他", label: "④ その他", multi: true }];
+// 2026-10-29k その他欄は廃止（ユーザー指示「その他欄は不要」）＝f をセクションから外す。寄り足ラインの「その他」（k）も出さない（ユーザー決定）。
+//   過去記録の f（寄り足ラインは k）は記録に残す＝フォームは表示しないが状態に持ったまま保存し直す。表示・集計からは外す（ユーザー決定）。
+var _EL_SIG_SECS = [{ key: "b", num: "①", name: "EP基準ライン", label: "① EP基準ライン", multi: true, req: true }, { key: "k", num: "②", name: "起点", label: "② 起点", multi: true, req: true }, { key: "p", num: "③", name: "通過ライン", label: "③ 通過ライン", multi: true, req: true, ordered: true }];
 var _EL_PASS_NONE = "無し";
 var _EL_SEC_NUMS = ["①", "②", "③", "④", "⑤", "⑥"];
 // 直近の判定（通過ラインから）: true＝直近（「無し」）／false＝直近以外（1本以上通過）／null＝未記入（旧記録）
@@ -7493,7 +7495,7 @@ function _elSigSecs(data, tag) {
   var m = (data && data.custom && data.custom.sigSecLabels) || null;
   var o = (m && tag) ? m[tag] : null;
   if (!o) return _EL_SIG_SECS;
-  var _l = _EL_SIG_SECS.filter(function(sc) { return !(sc.key === "f" && o.fHide); }).map(function(sc) {
+  var _l = _EL_SIG_SECS.filter(function(sc) { return !(sc.key === "f" && o.fHide) && !(sc.key === "k" && o.bName); }).map(function(sc) {   // ①が起点のシグナルの k（その他）は出さない 2026-10-29k
     var nm = sc.key === "b" ? o.bName : (sc.key === "p" ? null : o[sc.key]);   // 2026-10-21 ①は全シグナル共通で「EP基準ライン」に固定（ユーザー決定）＝sigSecLabels[tag].b は無視。例外は bName だけ。通過ラインも固定名
     nm = (nm == null) ? "" : String(nm).trim();
     var rq = (sc.key === "k" && o.kReq === false) ? false : sc.req;
@@ -7546,7 +7548,7 @@ function _elSigDetailSec(s, t) {
 function _elSigDetailList(s, t) {
   var _sec = _elSigDetailSec(s, t);
   var _out = [];
-  _sec.bs.concat(_sec.p.filter(function(x) { return x !== _EL_PASS_NONE; })).concat(_sec.ks).concat(_sec.f).forEach(function(x) { if (x && _out.indexOf(x) < 0) _out.push(x); });
+  _sec.bs.concat(_sec.p.filter(function(x) { return x !== _EL_PASS_NONE; })).concat(_sec.ks).forEach(function(x) { if (x && _out.indexOf(x) < 0) _out.push(x); });   // その他(f)は集計から外す 2026-10-29k
   return _out;
 }
 function _elSigDetailOf(s, t) { var _l = _elSigDetailList(s, t); return _l.length ? _l[0] : null; }   // 後方互換の単一値（先頭）
@@ -7732,7 +7734,6 @@ function _elTagDisp(s, t) {
   var _ps = [];
   if (_sec.bs.length) _ps.push("底:" + _sec.bs.join("・"));
   if (_sec.ks.length) _ps.push("起:" + _sec.ks.join("・"));
-  _sec.f.forEach(function(x) { _ps.push(x); });
   return _ps.length ? t + "（" + _ps.join("・") + "）" : t;
 }
 // シグナルセルの2行表示（案B 2026-07-07）: 1行目=シグナル名、2行目=底X・起Y、3行目=③特徴。詳細が1つも無い記録は赤「詳細未選択」バッジで明示。_elTagDisp（1行括弧表記）の縦積み版で、明細表のシグナル欄に使う。
@@ -8659,7 +8660,7 @@ function EntryRecordForm(_ref_erf) {
     // 選択値ごとの参考pick（全期間・表示のみ）＝そのセクションの値が一致する記録だけに絞る（旧フラット記録は③として一致判定）。
     var _pickOf = function(rs) { if (!rs.length) return { alpha: null, n: 0 }; var p = _elBaseAlphaPick(rs, aiOf); return (p && p.alpha != null && p.status !== "none") ? { alpha: p.alpha, ok: p.status === "ok", n: rs.length } : { alpha: null, n: rs.length }; };
     var _sel = (fSigDetail && fSigDetail[_t]) || null;
-    var _selBs = _secUnion(_sel, "b"), _selKs = _secUnion(_sel, "k"), _selF = _secUnion(_sel, "f");   // 参考pickは両分足の合併で 2026-10-29h
+    var _selBs = _secUnion(_sel, "b"), _selKs = _secUnion(_sel, "k"), _selF = [];   // その他は廃止 2026-10-29k   // 参考pickは両分足の合併で 2026-10-29h
     var picks = [];
     _selBs.forEach(function(_bn) { picks.push({ sec: "b", lb: "底", name: _bn, pick: _pickOf(recs.filter(function(r) { return _elSigDetailSec(r.signal, _t).bs.indexOf(_bn) >= 0; })) }); });
     _selKs.forEach(function(_kn) { picks.push({ sec: "k", lb: "起", name: _kn, pick: _pickOf(recs.filter(function(r) { return _elSigDetailSec(r.signal, _t).ks.indexOf(_kn) >= 0; })) }); });
@@ -11775,10 +11776,11 @@ function EntryLogCard(_ref_elc) {
         var _tfo = _elSigDetailTf(s, t);   // 分足ごと 2026-10-29h
         var _b = [];
         var _j;
-        if ((_j = _elBJoin(s, t))) _b.push("底 " + _j);
-        if ((_j = _elTfJoin(_tfo, "k"))) _b.push("起 " + _j);
+        // ①が分足ごとに入っている記録＝①が起点のシグナル（寄り足ライン）: ①を「起」と表示し、k（その他・廃止）は出さない 2026-10-29k
+        var _bOnTf = (_tfo["1"].b.length || _tfo["5"].b.length) && s.sigDetail && s.sigDetail[t] && s.sigDetail[t].tf;
+        if ((_j = _elBJoin(s, t))) _b.push((_bOnTf ? "起 " : "底 ") + _j);
+        if (!_bOnTf && (_j = _elTfJoin(_tfo, "k"))) _b.push("起 " + _j);
         if ((_j = _elTfJoin(_tfo, "p", "→"))) _b.push("通 " + _j);
-        if ((_j = _elTfJoin(_tfo, "f"))) _b.push("特徴 " + _j);
         if (_b.length) _parts.push((_dTags.length > 1 ? t + ": " : "") + _b.join("・"));
       });
       if (!_parts.length) return null;
