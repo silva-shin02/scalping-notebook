@@ -9942,7 +9942,7 @@ function EntryRecordForm(_ref_erf) {
                   // モードの裏に隠れていて気づけなかった（仮シグナル行を条件付き表示にしたときと同じ失敗）。
                   // 常時見える小さな ✎ を置き、モード無しで直接変えられるようにした 2026-09-28c。
                   React.createElement("span", { style: { fontSize: 10, color: "#B45309", fontWeight: 700 } }, _sc.label,
-                    React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 4 } }, _sc.multi ? (_sc.req ? "（複数可・必須）" : "（複数可）") : "（1つまで）")),
+                    React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 4 } }, _sc.multi ? (_sc.req ? "（複数可・必須" + (_sc.ordered ? "・選択順に上から" : "") + "）" : "（複数可）") : "（1つまで）")),   // 通過ラインは選択順の説明 2026-10-29i
                   (_sc.key === "b" || _sc.key === "p") ? null : React.createElement("button", {   // ①（EP基準ライン）・通過ラインは固定名＝✎を出さない 2026-10-21
                     onClick: function() { _renameSigSec(_dt, _sc); },
                     title: "「" + _dt + "」の" + _sc.num + "セクション名を変更します（このシグナルだけ・過去の記録の中身は変わりません）",
