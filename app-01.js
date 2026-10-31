@@ -1672,6 +1672,14 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslH; d._migBHide1031 = true;
     } catch(e) { console.warn("[migrateData] bHide1031 error:", e); }
   }
+  // 【一回性 _migDetHide1101・2026-11-01】確定足浮き残りは詳細そのものが不要（ユーザー指示）＝sigSecLabels[確定足浮き残り].detHide。過去記録の値は残す。
+  if (!d._migDetHide1101) {
+    try {
+      var _sslD = Object.assign({}, d.custom.sigSecLabels || {});
+      _sslD["確定足浮き残り"] = Object.assign({}, _sslD["確定足浮き残り"] || {}, { detHide: true });
+      d.custom.sigSecLabels = _sslD; d._migDetHide1101 = true;
+    } catch(e) { console.warn("[migrateData] detHide1101 error:", e); }
+  }
   // 【一回性 _migRestore1028b・2026-10-28】シグナル詳細の選択肢（①②③）を記録から戻す（ユーザー報告「シグナルの詳細は戻らないの」）。足すだけ。
   if (!d._migRestore1028b && typeof _snRebuildSigDetails === "function") {
     try { var _sdM = _snRebuildSigDetails(d); d.custom.sigDetails2 = _sdM.sigDetails2; d._migRestore1028b = true; console.log("[migrateData] restore1028b: シグナル詳細 +" + _sdM.added); } catch(e) { console.warn("[migrateData] restore1028b error:", e); }
