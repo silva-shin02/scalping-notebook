@@ -7495,6 +7495,8 @@ function _elSigSecs(data, tag) {
   var m = (data && data.custom && data.custom.sigSecLabels) || null;
   var o = (m && tag) ? m[tag] : null;
   if (!o) return _EL_SIG_SECS;
+  // detHide＝詳細そのものを出さない（確定足浮き残り・ユーザー指示 2026-11-01・app-01 _migDetHide1101）＝必須チェックも無し。過去記録の値は残す
+  if (o.detHide) return [];
   // bHide＝①EP基準ラインを出さない（三角保ち合い崩れ・ユーザー指示 2026-10-31・app-01 _migBHide1031）
   var _l = _EL_SIG_SECS.filter(function(sc) { return !(sc.key === "f" && o.fHide) && !(sc.key === "k" && o.bName) && !(sc.key === "b" && o.bHide); }).map(function(sc) {   // ①が起点のシグナルの k（その他）は出さない 2026-10-29k
     var nm = sc.key === "b" ? o.bName : (sc.key === "p" ? null : o[sc.key]);   // 2026-10-21 ①は全シグナル共通で「EP基準ライン」に固定（ユーザー決定）＝sigSecLabels[tag].b は無視。例外は bName だけ。通過ラインも固定名
@@ -9944,6 +9946,7 @@ function EntryRecordForm(_ref_erf) {
           //   タブには未入力の印（その分足で必須の欄が空）＝「●未」。選んだ分足の段だけを描く（保存の中身は不変）。
           var _selTf = (fDetTf && fDetTf[_dt]) || "1";
           var _secsAll = _elSigSecs(data, _dt);
+          if (!_secsAll.length) return null;   // 詳細なしのシグナル（detHide）は詳細欄ごと出さない 2026-11-01
           var _firstTfIdx = -1; _secsAll.forEach(function(sc, i) { if (_firstTfIdx < 0 && _rowTfs(sc).length > 1) _firstTfIdx = i; });
           var _tfMissing = function(tf) { return _secsAll.some(function(sc) { return sc.req && _rowTfs(sc).length > 1 && !((((fSigDetail && fSigDetail[_dt]) || {})[sc.key + tf] || []).length); }); };
           var _tabBar = React.createElement("div", { style: { display: "flex", gap: 4, margin: "4px 0 6px", borderBottom: "1px solid #FED7AA" } },
