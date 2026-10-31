@@ -1664,6 +1664,14 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslB; d._migBTfOne1029 = true;
     } catch(e) { console.warn("[migrateData] bTfOne1029 error:", e); }
   }
+  // 【一回性 _migBHide1031・2026-10-31】三角保ち合い崩れは①EP基準ライン不要（ユーザー指示）＝sigSecLabels[三角保ち合い崩れ].bHide。過去記録の値は残す。
+  if (!d._migBHide1031) {
+    try {
+      var _sslH = Object.assign({}, d.custom.sigSecLabels || {});
+      _sslH["三角保ち合い崩れ"] = Object.assign({}, _sslH["三角保ち合い崩れ"] || {}, { bHide: true });
+      d.custom.sigSecLabels = _sslH; d._migBHide1031 = true;
+    } catch(e) { console.warn("[migrateData] bHide1031 error:", e); }
+  }
   // 【一回性 _migRestore1028b・2026-10-28】シグナル詳細の選択肢（①②③）を記録から戻す（ユーザー報告「シグナルの詳細は戻らないの」）。足すだけ。
   if (!d._migRestore1028b && typeof _snRebuildSigDetails === "function") {
     try { var _sdM = _snRebuildSigDetails(d); d.custom.sigDetails2 = _sdM.sigDetails2; d._migRestore1028b = true; console.log("[migrateData] restore1028b: シグナル詳細 +" + _sdM.added); } catch(e) { console.warn("[migrateData] restore1028b error:", e); }

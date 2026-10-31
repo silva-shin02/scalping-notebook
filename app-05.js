@@ -7495,7 +7495,8 @@ function _elSigSecs(data, tag) {
   var m = (data && data.custom && data.custom.sigSecLabels) || null;
   var o = (m && tag) ? m[tag] : null;
   if (!o) return _EL_SIG_SECS;
-  var _l = _EL_SIG_SECS.filter(function(sc) { return !(sc.key === "f" && o.fHide) && !(sc.key === "k" && o.bName); }).map(function(sc) {   // ①が起点のシグナルの k（その他）は出さない 2026-10-29k
+  // bHide＝①EP基準ラインを出さない（三角保ち合い崩れ・ユーザー指示 2026-10-31・app-01 _migBHide1031）
+  var _l = _EL_SIG_SECS.filter(function(sc) { return !(sc.key === "f" && o.fHide) && !(sc.key === "k" && o.bName) && !(sc.key === "b" && o.bHide); }).map(function(sc) {   // ①が起点のシグナルの k（その他）は出さない 2026-10-29k
     var nm = sc.key === "b" ? o.bName : (sc.key === "p" ? null : o[sc.key]);   // 2026-10-21 ①は全シグナル共通で「EP基準ライン」に固定（ユーザー決定）＝sigSecLabels[tag].b は無視。例外は bName だけ。通過ラインも固定名
     nm = (nm == null) ? "" : String(nm).trim();
     var rq = (sc.key === "k" && o.kReq === false) ? false : sc.req;
