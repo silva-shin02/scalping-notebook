@@ -4767,9 +4767,10 @@ function _EpnCalcForm(_p) {
   var provTags = (data && data.custom && Array.isArray(data.custom.provSignalTags)) ? data.custom.provSignalTags : [];
   var sigOrphans = useMemo(function() {
     var out = [];
-    Object.keys(tagCount).forEach(function(t) { if (signalTags.indexOf(t) < 0 && provTags.indexOf(t) < 0) out.push(t); });   // 仮シグナルは下の段に出すので一覧外に混ぜない
+    // 2026-11-02 記録フォーム（新規）と揃える（ユーザー決定）: 過去記録だけに残るシグナルは並べない。選択中（編集中のカードの旧シグナル）だけ末尾に出す。
+    if (nTag && signalTags.indexOf(nTag) < 0 && provTags.indexOf(nTag) < 0) out.push(nTag);
     return out;
-  }, [tagCount, signalTags, provTags]);
+  }, [nTag, signalTags, provTags]);
   var cands = useMemo(function() {
     if (!nTag) return { b: [], k: [], f: [] };
     var m2 = (custom.sigDetails2 || {})[nTag];
@@ -4779,6 +4780,9 @@ function _EpnCalcForm(_p) {
     if (Array.isArray(custom.sigKitenList)) _r[_elKitenKey(custom, nTag)] = custom.sigKitenList;   // 起点は全シグナル共通 2026-10-29e
     return _r;
   }, [custom, nTag]);
+  // ③の欄は記録フォームの①と同じ判定 2026-11-02（ユーザー指摘「EPナビのEP基準ラインが最新の状態になってない」）: _elSigSecs の b を使う＝
+  //   三角保ち合い崩れ(bHide)・確定足浮き残り(detHide)は欄なし、寄り足ライン(bName)は見出しが「起点」（候補は cands.b＝共通の起点リスト）。
+  var _bSecE = nTag ? (_elSigSecs(data, nTag).filter(function(sc) { return sc.key === "b"; })[0] || null) : null;
   var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk, band = casc && casc.band;
   // 採用基本α: 詳細別ok→シグナル別ok→銘柄全体ok→株価帯ok。全段データ不足なら仮値（参考推奨）を同順で採用＝フォームと違い場中は値を出すのが仕事（（仮）表示で明示）。帯＝第2弾フォールバック 2026-07-22f
   var autoPick = (function() {
@@ -5023,7 +5027,7 @@ function _EpnCalcForm(_p) {
     _lrow(_mgmtHead("②", "シグナル", true), React.createElement(_EpnChipMgr, { items: signalTags, orphans: sigOrphans, selected: (nTag && provTags.indexOf(nTag) < 0) ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", noAdd: true, onToggle: _sigToggle, onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder })),   // noAdd 2026-08-07: ここからのシグナル新規追加は廃止（②のマスターは記録フォーム/設定側で管理）
     // 仮シグナル（緑の別段）2026-10-27: 選択は②と共通（nTag）。追加・改名・削除・並べ替えもここでできる（ユーザー決定）。
     _lrow(React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#15803D" } }, "仮シグナル"), React.createElement(_EpnChipMgr, { items: provTags, selected: (nTag && provTags.indexOf(nTag) >= 0) ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#16A34A", bg: "#DCFCE7", c: "#15803D" }, addPh: "仮シグナル名", onToggle: _sigToggle, onAdd: _provAdd, onRename: _sigRename, onDelete: _provDelete, onReorder: _provReorder })),
-    nTag ? _lrow(_mgmtHead("③", "EP基準ライン"), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "EP基準ライン名（例: 前日安値）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,   // ③底抜けは②シグナルの直下に常時表示（底抜けライン欄のみ復活 2026-07-24）
+    _bSecE ? _lrow(_mgmtHead("③", _bSecE.name), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: _bSecE.name + "名（例: " + (_bSecE.name === "EP基準ライン" ? "前日安値" : "VWAP") + "）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,   // ③底抜けは②シグナルの直下に常時表示（底抜けライン欄のみ復活 2026-07-24）
     // 「推奨基本α」の灰色枠（シグナル別/銘柄全体のn付き内訳＋★採用）はユーザー指示で撤去 2026-08-07。
     // ⚠️表示だけの撤去＝推奨基本αの計算(_epnCascade/autoPick)も、それを既定値に使う採用α欄も無改修。_pickLine は未使用になるが保持（無害）。
     _lrow("水準線", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
