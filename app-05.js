@@ -4984,7 +4984,10 @@ function _epECell(s, alpha, cutLine) {
   if (_epIsV2(s)) { var _re = _epResolve(s, alpha); j = _re ? _re.judge : null; }
   else j = s.osVal == null ? null : (_elH2Miss(s, alpha) ? "miss" : "ok");
   var _jn = j === "ok" ? React.createElement("span", { style: { fontWeight: 800, color: "#C0392B", fontSize: 13 } }, "○")
-    : j === "x" ? React.createElement("span", { style: { fontWeight: 800, color: "#1E8449", fontSize: 13 } }, "×")
+    : j === "x" ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 } }, React.createElement("span", { style: { fontWeight: 800, color: "#1E8449", fontSize: 13 } }, "×"),
+        // 同値のためエントリーできなかった× 2026-11-04（ユーザー要望・判定＝「同値でも約定したことにすると〇になる×」＝ユーザー決定）
+        (_epIsV2(s) && (function() { var _rl = _elFillEqLoose(function() { return _epResolve(s, alpha); }); return !!(_rl && _rl.judge === "ok"); })())
+          ? React.createElement("span", { title: "同値のためエントリーできなかった（高値がちょうどVAP値・α値で、上抜けずに未約定）。同値でも約定していれば×より前にエントリーできていた", style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", whiteSpace: "nowrap" } }, "（同値）") : null)
     : (j === "miss" && _elEqSelf(s, alpha)) ? React.createElement("span", { title: "指値同値＝OS最大がEPとちょうど同値（上抜けず未約定）", style: { fontSize: 10, fontWeight: 800, color: "#0F6E56", whiteSpace: "nowrap" } }, "同値")
     : j === "miss" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#7C3AED", whiteSpace: "nowrap" } }, "未達")
     : React.createElement("span", { style: { color: "#ccc" } }, "—");
