@@ -4215,9 +4215,16 @@ function _elCeCand(s, alpha) {
   return { k0: k0, checked: true, time: _epCeTimeAt(s.time, k0) };
 }
 // 記録一覧の目印「確定待ち」＋α約定比の差額 2026-10-19（旧「5分確定」）。
+// 2026-11-04 ユーザー要望「一覧で確定待ちがわかるように（Eの欄・直上VAPと同じ所・『確定待ち』だけ）」:
+//   確定待ちを付けた記録（ceOn===true）は、直上VAPで約定したときも・この足でα値に届かず計算に効かないときも、必ず「確定待ち」の印を出す。
 function _elCeBadge(s, alpha, cutLine) {
   var ci = _elCeInfo(s, alpha, cutLine != null ? cutLine : 15);
-  if (!ci) return null;
+  var _ceMark = (_epCeOn(s) && s.ceOn === true) ? React.createElement("span", { title: "確定待ちを付けた記録", style: { fontSize: 9, fontWeight: 800, color: "#0E7490", background: "#ECFEFF", border: "1px solid #67E8F9", borderRadius: 4, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 } }, "確定待ち") : null;
+  if (!ci) return _ceMark;
+  if (ci.top && _ceMark) { var _ci2 = _elCeBadgeCore(s, alpha, cutLine, ci); return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2 } }, _ceMark, _ci2); }
+  return _elCeBadgeCore(s, alpha, cutLine, ci);
+}
+function _elCeBadgeCore(s, alpha, cutLine, ci) {
   var d = ci.diff;
   if (cutLine == null) return React.createElement("span", { title: ci.top ? "直上VAP：確定を待つ間に直上VAPへ届いたので、その値で約定" : ci.ce ? "確定待ち：EP足の終値で約定" : "確定待ち：終値がα以下のためその足では入らず", style: { fontSize: 9, fontWeight: 800, color: "#0E7490", background: "#ECFEFF", border: "1px solid #67E8F9", borderRadius: 4, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 } }, ci.top ? "直上VAP" : ci.ce ? "確定待ち" : "確定待ち・入らず");   // 損切り値が分からない表では差額を出さない
   return React.createElement("span", {
