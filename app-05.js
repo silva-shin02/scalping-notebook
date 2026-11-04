@@ -9585,7 +9585,7 @@ function EntryRecordForm(_ref_erf) {
         return _any ? _o : null;
       })(),
       passThrough: fThru === true ? true : null,
-      thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,   // 旧・文章の根拠（入力欄は廃止＝既存記録の値をそのまま保持）
+      thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,   // スルーの理由詳細（文章・任意）2026-11-04 入力欄を復活
       thruReasons: (fThru === true && (fThruReasons || []).filter(Boolean).length) ? (fThruReasons || []).filter(Boolean) : null,   // スルーの理由（選択肢）2026-10-17
       review: fReview === true ? true : null,
       reviewMemo: (fReview === true && fReviewMemo) ? fReviewMemo : null,   // 要審議の理由詳細（文章・任意）2026-11-04 入力欄を復活
@@ -11546,9 +11546,19 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { color: "#6B7280", fontWeight: 600, marginLeft: 6, fontSize: 10 } }, "複数選択できます")),
         React.createElement(_SnReasonPicker, { data: data, save: save, masterKey: "thruReasons", defaults: _DEF_THRU_REASONS, sigKey: "thruReasons", noun: "スルー理由",
           value: fThruReasons, onChange: function(l) { setFThruReasons(l); } }),
-        // 旧・文章の根拠（入力欄は2026-10-17に廃止）＝既存記録に入っている分だけ表示
-        fThruMemo ? React.createElement("div", { style: { marginBottom: 8, fontSize: 11, color: "#6B7280", lineHeight: 1.5, whiteSpace: "pre-wrap", padding: "5px 8px", borderLeft: "2px solid #D6D3D1", background: "#FAFAF9" } },
-          React.createElement("span", { style: { fontWeight: 700, marginRight: 4 } }, "以前の根拠メモ（表示のみ）:"), fThruMemo) : null
+        // 理由詳細（文章・任意）2026-11-04 ユーザー指示「スルーにも詳細テキスト欄」＝要審議・見送りの理由詳細と同じ部品。
+        //   保存先は旧・根拠メモと同じ signal.thruMemo（2026-10-17に入力欄だけ廃止していたものを復活）＝過去記録の文章はそのまま欄に入って編集できる。
+        React.createElement("div", { style: SH_ }, "理由詳細",
+          React.createElement("span", { style: { color: "#6B7280", fontWeight: 700, marginLeft: 5, fontSize: 10 } }, "任意")),
+        React.createElement(FastInput, {
+          multiline: true,
+          autoResize: true,
+          value: fThruMemo,
+          onChange: function(v) { setFThruMemo(v); },
+          placeholder: "選択肢だけで足りないときに書く",
+          rows: 2,
+          style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56, marginBottom: 8 })
+        })
       ) : null,
       fReview ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#9D174D", background: "#FDF2F8", border: "1px solid #FBCFE8", borderRadius: 6, padding: "6px 9px" } },
@@ -11863,7 +11873,7 @@ function EntryLogCard(_ref_elc) {
         (s.passThrough === true && Array.isArray(s.thruReasons) && s.thruReasons.length) ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } },
           React.createElement("span", { style: { fontSize: 11, color: "#9CA3AF", fontWeight: 700, marginRight: 1 } }, "スルー理由"),
           s.thruReasons.map(function(t) { return React.createElement("span", { key: t, style: { fontSize: 10, fontWeight: 700, color: "#4B5563", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 6px", lineHeight: 1.6 } }, t); })) : null,
-        s.thruMemo ? React.createElement("div", { style: { fontSize: 11, color: "#6B7280", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, marginRight: 3 } }, "スルー根拠"), s.thruMemo) : null,
+        s.thruMemo ? React.createElement("div", { style: { fontSize: 11, color: "#6B7280", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, marginRight: 3 } }, "スルー 理由詳細"), s.thruMemo) : null,
         // 要審議の理由（選択肢）2026-10-17
         (s.review === true && Array.isArray(s.reviewReasons) && s.reviewReasons.length) ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } },
           React.createElement("span", { style: { fontSize: 11, color: "#DB2777", fontWeight: 700, marginRight: 1 } }, "審議理由"),
