@@ -8224,7 +8224,7 @@ function _SnLineChart(_p) {
     g.pts[e.pointerId] = _cx(e.clientX);
     var ks = Object.keys(g.pts), st = stRef.current;
     g.f0 = st.from; g.span0 = st.to - st.from + 1;
-    if (ks.length === 1) { g.x0 = g.pts[ks[0]]; }
+    if (ks.length === 1) { g.x0 = g.xd = g.pts[ks[0]]; }
     else if (ks.length >= 2) { var a = g.pts[ks[0]], b = g.pts[ks[1]]; g.d0 = Math.max(10, Math.abs(a - b)); g.m0 = (a + b) / 2; }
   };
   var _pMove = function(e) {
@@ -8235,6 +8235,7 @@ function _SnLineChart(_p) {
       var a = g.pts[ks[0]], b = g.pts[ks[1]], d = Math.max(10, Math.abs(a - b));
       g.moved = true; _setSpan(g.f0, g.span0, g.m0, g.span0 * g.d0 / d);
     } else if (ks.length === 1) {
+      if (e.pointerType === "mouse" && (e.buttons & 3) !== 3) { if (Math.abs(g.pts[ks[0]] - g.xd) > 5) g.moved = true; g.x0 = g.pts[ks[0]]; var st0 = stRef.current; g.f0 = st0.from; g.span0 = st0.to - st0.from + 1; return; }   // マウスは左右同時押しのときだけ左右に動かす
       var dx = g.pts[ks[0]] - g.x0; if (Math.abs(dx) > 5) g.moved = true;
       if (!g.moved) return;
       var cw0 = (W - padL - padR) / g.span0, f = Math.round(g.f0 - dx / cw0);
@@ -8278,8 +8279,8 @@ function _SnLineChart(_p) {
     ctx.restore();
   }, [bars, si, from, to, _p.level, _p.kitenT, _p.kitenP, (_p.passVals || []).join(","), W, H, tf]);
   if (si < 0) return null;
-  return React.createElement("canvas", { ref: ref, title: (_p.onPick ? "足をタップすると起点の足の時刻（起点が「無し」ならその足の実体の安値も株価欄）に入ります。" : "") + "ホイール／ピンチで拡大縮小・ドラッグで左右",
-    onPointerDown: _pDown, onPointerMove: _pMove, onPointerUp: _pUp, onPointerCancel: _pUp,
+  return React.createElement("canvas", { ref: ref, title: (_p.onPick ? "足をタップすると起点の足の時刻（起点が「無し」ならその足の実体の安値も株価欄）に入ります。" : "") + "ホイール／ピンチで拡大縮小・左右ボタン同時押し（iPadは1本指）のドラッグで左右",
+    onPointerDown: _pDown, onPointerMove: _pMove, onPointerUp: _pUp, onPointerCancel: _pUp, onContextMenu: function(e) { e.preventDefault(); },
     onClick: _p.onPick ? function(e) { if (gRef.current.moved) return; var x = _cx(e.clientX); var i = from + Math.floor((x - padL) / cw); if (i >= from && i <= to && bars[i]) _p.onPick(bars[i]); } : null,
     style: { touchAction: "pan-y", width: W, height: "auto", aspectRatio: W + " / " + H, display: "block", borderRadius: 6, border: "1px solid #333", cursor: _p.onPick ? "crosshair" : "default", flexShrink: 0, maxWidth: "100%" } });
 }
