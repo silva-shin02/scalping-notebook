@@ -1680,6 +1680,18 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslH2; d._migBHide1102 = true;
     } catch(e) { console.warn("[migrateData] bHide1102 error:", e); }
   }
+  // 【一回性 _migRange1105・2026-11-05】レンジ崩れ：①EP基準ライン不要（bHide）＋仮シグナルへ降格（過去記録も仮＝合計から外す・ユーザー決定）。
+  if (!d._migRange1105 && typeof _elProvDemoteData === "function") {   // 降格の関数は app-05＝読み込み前には走らせない（フラグも立てない）
+    try {
+      var _sslR = Object.assign({}, d.custom.sigSecLabels || {});
+      _sslR["レンジ崩れ"] = Object.assign({}, _sslR["レンジ崩れ"] || {}, { bHide: true });
+      d.custom.sigSecLabels = _sslR;
+      if (Array.isArray(d.custom.signalTags) && d.custom.signalTags.indexOf("レンジ崩れ") >= 0) {
+        var _dm = _elProvDemoteData(d, "レンジ崩れ"); d.custom = _dm.custom; d.charts = _dm.charts;
+      }
+      d._migRange1105 = true;
+    } catch(e) { console.warn("[migrateData] range1105 error:", e); }
+  }
   // 【一回性 _migDetHide1101・2026-11-01】確定足浮き残りは詳細そのものが不要（ユーザー指示）＝sigSecLabels[確定足浮き残り].detHide。過去記録の値は残す。
   if (!d._migDetHide1101) {
     try {
