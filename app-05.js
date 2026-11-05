@@ -8191,9 +8191,61 @@ function _snlSnap(ca, tf, sigTime, level) {
 //   props: bars, sigIdx, level, kitenT, kitenP, passVals:[値], tf, w, h, onPick(bar)
 function _SnLineChart(_p) {
   var ref = useRef(null);
-  var bars = _p.bars || [], si = _p.sigIdx, W = _p.w || 320, H = _p.h || 210, tf = _p.tf;
-  var from = Math.max(0, si - 20), to = Math.min(bars.length - 1, si + 20);
+  var bars = _p.bars || [], si = _p.sigIdx, W = _p.w || 320, H = _p.h || 210, tf = _p.tf, nB = bars.length;
+  // 表示範囲（ホイール＝カーソル位置中心で拡大縮小・ドラッグ＝左右・2本指ピンチ）。null＝初期（前後20本）
+  var _vw = useState(null), view = _vw[0], setView = _vw[1];
+  useEffect(function() { setView(null); }, [bars, si]);
+  var from = view ? view.f : Math.max(0, si - 20), to = view ? view.t : Math.min(nB - 1, si + 20);
   var padL = 4, padR = 46, padT = 6, padB = 16, cw = (W - padL - padR) / Math.max(1, to - from + 1);
+  var stRef = useRef({}); stRef.current = { from: from, to: to, n: nB };
+  var gRef = useRef({ pts: {}, moved: false });
+  var _cx = function(clientX) { var cv = ref.current; if (!cv) return 0; var r = cv.getBoundingClientRect(); return (clientX - r.left) * (W / Math.max(1, r.width)); };
+  var _setSpan = function(f0, span0, x, span) {   // x（canvas座標）の位置の足を固定したまま本数を span に
+    var n = stRef.current.n; if (n < 2) return;
+    span = Math.max(Math.min(8, n), Math.min(n, Math.round(span)));
+    var fr = Math.max(0, Math.min(1, (x - padL) / (W - padL - padR))), anc = f0 + fr * span0;
+    var f = Math.round(anc - fr * span); f = Math.max(0, Math.min(n - span, f));
+    setView({ f: f, t: f + span - 1 });
+  };
+  useEffect(function() {
+    var cv = ref.current; if (!cv) return;
+    var onW = function(e) {
+      e.preventDefault();
+      var st = stRef.current, span = st.to - st.from + 1, ns = span * (e.deltaY > 0 ? 1.15 : 1 / 1.15);
+      if (Math.round(ns) === span) ns = span + (e.deltaY > 0 ? 1 : -1);
+      _setSpan(st.from, span, _cx(e.clientX), ns);
+    };
+    cv.addEventListener("wheel", onW, { passive: false });
+    return function() { cv.removeEventListener("wheel", onW); };
+  }, [si < 0, W]);
+  var _pDown = function(e) {
+    var g = gRef.current; if (!Object.keys(g.pts).length) g.moved = false;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e) {}
+    g.pts[e.pointerId] = _cx(e.clientX);
+    var ks = Object.keys(g.pts), st = stRef.current;
+    g.f0 = st.from; g.span0 = st.to - st.from + 1;
+    if (ks.length === 1) { g.x0 = g.pts[ks[0]]; }
+    else if (ks.length >= 2) { var a = g.pts[ks[0]], b = g.pts[ks[1]]; g.d0 = Math.max(10, Math.abs(a - b)); g.m0 = (a + b) / 2; }
+  };
+  var _pMove = function(e) {
+    var g = gRef.current; if (g.pts[e.pointerId] == null) return;
+    g.pts[e.pointerId] = _cx(e.clientX);
+    var ks = Object.keys(g.pts), n = stRef.current.n;
+    if (ks.length >= 2) {
+      var a = g.pts[ks[0]], b = g.pts[ks[1]], d = Math.max(10, Math.abs(a - b));
+      g.moved = true; _setSpan(g.f0, g.span0, g.m0, g.span0 * g.d0 / d);
+    } else if (ks.length === 1) {
+      var dx = g.pts[ks[0]] - g.x0; if (Math.abs(dx) > 5) g.moved = true;
+      if (!g.moved) return;
+      var cw0 = (W - padL - padR) / g.span0, f = Math.round(g.f0 - dx / cw0);
+      f = Math.max(0, Math.min(n - g.span0, f)); setView({ f: f, t: f + g.span0 - 1 });
+    }
+  };
+  var _pUp = function(e) {
+    var g = gRef.current; delete g.pts[e.pointerId];
+    var ks = Object.keys(g.pts), st = stRef.current;
+    if (ks.length === 1) { g.x0 = g.pts[ks[0]]; g.f0 = st.from; g.span0 = st.to - st.from + 1; }
+  };
   var _kI = _p.kitenT ? _snlIdxAt(bars, _p.kitenT, tf) : -1;
   useEffect(function() {
     var cv = ref.current; if (!cv || si < 0) return;
@@ -8212,7 +8264,10 @@ function _SnLineChart(_p) {
     ctx.font = "9px sans-serif"; ctx.textBaseline = "middle";
     for (var g = Math.ceil(lo / gs) * gs; g <= hi; g += gs) { var y = Y(g); ctx.strokeStyle = "#1f1f1f"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke(); ctx.fillStyle = "#8a8a8a"; ctx.textAlign = "left"; ctx.fillText(String(g), W - padR + 3, y); }
     ctx.textBaseline = "alphabetic"; ctx.textAlign = "center";
-    for (var j = from; j <= to; j++) { var mm = _snlTm(bars[j].t); if (mm != null && (tf === "5" ? mm % 15 === 0 : mm % 5 === 0)) { var x = X(j); ctx.strokeStyle = "#1a1a1a"; ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke(); ctx.fillStyle = "#8a8a8a"; ctx.fillText(bars[j].t, x, H - 4); } }
+    var _bm = tf === "5" ? 5 : 1, _iv = [5, 10, 15, 30, 60, 120].filter(function(v) { return v % _bm === 0; }), lbI = _iv[_iv.length - 1];
+    for (var q = 0; q < _iv.length; q++) if (_iv[q] / _bm * cw >= 42) { lbI = _iv[q]; break; }
+    for (var j = from; j <= to; j++) { var mm = _snlTm(bars[j].t); if (mm != null && mm % lbI === 0) { var x = X(j); ctx.strokeStyle = "#1a1a1a"; ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke(); ctx.fillStyle = "#8a8a8a"; if (x >= padL + 14 && x <= W - padR - 6) ctx.fillText(bars[j].t, x, H - 4); } }
+    ctx.save(); ctx.beginPath(); ctx.rect(padL, 0, W - padL - padR, H); ctx.clip();
     var sx = X(si); ctx.strokeStyle = "#fb923c"; ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(sx, padT); ctx.lineTo(sx, H - padB); ctx.stroke(); ctx.setLineDash([]);
     if (si - 1 >= from) { ctx.fillStyle = "rgba(251,146,60,0.13)"; ctx.fillRect(X(si - 1) - cw / 2, padT, cw, H - padT - padB); }
     _SNL_LINES.forEach(function(L) { ctx.strokeStyle = L[2]; ctx.lineWidth = 1.2; ctx.beginPath(); var f = true; for (var i = from; i <= to; i++) { var v = bars[i][L[0]]; if (v == null) { f = true; continue; } var x = X(i), y = Y(v); if (f) { ctx.moveTo(x, y); f = false; } else ctx.lineTo(x, y); } ctx.stroke(); });
@@ -8220,11 +8275,13 @@ function _SnLineChart(_p) {
     if (hasLv) { var ly = Y(lv); ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 1.3; ctx.setLineDash([5, 3]); ctx.beginPath(); ctx.moveTo(padL, ly); ctx.lineTo(W - padR, ly); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#fbbf24"; ctx.textAlign = "left"; ctx.fillText("水準 " + lv, padL + 2, ly - 3); }
     if (_kI >= from && _kI <= to) { var kb = bars[_kI], kpY = (_p.kitenP != null && !isNaN(_p.kitenP)) ? Y(_p.kitenP) : Y(kb.l); ctx.strokeStyle = "#67e8f9"; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(X(_kI), kpY, 5, 0, Math.PI * 2); ctx.stroke(); }
     (_p.passVals || []).forEach(function(v) { var y = Y(v); ctx.fillStyle = "#fde68a"; ctx.beginPath(); ctx.arc(W - padR - 3, y, 2.4, 0, Math.PI * 2); ctx.fill(); });
-  }, [bars, si, _p.level, _p.kitenT, _p.kitenP, (_p.passVals || []).join(","), W, H, tf]);
+    ctx.restore();
+  }, [bars, si, from, to, _p.level, _p.kitenT, _p.kitenP, (_p.passVals || []).join(","), W, H, tf]);
   if (si < 0) return null;
-  return React.createElement("canvas", { ref: ref, title: _p.onPick ? "足をタップすると起点の足の時刻（起点が「無し」ならその足の実体の安値も株価欄）に入ります" : null,
-    onClick: _p.onPick ? function(e) { var r = e.currentTarget.getBoundingClientRect(), x = (e.clientX - r.left) * (W / Math.max(1, r.width)); var i = from + Math.floor((x - padL) / cw); if (i >= from && i <= to && bars[i]) _p.onPick(bars[i]); } : null,
-    style: { width: W, height: "auto", aspectRatio: W + " / " + H, display: "block", borderRadius: 6, border: "1px solid #333", cursor: _p.onPick ? "crosshair" : "default", flexShrink: 0, maxWidth: "100%" } });
+  return React.createElement("canvas", { ref: ref, title: (_p.onPick ? "足をタップすると起点の足の時刻（起点が「無し」ならその足の実体の安値も株価欄）に入ります。" : "") + "ホイール／ピンチで拡大縮小・ドラッグで左右",
+    onPointerDown: _pDown, onPointerMove: _pMove, onPointerUp: _pUp, onPointerCancel: _pUp,
+    onClick: _p.onPick ? function(e) { if (gRef.current.moved) return; var x = _cx(e.clientX); var i = from + Math.floor((x - padL) / cw); if (i >= from && i <= to && bars[i]) _p.onPick(bars[i]); } : null,
+    style: { touchAction: "pan-y", width: W, height: "auto", aspectRatio: W + " / " + H, display: "block", borderRadius: 6, border: "1px solid #333", cursor: _p.onPick ? "crosshair" : "default", flexShrink: 0, maxWidth: "100%" } });
 }
 // 右の縦の並び（上＝EP基準ライン／水準線、下＝起点）
 function _snlFlowNode(o) {
@@ -8777,10 +8834,10 @@ function EntryRecordForm(_ref_erf) {
       caLine.st === "ok" ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "チャートの足をタップでも入ります") : null);
   };
   // ミニチャート＋縦の並び（その分足）
-  var _snlPanel = function(t, tf, cur) {
+  var _snlPanel = function(t, tf, cur, extra) {   // extra＝右の列（並びの下）に入れる ②起点・時刻・③通過ライン
     if (caLine.st !== "ok") return null;
     var bars = _snlBars(caLine, tf), si = _snlIdxAt(bars, fTime, tf);
-    if (si < 0) return React.createElement("div", { style: { fontSize: 10, color: "#B45309", margin: "2px 0 6px" } }, fTime ? "記録の時刻（" + fTime + "）の足が CA のチャートにありません" : "記録の時刻を入れるとチャートが出ます");
+    if (si < 0) return React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#B45309", margin: "2px 0 6px" } }, fTime ? "記録の時刻（" + fTime + "）の足が CA のチャートにありません" : "記録の時刻を入れるとチャートが出ます"), extra);
     var a = ((fKitenAt || {})[t] || {})[tf] || {}, r = _passAutoOf(t, tf), man = !!((fPassMan[t] || {})[tf]);
     var snapVals = _snlVals(caLine, tf, si - 1);
     var pNow = ((cur || {})["p" + tf] || []).filter(Boolean);
@@ -8792,13 +8849,14 @@ function EntryRecordForm(_ref_erf) {
     return React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap", margin: "2px 0 6px" } },
       React.createElement(_SnLineChart, { bars: bars, sigIdx: si, tf: tf, level: fLevelPrice, kitenT: a.t, kitenP: kp, passVals: pass.map(function(x) { return x.v; }).filter(function(v) { return v != null; }), w: 400, h: 260,
         onPick: function(b) { _setKitenAt(t, tf, _kitenHasNone(t, tf) ? { t: b.t, p: String(_snlR(Math.min(b.o, b.c))) } : { t: b.t }); } }),
-      React.createElement("div", { style: { minWidth: 150 } },
+      React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } },
         _snlFlowNode({ bNames: bNames, bShow: !!secsB && ktK !== "b", level: fLevelPrice, pass: pass, passNone: pNow.length === 1 && pNow[0] === _EL_PASS_NONE, kNames: _kitenNamesOf(t, tf), kPrice: kp, kTime: a.t }),
         (!r.ok && !man) ? React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 6 } }, "通過ラインの自動計算待ち：" + r.why) : null,
         differ ? React.createElement("div", { style: { fontSize: 10, color: "#B45309", marginTop: 6 } }, "自動計算（" + r.names.join("→") + "）と違います ",
           React.createElement("button", { type: "button", onClick: function() { _applyPassAuto(t, tf); }, style: { fontSize: 9.5, padding: "1px 6px", border: "1px solid #FDBA74", borderRadius: 5, background: "#FFF7ED", color: "#9A3412", cursor: "pointer" } }, "自動に置き換える")) : null,
         man ? React.createElement("button", { type: "button", onClick: function() { setFPassMan(function(pv) { var o = Object.assign({}, pv); o[t] = Object.assign({}, o[t] || {}); delete o[t][tf]; return o; }); _applyPassAuto(t, tf); }, style: { marginTop: 6, fontSize: 9.5, padding: "1px 7px", border: "1px solid #86EFAC", borderRadius: 5, background: "#F0FDF4", color: "#15803D", cursor: "pointer" } }, "↺ 通過ラインを自動に戻す") : null,
-        React.createElement("div", { style: { fontSize: 8.5, color: "#aaa", marginTop: 6, lineHeight: 1.4 } }, "値はシグナルの1つ前の確定足（" + (snapVals ? snapVals.t : "—") + "）。橙の帯＝その足・点線＝シグナル")));
+        React.createElement("div", { style: { fontSize: 8.5, color: "#aaa", marginTop: 6, lineHeight: 1.4 } }, "値はシグナルの1つ前の確定足（" + (snapVals ? snapVals.t : "—") + "）。橙の帯＝その足・点線＝シグナル"),
+        extra));
   };
   useEffect(function() {
     if (caLine.st !== "ok") return;
@@ -10583,8 +10641,7 @@ function EntryRecordForm(_ref_erf) {
               var _miss = _tfMissing(tf);
               return React.createElement("div", { key: "tfp" + tf, style: { margin: "6px 0 8px", padding: "6px 8px", border: "1px solid #FED7AA", borderRadius: 8, background: "#fff" } },
                 React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: tf === "1" ? "#0369A1" : "#7C3AED", marginBottom: 4 } }, tf + "分足", _miss ? React.createElement("span", { style: { marginLeft: 5, fontSize: 9, color: "#DC2626" } }, "未") : null),
-                _snlPanel(_dt, tf, _curSec),
-                _secsAll.map(function(sc, i) { return _rowTfs(sc).length > 1 ? React.createElement(React.Fragment, { key: "s" + sc.key + tf }, _renderSec(sc, i, tf), sc.key === _ktK ? _kitenInputs(_dt, tf) : null) : null; }));
+                (function() { var _se = _secsAll.map(function(sc, i) { return _rowTfs(sc).length > 1 ? React.createElement(React.Fragment, { key: "s" + sc.key + tf }, _renderSec(sc, i, tf), sc.key === _ktK ? _kitenInputs(_dt, tf) : null) : null; }); return _snlPanel(_dt, tf, _curSec, _se) || _se; })());
             });
             return _shared.concat([_caHead]).concat(_panels);
             })()
