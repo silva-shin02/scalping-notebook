@@ -7725,6 +7725,8 @@ function _elSignalRenameData(prev, oldNm, newNm) {
     if (n.k ? Array.isArray(n.ks) : (o.k && Array.isArray(o.ks))) out.ks = (n.k ? n.ks : o.ks).slice();   // ②の複数選択 2026-10-29b
     var _pp = (Array.isArray(n.p) && n.p.length) ? n.p : (Array.isArray(o.p) ? o.p : []); if (_pp.length) out.p = _pp.slice();   // 通過ライン 2026-10-29f
     if (n.tf || o.tf) out.tf = n.tf || o.tf;   // 分足の段 2026-10-29h
+    if (n.kAt || o.kAt) out.kAt = n.kAt || o.kAt;   // 起点の足の時刻・株価 2026-11-05
+    if (n.pMan || o.pMan) out.pMan = n.pMan || o.pMan;   // 通過ラインを手で直した分足 2026-11-05
     var f = _mergeArr(Array.isArray(n.f) ? n.f : (n.f ? [n.f] : []), Array.isArray(o.f) ? o.f : (o.f ? [o.f] : []));
     if (f.length) out.f = f;
     return out;
@@ -8062,6 +8064,187 @@ function _VapAnaPanel(props) {
           : (_cur == null ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "VAP値を入れると補正ボタンが出ます") : null)) : null,
       _board));
 }
+// ===== 📈 指標線の並び（CAの足データから自動）2026-11-05 =====
+// ユーザー要望「SNで記録したら、その時のチャートの指標線の並び（上から）がわかるように・通過ラインは自動で・チャートは画像保存せずその場で描く」。
+// データ源＝CA（Chart Annotator）が Firebase に同期している足データ（/chart-annotator-drafts-data/<id> の analysisData.bars_1m / bars_5m）。
+//   各足 {t:"HH:MM", o,h,l,c,v, ema9,ema22,ema50,ema200, vwap}、1分足の vp＝[価格,出来高,価格,出来高…]（8/20以降）。
+//   EMA は CA の画面と同じく前日チャートから連続計算する（CA computeEnhancedBars の移植＝_snlEnhance）。
+// 決定事項（ユーザー・選択肢）:
+//   ・並びの時点＝シグナルの1つ前の確定足（1分足＝記録時刻の1本前／5分足＝記録時刻を含む5分足の1本前）。1分足・5分足それぞれ。
+//   ・EPライン＝水準線（levelPrice）。POC＝当日の寄りからその確定足までの1分足 vp（前引け11:30の足は除く＝CA と同じ）。
+//   ・RN は並びには EPライン直上・直下の大RN（…00）・中RN（…50）だけ。
+//   ・起点・EP基準ラインは手で選ぶ。起点の足の時刻（無しなら起点の株価も）を入力（新規は必須）。チャートの足をタップしても入る。
+//   ・通過ライン＝起点と水準線の間にあった線を上から（値はシグナルの1つ前の確定足の値・起点の値は起点の足）＝起点/時刻/株価/水準線を変えたら自動で入る。
+//     CA が無い日・「✎ 手で直す」では従来のチップで手入力。過去記録は開いただけでは書き換えない（自動と違えば知らせる）。
+//   ・保存時、取れたら signal.lineSnap に並びを保存（分析用）。
+var _SNL_KEYS = { "200EMA": "ema200", "50EMA": "ema50", "22EMA": "ema22", "9EMA": "ema9", "VWAP": "vwap" };
+var _SNL_LINES = [["ema200", "200EMA", "#a855f7"], ["ema50", "50EMA", "#ff00ff"], ["ema22", "22EMA", "#ffa9ff"], ["ema9", "9EMA", "#ffffff"], ["vwap", "VWAP", "#ffff00"]];   // CA の配色（EMA200 は CA の #55017d だと黒地で見えないので少し明るく）
+var _snlCache = {};   // "銘柄|日付" → Promise<{st,…}>
+function _snlTm(t) { var m = /^(\d{1,2}):(\d{2})/.exec(String(t == null ? "" : t).trim()); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+function _snlHm(m) { return (m == null) ? "" : String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); }
+function _snlR(x) { return (x == null || isNaN(x)) ? null : Math.round(x * 10) / 10; }
+function _snlEnhance(bars, refBars) {   // CA computeEnhancedBars と同じ（前日最終EMAから当日EMAを連続計算・VWAPは当日のまま）
+  if (!bars || !bars.length) return bars || [];
+  if (!refBars || !refBars.length) return bars;
+  var ks = ["ema9", "ema22", "ema50", "ema200"], last = { ema9: null, ema22: null, ema50: null, ema200: null };
+  for (var i = refBars.length - 1; i >= 0; i--) { var rb = refBars[i]; ks.forEach(function(k) { if (last[k] == null && rb && rb[k] != null) last[k] = rb[k]; }); if (ks.every(function(k) { return last[k] != null; })) break; }
+  if (ks.every(function(k) { return last[k] == null; })) return bars;
+  var al = { ema9: 2 / 10, ema22: 2 / 23, ema50: 2 / 51, ema200: 2 / 201 }, prev = Object.assign({}, last);
+  return bars.map(function(b) { var nb = Object.assign({}, b); ks.forEach(function(k) { if (prev[k] != null && b.c != null) { nb[k] = al[k] * b.c + (1 - al[k]) * prev[k]; prev[k] = nb[k]; } }); return nb; });
+}
+// CA の当日・前日チャートを読み、EMA を連続化した足を返す。{st:"ok",id,b1,b5} / {st:"none"|"err",msg}
+function _snlLoad(stock, date, custom, force) {
+  var key = stock + "|" + date;
+  if (!force && _snlCache[key]) return _snlCache[key];
+  var cfg = (typeof cfLoad === "function") ? cfLoad() : null;
+  var p;
+  if (!stock || !date) p = Promise.resolve({ st: "none", msg: "銘柄・日付が未入力" });
+  else if (!cfg || !cfg.fbUrl) p = Promise.resolve({ st: "none", msg: "Firebase未設定" });
+  else {
+    var info = _caGetStockInfo(stock, custom);
+    if (!info.caTicker && !info.code) p = Promise.resolve({ st: "none", msg: "この銘柄はCAの銘柄コード未設定" });
+    else p = _caFetchMeta(cfg, !!force).then(function(meta) {
+      var cur = _caFilterByStockDate(meta, info.caTicker, date, info.code)[0];
+      if (!cur) return { st: "none", msg: "この日のCAチャートがありません" };
+      var prev = _caFindPrevDraftMeta(meta, info.caTicker, date, info.code);
+      return Promise.all([_caFetchDraftData(cfg, cur.id, !!force), prev ? _caFetchDraftData(cfg, prev.id) : Promise.resolve(null)]).then(function(r) {
+        var a = r[0] && r[0].analysisData, pa = r[1] && r[1].analysisData;
+        if (!a || !Array.isArray(a.bars_1m) || !a.bars_1m.length) return { st: "none", msg: "CAチャートに足データがありません" };
+        return { st: "ok", id: cur.id, b1: _snlEnhance(a.bars_1m, pa && pa.bars_1m), b5: _snlEnhance(a.bars_5m || [], pa && pa.bars_5m) };
+      });
+    })["catch"](function(e) { delete _snlCache[key]; return { st: "err", msg: String((e && e.message) || e) }; });
+  }
+  _snlCache[key] = p;
+  return p;
+}
+function _snlBars(ca, tf) { return (ca && ca.st === "ok") ? (tf === "5" ? ca.b5 : ca.b1) || [] : []; }
+// 時刻 t を含む足の番号（5分足は t を含む5分足）。無ければ -1
+function _snlIdxAt(bars, t, tf) {
+  var m = _snlTm(t); if (m == null || !bars) return -1;
+  if (tf === "5") m = m - (m % 5);
+  for (var i = 0; i < bars.length; i++) if (_snlTm(bars[i].t) === m) return i;
+  return -1;
+}
+function _snlSnapIdx(bars, sigTime, tf) { var i = _snlIdxAt(bars, sigTime, tf); return i > 0 ? i - 1 : -1; }   // シグナルの1つ前の確定足
+function _snlPoc(b1, toTm) {   // 寄りから toTm（分）までの1分足 vp で一番出来た価格（11:30の足は除く＝CA CA_VP_POC_SKIP_TM）
+  var map = {}, best = null, bv = 0;
+  (b1 || []).forEach(function(b) { var m = _snlTm(b && b.t); if (m == null || m > toTm || m === 690) return; var a = b.vp; if (!Array.isArray(a)) return; for (var j = 0; j + 1 < a.length; j += 2) map[a[j]] = (map[a[j]] || 0) + a[j + 1]; });
+  Object.keys(map).forEach(function(k) { if (map[k] > bv) { bv = map[k]; best = +k; } });
+  return best;
+}
+function _snlVals(ca, tf, idx) {   // その足の各線の値（POC は寄りからその足の終わりまで）
+  var bars = _snlBars(ca, tf), b = bars[idx]; if (!b) return null;
+  var o = { t: b.t }; _SNL_LINES.forEach(function(L) { o[L[0]] = (b[L[0]] == null) ? null : b[L[0]]; });
+  var m = _snlTm(b.t); o.poc = _snlPoc(ca.b1, tf === "5" ? m + 4 : m);
+  return o;
+}
+function _snlNameVal(vals, name) { if (!vals) return null; if (name === "POC") return vals.poc; var k = _SNL_KEYS[name]; return k ? vals[k] : null; }
+function _snlRnStep(name) { return name === "大RN" ? { s: 100, o: 0 } : (name === "中RN" ? { s: 100, o: 50 } : null); }
+// 通過ラインの自動計算。kitenAt={t,p}。返り値 {ok,why} / {ok:true, list:[{n,v}], names:[], kp, snapT}
+function _snlPassAuto(ca, tf, sigTime, level, kitenNames, kitenAt, names) {
+  if (!ca || ca.st !== "ok") return { ok: false, why: "CAのチャートなし" };
+  var bars = _snlBars(ca, tf), si = _snlSnapIdx(bars, sigTime, tf);
+  if (si < 0) return { ok: false, why: "記録の時刻の足がCAにありません" };
+  var lv = Number(level); if (level === "" || level == null || isNaN(lv)) return { ok: false, why: "水準線が未入力" };
+  var kn = (kitenNames || []).filter(Boolean); if (!kn.length) return { ok: false, why: "起点が未選択" };
+  var vals = _snlVals(ca, tf, si), kp = null;
+  if (kn.indexOf(_EL_PASS_NONE) >= 0) {
+    var _p = kitenAt && kitenAt.p; if (_p === "" || _p == null || isNaN(Number(_p))) return { ok: false, why: "起点の株価が未入力" };
+    kp = Number(_p);
+  } else {
+    var ki = (kitenAt && kitenAt.t) ? _snlIdxAt(bars, kitenAt.t, tf) : -1;
+    var kb = bars[ki >= 0 ? ki : si], kv = _snlVals(ca, tf, ki >= 0 ? ki : si);
+    kn.forEach(function(n) {
+      var st = _snlRnStep(n), v = null;
+      if (st) { var ref = kb ? kb.l : null; if (ref != null) v = Math.round((ref - st.o) / st.s) * st.s + st.o; }
+      else v = _snlNameVal(kv, n);
+      if (v != null && (kp == null || v < kp)) kp = v;
+    });
+    if (kp == null) return { ok: false, why: "起点の線の値が取れません" };
+  }
+  var lo = Math.min(kp, lv), hi = Math.max(kp, lv), out = [];
+  (names || []).forEach(function(n) {
+    if (!n || n === _EL_PASS_NONE || kn.indexOf(n) >= 0) return;
+    var st = _snlRnStep(n);
+    if (st) { for (var x = Math.floor((lo - st.o) / st.s) * st.s + st.o; x < hi; x += st.s) { if (x > lo && x < hi && !(st.o === 50 && x % 100 === 0)) out.push({ n: n, v: x }); } return; }
+    var v = _snlNameVal(vals, n); if (v != null && v > lo && v < hi) out.push({ n: n, v: v });
+  });
+  out.sort(function(a, b) { return b.v - a.v; });
+  var nm = []; out.forEach(function(o) { if (nm.indexOf(o.n) < 0) nm.push(o.n); });
+  return { ok: true, list: out, names: nm.length ? nm : [_EL_PASS_NONE], kp: kp, snapT: bars[si].t };
+}
+// 分析用の並び（シグナルの1つ前の確定足）。{t, v:{…}, order:[上から名前…（"EP"＝水準線）]}
+function _snlSnap(ca, tf, sigTime, level) {
+  var bars = _snlBars(ca, tf), si = _snlSnapIdx(bars, sigTime, tf), lv = Number(level);
+  if (si < 0 || level === "" || level == null || isNaN(lv)) return null;
+  var vals = _snlVals(ca, tf, si), it = [], v = {};
+  _SNL_LINES.forEach(function(L) { if (vals[L[0]] != null) { it.push({ n: L[1], v: vals[L[0]] }); v[L[0]] = _snlR(vals[L[0]]); } });
+  if (vals.poc != null) { it.push({ n: "POC", v: vals.poc }); v.poc = vals.poc; }
+  var rn = { bigUp: Math.floor(lv / 100) * 100 + 100, bigDn: Math.ceil(lv / 100) * 100 - 100, midUp: null, midDn: null };
+  var mu = Math.floor((lv - 50) / 100) * 100 + 50; if (mu <= lv) mu += 100; rn.midUp = mu; var md = mu - 100; if (md >= lv) md -= 100; rn.midDn = md;
+  it.push({ n: "大RN", v: rn.bigUp }, { n: "大RN", v: rn.bigDn }, { n: "中RN", v: rn.midUp }, { n: "中RN", v: rn.midDn }, { n: "EP", v: lv, ep: true });
+  it.sort(function(a, b) { return (b.v - a.v) || (a.ep ? 1 : (b.ep ? -1 : 0)); });
+  var c = bars[si];
+  return { t: c.t, c: c.c, lv: lv, v: v, rn: rn, order: it.map(function(o) { return o.n; }) };
+}
+// ミニチャート（CA 風・黒地・ローソク＋EMA/VWAP＋水準線＋シグナル位置）。画像は保存しない＝毎回 canvas に描く（Firebase 容量を使わない）。
+//   props: bars, sigIdx, level, kitenT, kitenP, passVals:[値], tf, w, h, onPick(bar)
+function _SnLineChart(_p) {
+  var ref = useRef(null);
+  var bars = _p.bars || [], si = _p.sigIdx, W = _p.w || 320, H = _p.h || 210, tf = _p.tf;
+  var from = Math.max(0, si - 20), to = Math.min(bars.length - 1, si + 20);
+  var padL = 4, padR = 46, padT = 6, padB = 16, cw = (W - padL - padR) / Math.max(1, to - from + 1);
+  var _kI = _p.kitenT ? _snlIdxAt(bars, _p.kitenT, tf) : -1;
+  useEffect(function() {
+    var cv = ref.current; if (!cv || si < 0) return;
+    var dpr = window.devicePixelRatio || 1; cv.width = W * dpr; cv.height = H * dpr;
+    var ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#0b0b0b"; ctx.fillRect(0, 0, W, H);
+    var lo = Infinity, hi = -Infinity, lv = Number(_p.level), hasLv = _p.level !== "" && _p.level != null && !isNaN(lv);
+    for (var i = from; i <= to; i++) { var b = bars[i]; if (b.l < lo) lo = b.l; if (b.h > hi) hi = b.h; _SNL_LINES.forEach(function(L) { var v = b[L[0]]; if (v != null) { if (v < lo) lo = v; if (v > hi) hi = v; } }); }
+    if (hasLv) { lo = Math.min(lo, lv); hi = Math.max(hi, lv); }
+    if (_p.kitenP != null && !isNaN(_p.kitenP)) { lo = Math.min(lo, _p.kitenP); hi = Math.max(hi, _p.kitenP); }
+    var pad = Math.max(1, (hi - lo) * 0.06); lo -= pad; hi += pad;
+    var Y = function(p) { return padT + (hi - p) / (hi - lo) * (H - padT - padB); };
+    var X = function(i) { return padL + (i - from) * cw + cw / 2; };
+    var steps = [1, 2, 5, 10, 20, 50, 100, 200, 500], gs = steps[steps.length - 1];
+    for (var s = 0; s < steps.length; s++) if ((hi - lo) / steps[s] <= 7) { gs = steps[s]; break; }
+    ctx.font = "9px sans-serif"; ctx.textBaseline = "middle";
+    for (var g = Math.ceil(lo / gs) * gs; g <= hi; g += gs) { var y = Y(g); ctx.strokeStyle = "#1f1f1f"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke(); ctx.fillStyle = "#8a8a8a"; ctx.textAlign = "left"; ctx.fillText(String(g), W - padR + 3, y); }
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "center";
+    for (var j = from; j <= to; j++) { var mm = _snlTm(bars[j].t); if (mm != null && (tf === "5" ? mm % 15 === 0 : mm % 5 === 0)) { var x = X(j); ctx.strokeStyle = "#1a1a1a"; ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke(); ctx.fillStyle = "#8a8a8a"; ctx.fillText(bars[j].t, x, H - 4); } }
+    var sx = X(si); ctx.strokeStyle = "#fb923c"; ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(sx, padT); ctx.lineTo(sx, H - padB); ctx.stroke(); ctx.setLineDash([]);
+    if (si - 1 >= from) { ctx.fillStyle = "rgba(251,146,60,0.13)"; ctx.fillRect(X(si - 1) - cw / 2, padT, cw, H - padT - padB); }
+    _SNL_LINES.forEach(function(L) { ctx.strokeStyle = L[2]; ctx.lineWidth = 1.2; ctx.beginPath(); var f = true; for (var i = from; i <= to; i++) { var v = bars[i][L[0]]; if (v == null) { f = true; continue; } var x = X(i), y = Y(v); if (f) { ctx.moveTo(x, y); f = false; } else ctx.lineTo(x, y); } ctx.stroke(); });
+    for (var k = from; k <= to; k++) { var bb = bars[k], up = bb.c >= bb.o, col = up ? "#ff0054" : "#11ded9", x2 = X(k); ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x2, Y(bb.h)); ctx.lineTo(x2, Y(bb.l)); ctx.stroke(); ctx.fillStyle = col; var y1 = Y(Math.max(bb.o, bb.c)), y2 = Y(Math.min(bb.o, bb.c)); ctx.fillRect(x2 - cw * 0.35, y1, cw * 0.7, Math.max(1, y2 - y1)); }
+    if (hasLv) { var ly = Y(lv); ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 1.3; ctx.setLineDash([5, 3]); ctx.beginPath(); ctx.moveTo(padL, ly); ctx.lineTo(W - padR, ly); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#fbbf24"; ctx.textAlign = "left"; ctx.fillText("水準 " + lv, padL + 2, ly - 3); }
+    if (_kI >= from && _kI <= to) { var kb = bars[_kI], kpY = (_p.kitenP != null && !isNaN(_p.kitenP)) ? Y(_p.kitenP) : Y(kb.l); ctx.strokeStyle = "#67e8f9"; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(X(_kI), kpY, 5, 0, Math.PI * 2); ctx.stroke(); }
+    (_p.passVals || []).forEach(function(v) { var y = Y(v); ctx.fillStyle = "#fde68a"; ctx.beginPath(); ctx.arc(W - padR - 3, y, 2.4, 0, Math.PI * 2); ctx.fill(); });
+  }, [bars, si, _p.level, _p.kitenT, _p.kitenP, (_p.passVals || []).join(","), W, H, tf]);
+  if (si < 0) return null;
+  return React.createElement("canvas", { ref: ref, title: _p.onPick ? "足をタップすると起点の足の時刻（起点が「無し」ならその足の安値も株価欄）に入ります" : null,
+    onClick: _p.onPick ? function(e) { var r = e.currentTarget.getBoundingClientRect(), x = (e.clientX - r.left) * (W / Math.max(1, r.width)); var i = from + Math.floor((x - padL) / cw); if (i >= from && i <= to && bars[i]) _p.onPick(bars[i]); } : null,
+    style: { width: W, height: H, display: "block", borderRadius: 6, border: "1px solid #333", cursor: _p.onPick ? "crosshair" : "default", flexShrink: 0, maxWidth: "100%" } });
+}
+// 右の縦の並び（上＝EP基準ライン／水準線、下＝起点）
+function _snlFlowNode(o) {
+  var row = function(key, dot, dotCol, name, val, tag, tagBg) {
+    return React.createElement("div", { key: key, style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12, whiteSpace: "nowrap" } },
+      React.createElement("span", { style: { color: dotCol, fontSize: 13, width: 14, textAlign: "center" } }, dot),
+      React.createElement("b", { style: { color: "#333" } }, name),
+      val != null && val !== "" ? React.createElement("span", { style: { color: "#999", fontSize: 10 } }, val) : null,
+      tag ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#fff", background: tagBg, borderRadius: 4, padding: "0 5px" } }, tag) : null);
+  };
+  var arrow = function(k) { return React.createElement("div", { key: k, style: { color: "#C4B5A4", fontSize: 11, lineHeight: "11px", marginLeft: 3 } }, "↑"); };
+  var out = [];
+  out.push(row("ep", "◎", "#B45309", (o.bNames && o.bNames.length) ? o.bNames.join("・") : "なし", o.level !== "" && o.level != null ? "水準線 " + o.level : "水準線 未入力", o.bShow ? "EP基準ライン" : "水準線", "#B45309"));
+  (o.pass || []).forEach(function(p, i) { out.push(arrow("a" + i)); out.push(row("p" + i, "○", "#64748B", p.n, p.v != null ? _snlR(p.v) : "", null)); });
+  if (o.passNone) { out.push(arrow("an")); out.push(row("pn", "○", "#94A3B8", "通過なし（直近）", "", null)); }
+  out.push(arrow("ak"));
+  out.push(row("k", "●", "#0369A1", (o.kNames && o.kNames.length) ? o.kNames.join("・") : "未選択", [o.kPrice != null ? _snlR(o.kPrice) : null, o.kTime || null].filter(Boolean).join(" ／ "), "起点", "#0369A1"));
+  return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, paddingTop: 4 } }, out);
+}
+
 function EntryRecordForm(_ref_erf) {
   var data = _ref_erf.data,
     save = _ref_erf.save,
@@ -8338,6 +8521,18 @@ function EntryRecordForm(_ref_erf) {
   })()),
     _useStateSGDA = _slicedToArray(_useStateSGD, 2),
     fSigDetail = _useStateSGDA[0], setFSigDetail = _useStateSGDA[1];
+  // 📈 指標線の並び 2026-11-05: 起点の足の時刻・株価（シグナル→分足→{t,p}）と、通過ラインを手で直すモード（シグナル→分足→true）。保存は sigDetail[タグ].kAt / pMan。
+  var _useStateKAT = useState(function() { var o = {}, src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {}; Object.keys(src).forEach(function(k) { var v = src[k]; if (v && typeof v === "object" && v.kAt && typeof v.kAt === "object") { var e = {}; _EL_TFS.forEach(function(tf) { var a = v.kAt[tf]; if (a) e[tf] = { t: a.t || "", p: (a.p == null ? "" : String(a.p)) }; }); o[k] = e; } }); return o; }), fKitenAt = _useStateKAT[0], setFKitenAt = _useStateKAT[1];
+  var _useStatePMN = useState(function() { var o = {}, src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {}; Object.keys(src).forEach(function(k) { var v = src[k]; if (v && typeof v === "object" && v.pMan && typeof v.pMan === "object") o[k] = Object.assign({}, v.pMan); }); return o; }), fPassMan = _useStatePMN[0], setFPassMan = _useStatePMN[1];
+  var _useStateCAL = useState({ st: "idle" }), caLine = _useStateCAL[0], setCaLine = _useStateCAL[1];
+  var _caLineReq = useRef(0);
+  var _loadCaLine = function(force) {
+    var _n = ++_caLineReq.current;
+    if (!fStock || !fDate) { setCaLine({ st: "none", msg: "銘柄・日付が未入力" }); return; }
+    setCaLine({ st: "loading" });
+    _snlLoad(fStock, fDate, custom, !!force).then(function(r) { if (_n === _caLineReq.current) setCaLine(r || { st: "none" }); });
+  };
+  useEffect(function() { _loadCaLine(false); }, [fStock, fDate]);
   var _SEC_RKS = ["b", "b1", "b5", "k1", "k5", "p1", "p5", "f1", "f5"];   // フォーム状態の段キー（セクション＋分足）2026-10-29h。"b"＝1・5分共通のEP基準ライン 2026-10-29j
   var _secClone = function(pe) { var o = {}; _SEC_RKS.forEach(function(k) { o[k] = ((pe && pe[k]) || []).slice(); }); return o; };
   var _secAny = function(e) { return _SEC_RKS.some(function(k) { return e && e[k] && e[k].length; }); };
@@ -8544,6 +8739,72 @@ function EntryRecordForm(_ref_erf) {
   var _useStateLP = useState(initSig.levelPrice != null ? String(initSig.levelPrice) : ""),
     _useStateLPA = _slicedToArray(_useStateLP, 2),
     fLevelPrice = _useStateLPA[0], setFLevelPrice = _useStateLPA[1];
+  // 📈 通過ラインの自動入力 2026-11-05（ユーザー決定）: 起点・起点の足の時刻・株価・水準線・記録時刻のどれかを変えたら、その分足の通過ラインを自動計算で入れ替える。
+  //   開いた直後（初回）は書き換えない＝過去記録の手入力はそのまま。CA の読み込み前に変わった分は、読めた時点で入れる。「✎ 手で直す」中（fPassMan）は触らない。
+  var _passSigRef = useRef(null), _passPendRef = useRef({});
+  var _kitenNamesOf = function(t, tf) { var kk = _elKitenKey(custom, t); return (((fSigDetail || {})[t] || {})[kk + tf] || []).filter(Boolean); };
+  var _passAutoOf = function(t, tf) { return _snlPassAuto(caLine, tf, fTime, fLevelPrice, _kitenNamesOf(t, tf), ((fKitenAt || {})[t] || {})[tf], Array.isArray(custom.sigKitenList) ? custom.sigKitenList : []); };
+  var _applyPassAuto = function(t, tf) {
+    var r = _passAutoOf(t, tf); if (!r.ok) return false;
+    setFSigDetail(function(prev) { var e = _secClone(prev[t]); if ((e["p" + tf] || []).join("|") === r.names.join("|")) return prev; e["p" + tf] = r.names.slice(); var o = Object.assign({}, prev); o[t] = e; return o; });
+    return true;
+  };
+  useEffect(function() {
+    var sig = {};
+    fTags.forEach(function(t) { _EL_TFS.forEach(function(tf) { var a = ((fKitenAt || {})[t] || {})[tf] || {}; sig[t + "\u0001" + tf] = [_kitenNamesOf(t, tf).join(","), a.t || "", a.p || "", fLevelPrice, fTime].join("#"); }); });
+    var prev = _passSigRef.current; _passSigRef.current = sig;
+    if (prev == null) return;
+    Object.keys(sig).forEach(function(k) {
+      if (prev[k] === undefined || prev[k] === sig[k]) return;
+      var pp = k.split("\u0001"); if (((fPassMan || {})[pp[0]] || {})[pp[1]]) return;
+      if (caLine.st !== "ok") { _passPendRef.current[k] = true; return; }
+      _applyPassAuto(pp[0], pp[1]);
+    });
+  }, [fSigDetail, fKitenAt, fLevelPrice, fTime, fTags.join("\u0001")]);
+  // 起点の足の時刻・株価をセット（タップ・入力の共通）
+  var _setKitenAt = function(t, tf, patch) { setFKitenAt(function(prev) { var o = Object.assign({}, prev); o[t] = Object.assign({}, o[t] || {}); o[t][tf] = Object.assign({ t: "", p: "" }, o[t][tf] || {}, patch); return o; }); };
+  var _kitenHasNone = function(t, tf) { return _kitenNamesOf(t, tf).indexOf(_EL_PASS_NONE) >= 0; };
+  // 起点の足の時刻（無しなら株価も）入力欄。新規は必須（ユーザー決定）。チャートの足をタップしても入る。
+  var _kitenInputs = function(t, tf) {
+    var a = ((fKitenAt || {})[t] || {})[tf] || {}, none = _kitenHasNone(t, tf);
+    var inp = function(val, ph, w, on) { return React.createElement("input", { type: "text", inputMode: "decimal", value: val || "", placeholder: ph, onChange: function(e) { on(String(e.target.value).replace(/[０-９：．]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })); }, style: { width: w, padding: "3px 6px", fontSize: 12, border: "1px solid #E7D9C4", borderRadius: 5 } }); };
+    return React.createElement("div", { key: "kat" + tf, style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", margin: "0 0 6px" } },
+      React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700 } }, "起点の足の時刻"),
+      inp(a.t, "09:31", 64, function(v) { _setKitenAt(t, tf, { t: v }); }),
+      none ? React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700, marginLeft: 4 } }, "起点の株価") : null,
+      none ? inp(a.p, "6489", 70, function(v) { _setKitenAt(t, tf, { p: v }); }) : null,
+      !isEdit ? React.createElement("span", { style: { fontSize: 9, color: "#DC2626", fontWeight: 800 } }, "必須") : null,
+      caLine.st === "ok" ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "チャートの足をタップでも入ります") : null);
+  };
+  // ミニチャート＋縦の並び（その分足）
+  var _snlPanel = function(t, tf, cur) {
+    if (caLine.st !== "ok") return null;
+    var bars = _snlBars(caLine, tf), si = _snlIdxAt(bars, fTime, tf);
+    if (si < 0) return React.createElement("div", { style: { fontSize: 10, color: "#B45309", margin: "2px 0 6px" } }, fTime ? "記録の時刻（" + fTime + "）の足が CA のチャートにありません" : "記録の時刻を入れるとチャートが出ます");
+    var a = ((fKitenAt || {})[t] || {})[tf] || {}, r = _passAutoOf(t, tf), man = !!((fPassMan[t] || {})[tf]);
+    var snapVals = _snlVals(caLine, tf, si - 1);
+    var pNow = ((cur || {})["p" + tf] || []).filter(Boolean);
+    var pass = pNow.filter(function(n) { return n !== _EL_PASS_NONE; }).map(function(n) { var hit = r.ok ? r.list.filter(function(x) { return x.n === n; })[0] : null; return { n: n, v: hit ? hit.v : _snlNameVal(snapVals, n) }; });
+    var ktK = _elKitenKey(custom, t), secsB = _elSigSecs(data, t).filter(function(x) { return x.key === "b"; })[0];
+    var bNames = (ktK === "b" || !secsB) ? [] : (((cur || {}).b || []).concat((cur || {})["b" + tf] || [])).filter(Boolean);
+    var differ = !man && r.ok && pNow.join("|") !== r.names.join("|");
+    var kp = r.ok ? r.kp : (a.p !== "" && a.p != null && !isNaN(Number(a.p)) ? Number(a.p) : null);
+    return React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap", margin: "2px 0 6px" } },
+      React.createElement(_SnLineChart, { bars: bars, sigIdx: si, tf: tf, level: fLevelPrice, kitenT: a.t, kitenP: kp, passVals: pass.map(function(x) { return x.v; }).filter(function(v) { return v != null; }), w: 320, h: 210,
+        onPick: function(b) { _setKitenAt(t, tf, _kitenHasNone(t, tf) ? { t: b.t, p: String(_snlR(b.l)) } : { t: b.t }); } }),
+      React.createElement("div", { style: { minWidth: 150 } },
+        _snlFlowNode({ bNames: bNames, bShow: !!secsB && ktK !== "b", level: fLevelPrice, pass: pass, passNone: pNow.length === 1 && pNow[0] === _EL_PASS_NONE, kNames: _kitenNamesOf(t, tf), kPrice: kp, kTime: a.t }),
+        (!r.ok && !man) ? React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 6 } }, "通過ラインの自動計算待ち：" + r.why) : null,
+        differ ? React.createElement("div", { style: { fontSize: 10, color: "#B45309", marginTop: 6 } }, "自動計算（" + r.names.join("→") + "）と違います ",
+          React.createElement("button", { type: "button", onClick: function() { _applyPassAuto(t, tf); }, style: { fontSize: 9.5, padding: "1px 6px", border: "1px solid #FDBA74", borderRadius: 5, background: "#FFF7ED", color: "#9A3412", cursor: "pointer" } }, "自動に置き換える")) : null,
+        man ? React.createElement("button", { type: "button", onClick: function() { setFPassMan(function(pv) { var o = Object.assign({}, pv); o[t] = Object.assign({}, o[t] || {}); delete o[t][tf]; return o; }); _applyPassAuto(t, tf); }, style: { marginTop: 6, fontSize: 9.5, padding: "1px 7px", border: "1px solid #86EFAC", borderRadius: 5, background: "#F0FDF4", color: "#15803D", cursor: "pointer" } }, "↺ 通過ラインを自動に戻す") : null,
+        React.createElement("div", { style: { fontSize: 8.5, color: "#aaa", marginTop: 6, lineHeight: 1.4 } }, "値はシグナルの1つ前の確定足（" + (snapVals ? snapVals.t : "—") + "）。橙の帯＝その足・点線＝シグナル")));
+  };
+  useEffect(function() {
+    if (caLine.st !== "ok") return;
+    Object.keys(_passPendRef.current).forEach(function(k) { var pp = k.split("\u0001"); if (!(((fPassMan || {})[pp[0]] || {})[pp[1]])) _applyPassAuto(pp[0], pp[1]); });
+    _passPendRef.current = {};
+  }, [caLine]);
   // 分足（1分足/5分足を複数選択可。記録固有=signal.minBar=number配列[1]/[5]/[1,5]。旧形式の単一numberも読む。2026-06-18実装→α節改修で一旦廃止→2026-06-24再導入→24複数選択化）。
   var _useStateMB = useState(function() { var mb = initSig.minBar; var arr = Array.isArray(mb) ? mb : (mb != null ? [mb] : []); var out = []; for (var i = 0; i < arr.length; i++) { var v = String(arr[i]); if ((v === "1" || v === "5") && out.indexOf(v) < 0) out.push(v); } return out; }),
     _useStateMBA = _slicedToArray(_useStateMB, 2),
@@ -9590,6 +9851,11 @@ function EntryRecordForm(_ref_erf) {
       // ①EP基準ライン・②起点は必須 2026-10-29（新規・編集とも・ユーザー決定）。選んだシグナルごとに1つ以上。②の名前はシグナルごとの表示名。
       // 2026-10-29h 1分足・5分足の両方の段で必須（ユーザー決定）。
       fTags.forEach(function(_t) { var _sb = fSigDetail && fSigDetail[_t]; if (_elBTfOne(custom, _t) && !(fBTf && fBTf[_t])) _vm.push("①EP基準ラインの分足（" + _t + "）");   // 指標線底抜け 2026-10-29m
+        if (!isEdit && _elSigSecs(data, _t).some(function(_sc) { return _sc.key === _elKitenKey(custom, _t); })) _EL_TFS.forEach(function(tf) {   // 起点の足の時刻（無しなら株価も）新規は必須 2026-11-05
+          var _ka = ((fKitenAt || {})[_t] || {})[tf] || {};
+          if (!_snlTm(_ka.t)) _vm.push("起点の足の時刻（" + tf + "分・" + _t + "）");
+          if (_kitenHasNone(_t, tf) && (_ka.p === "" || _ka.p == null || isNaN(Number(_ka.p)))) _vm.push("起点の株価（" + tf + "分・" + _t + "）");
+        });
         _elSigSecs(data, _t).forEach(function(_sc) { if (!_sc.req) return; ((_sc.key === "b" && _elBShared(custom, _t)) ? [""] : _EL_TFS).forEach(function(tf) { var _a = _sb && _sb[_sc.key + tf]; if (!(Array.isArray(_a) && _a.length)) _vm.push(_sc.num + _sc.name + "（" + (tf ? tf + "分・" : "") + _t + "）"); }); }); });
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
       if (fCeOn && _fCeTopRel != null && _fAlpha != null && !(_fCeTopRel > _fAlpha)) {
@@ -9631,10 +9897,18 @@ function EntryRecordForm(_ref_erf) {
             if (_uf.length) _e.f = _uf;
             _has = true;
           }
+          // 📈 起点の足の時刻・株価／通過ラインを手で直した分足 2026-11-05
+          var _ka = (fKitenAt || {})[_t], _kaO = {};
+          if (_ka) _EL_TFS.forEach(function(tf) { var a = _ka[tf]; if (!a) return; var tt = _snlTm(a.t) != null ? _snlHm(_snlTm(a.t)) : "", pp = (a.p === "" || a.p == null || isNaN(Number(a.p))) ? null : Number(a.p); if (tt || pp != null) _kaO[tf] = { t: tt || null, p: pp }; });
+          if (Object.keys(_kaO).length) { _e.kAt = _kaO; _has = true; }
+          var _pm = (fPassMan || {})[_t], _pmO = {}; if (_pm) _EL_TFS.forEach(function(tf) { if (_pm[tf]) _pmO[tf] = true; });
+          if (Object.keys(_pmO).length) { _e.pMan = _pmO; _has = true; }
           if (_has) { _o[_ntf(_t)] = _e; _any = true; }
         });
         return _any ? _o : null;
       })(),
+      // 📈 シグナル時の指標線の並び（分析用・CA が読めたときだけ作り直す。読めなければ前の値を残す）2026-11-05
+      lineSnap: (function() { if (caLine.st !== "ok") return initSig.lineSnap || null; var o = { v: 1, src: caLine.id || null }; _EL_TFS.forEach(function(tf) { var x = _snlSnap(caLine, tf, fTime, fLevelPrice); if (x) o[tf] = x; }); return (o["1"] || o["5"]) ? o : (initSig.lineSnap || null); })(),
       passThrough: fThru === true ? true : null,
       thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,   // スルーの理由詳細（文章・任意）2026-11-04 入力欄を復活
       thruReasons: (fThru === true && (fThruReasons || []).filter(Boolean).length) ? (fThruReasons || []).filter(Boolean) : null,   // スルーの理由（選択肢）2026-10-17
@@ -10014,7 +10288,7 @@ function EntryRecordForm(_ref_erf) {
           var _secsAll = _elSigSecs(data, _dt);
           if (!_secsAll.length) return null;   // 詳細なしのシグナル（detHide）は詳細欄ごと出さない 2026-11-01
           var _firstTfIdx = -1; _secsAll.forEach(function(sc, i) { if (_firstTfIdx < 0 && _rowTfs(sc).length > 1) _firstTfIdx = i; });
-          var _tfMissing = function(tf) { return _secsAll.some(function(sc) { return sc.req && _rowTfs(sc).length > 1 && !((((fSigDetail && fSigDetail[_dt]) || {})[sc.key + tf] || []).length); }); };
+          var _tfMissing = function(tf) { return _secsAll.some(function(sc) { return sc.req && _rowTfs(sc).length > 1 && !((((fSigDetail && fSigDetail[_dt]) || {})[sc.key + tf] || []).length); }) || (!isEdit && _secsAll.some(function(sc) { return sc.key === _ktK; }) && !((((fKitenAt || {})[_dt] || {})[tf] || {}).t)); };   // 起点の足の時刻（新規は必須）2026-11-05
           var _tabBar = React.createElement("div", { style: { display: "flex", gap: 4, margin: "4px 0 6px", borderBottom: "1px solid #FED7AA" } },
             _EL_TFS.map(function(tf) {
               var on = tf === _selTf, miss = _tfMissing(tf);
@@ -10045,9 +10319,19 @@ function EntryRecordForm(_ref_erf) {
           return React.createElement("div", { key: "det_" + _dt, style: { margin: "0 0 6px 12px", padding: "7px 9px", borderLeft: "2px solid #FDBA74", background: "#FFFBF5" } },
             React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（" + _elSigSecs(data, _dt).filter(function(x) { return x.req; }).map(function(x) { return x.num; }).join("") + "は必須）",
               React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "チップをドラッグで並び替え（同セクション内）")),
-            _secsAll.map(function(_sc, _si) {
+            (function() {
+            // 📈 2026-11-05 分足のタブをやめて「1分足」「5分足」のパネルを両方とも最初から出す（ユーザー決定）。1・5分共通の欄（EP基準ライン）は上。
+            //   各パネル＝CA の足から描くミニチャート＋右に縦の並び（上＝水準線/EP基準ライン、下＝起点）＋起点のチップと「起点の足の時刻」（無しなら株価）＋通過ライン（自動／✎手で直す）。
+            var _renderSec = function(_sc, _si, _onlyTf) {
               var _cands0 = _m2[_sc.key];
-              return React.createElement(React.Fragment, { key: _sc.key }, _si === _firstTfIdx ? _tabBar : null, React.createElement("div", { style: { margin: "2px 0 6px" } },
+              if (_sc.key === "p" && _onlyTf && caLine.st === "ok" && !((fPassMan[_dt] || {})[_onlyTf])) {
+                return React.createElement("div", { key: "pauto" + _onlyTf, style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", margin: "2px 0 4px" } },
+                  React.createElement("span", { style: { fontSize: 10, color: "#B45309", fontWeight: 700 } }, _sc.label),
+                  React.createElement("span", { style: { fontSize: 9.5, color: "#16A34A", fontWeight: 700 } }, "自動（起点と水準線の間にあった線・上から＝チャート右の並び）"),
+                  React.createElement("button", { type: "button", onClick: function() { setFPassMan(function(pv) { var o = Object.assign({}, pv); o[_dt] = Object.assign({}, o[_dt] || {}); o[_dt][_onlyTf] = true; return o; }); },
+                    style: { fontSize: 9.5, padding: "1px 7px", border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#777", cursor: "pointer" } }, "✎ 手で直す"));
+              }
+              return React.createElement(React.Fragment, { key: _sc.key + (_onlyTf || "") }, null, React.createElement("div", { style: { margin: "2px 0 6px" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 3 } },
                   // セクション名はシグナルごとに変えられる。2026-09-28b まで「✎ 名前変更」モード中だけ見出しを押せる作りだったが、
                   // モードの裏に隠れていて気づけなかった（仮シグナル行を条件付き表示にしたときと同じ失敗）。
@@ -10060,7 +10344,7 @@ function EntryRecordForm(_ref_erf) {
                     style: { fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: "0 4px", marginLeft: -2,
                       border: "1px solid #E7D9C4", background: "#fff", color: "#A8977C", borderRadius: 4, cursor: "pointer" }
                   }, "✎")),
-                _rowTfs(_sc).filter(function(t) { return !t || t === _selTf; }).map(function(_tf) {   // 1分足・5分足の段（ユーザー要望 2026-10-29h）。選択肢（マスター）は共通・選択は段ごと。EP基準ラインは共通の1行（_tf ""）
+                _rowTfs(_sc).filter(function(t) { return _onlyTf ? t === _onlyTf : !t; }).map(function(_tf) {   // 1分足・5分足の段（ユーザー要望 2026-10-29h）。選択肢（マスター）は共通・選択は段ごと。EP基準ラインは共通の1行（_tf ""）
                   var _rk = _sc.key + _tf;
                   var _cands = (fDetOrder && fDetOrder.tag === _dt && fDetOrder.sec === _rk) ? fDetOrder.list : _cands0;
                   if (_sc.key === "p") _cands = _cands.filter(function(x) { return x !== _EL_PASS_NONE; });   // 「無し」は専用チップ＝リストに入っていても重ねて出さない 2026-10-29l
@@ -10283,7 +10567,27 @@ function EntryRecordForm(_ref_erf) {
                 ) : null));
                 })
               ));
-            })
+            };
+            var _hasTf = _secsAll.some(function(sc) { return _rowTfs(sc).length > 1; });
+            var _shared = _secsAll.map(function(sc, i) { return _rowTfs(sc).length > 1 ? null : _renderSec(sc, i); });
+            if (!_hasTf) return _shared;
+            var _caHead = React.createElement("div", { key: "cahead", style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", margin: "6px 0 2px", fontSize: 10 } },
+              React.createElement("span", { style: { fontWeight: 800, color: "#9A3412" } }, "📈 チャート（CA）"),
+              caLine.st === "loading" ? React.createElement("span", { style: { color: "#94A3B8" } }, "読み込み中…")
+                : caLine.st === "ok" ? React.createElement("span", { style: { color: "#16A34A", fontWeight: 700 } }, "✓ 取り込み済み")
+                : React.createElement("span", { style: { color: "#B45309" } }, "なし" + (caLine.msg ? "（" + caLine.msg + "）" : "") + "＝通過ラインは手で選びます"),
+              React.createElement("button", { type: "button", onClick: function() { _snlLoad(fStock, fDate, custom, true).then(function(r) { setCaLine(r || { st: "none" }); if (r && r.st === "ok") { setTimeout(function() { _EL_TFS.forEach(function(tf) { if (!((fPassMan[_dt] || {})[tf])) { var _r2 = _snlPassAuto(r, tf, fTime, fLevelPrice, _kitenNamesOf(_dt, tf), ((fKitenAt || {})[_dt] || {})[tf], Array.isArray(custom.sigKitenList) ? custom.sigKitenList : []); if (_r2.ok) setFSigDetail(function(prev) { var e = _secClone(prev[_dt]); e["p" + tf] = _r2.names.slice(); var o = Object.assign({}, prev); o[_dt] = e; return o; }); } }); }, 0); } }); setCaLine({ st: "loading" }); },
+                title: "CA のチャートを読み直して、通過ラインを自動計算し直します（✎ 手で直している分足は変えません）",
+                style: { fontSize: 10, padding: "2px 8px", border: "1px solid #0EA5E9", borderRadius: 6, background: "#F0F9FF", color: "#0369A1", cursor: "pointer", fontWeight: 700 } }, "📥 チャートから取り込む"));
+            var _panels = _EL_TFS.map(function(tf) {
+              var _miss = _tfMissing(tf);
+              return React.createElement("div", { key: "tfp" + tf, style: { margin: "6px 0 8px", padding: "6px 8px", border: "1px solid #FED7AA", borderRadius: 8, background: "#fff" } },
+                React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: tf === "1" ? "#0369A1" : "#7C3AED", marginBottom: 4 } }, tf + "分足", _miss ? React.createElement("span", { style: { marginLeft: 5, fontSize: 9, color: "#DC2626" } }, "未") : null),
+                _snlPanel(_dt, tf, _curSec),
+                _secsAll.map(function(sc, i) { return _rowTfs(sc).length > 1 ? React.createElement(React.Fragment, { key: "s" + sc.key + tf }, _renderSec(sc, i, tf), sc.key === _ktK ? _kitenInputs(_dt, tf) : null) : null; }));
+            });
+            return _shared.concat([_caHead]).concat(_panels);
+            })()
           );
         })
       ) : null,
