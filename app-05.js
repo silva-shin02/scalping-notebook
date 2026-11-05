@@ -3770,6 +3770,43 @@ function _elProvPromoteData(prev, nm) {
   });
   return Object.assign({}, prev, { custom: custom, charts: charts });
 }
+// 降格（通常→仮）2026-11-05 ユーザー要望「レンジ崩れを仮シグナルに降格」＝_elProvPromoteData の逆。
+//   タグを signalTags から provSignalTags へ移し、そのタグの過去記録も仮にする（provisional=true・includeInTotal=false＝合計から外れる・分析には残す）＝ユーザー決定。
+//   ⚠️通常シグナルが他にも付いている記録は通常のまま（全部が仮になった記録だけ仮へ）＝通常と仮が混ざった記録を作らない（昇格と対称）。
+function _elProvDemoteHit(sg, nm, prov) {
+  if (!sg || sg.provisional === true) return false;
+  var tags = (Array.isArray(sg.tags) && sg.tags.length) ? sg.tags : (sg.tag ? [sg.tag] : []);
+  if (tags.indexOf(nm) < 0) return false;
+  if (sg.isCustomTag) return false;
+  return tags.every(function(t) { return t === nm || prov.indexOf(t) >= 0; });
+}
+function _elProvDemoteData(prev, nm) {
+  var custom = Object.assign({}, (prev && prev.custom) || {});
+  var sig = (Array.isArray(custom.signalTags) ? custom.signalTags : []).filter(function(t) { return t !== nm; });
+  var prov = (Array.isArray(custom.provSignalTags) ? custom.provSignalTags : []).slice();
+  if (prov.indexOf(nm) < 0) prov.push(nm);
+  custom.signalTags = sig;
+  custom.provSignalTags = prov;
+  var charts = Object.assign({}, (prev && prev.charts) || {});
+  Object.keys(charts).forEach(function(ck) {
+    var c = charts[ck];
+    if (!c || !Array.isArray(c.signals)) return;
+    var hit = false;
+    var ns = c.signals.map(function(sg) {
+      if (!_elProvDemoteHit(sg, nm, prov)) return sg;
+      hit = true;
+      return Object.assign({}, sg, { provisional: true, includeInTotal: false, includeInData: sg.includeInData === false ? false : true });
+    });
+    if (hit) charts[ck] = Object.assign({}, c, { signals: ns });
+  });
+  return Object.assign({}, prev, { custom: custom, charts: charts });
+}
+function _elProvDemoteCount(prev, nm) {
+  var prov = (Array.isArray(prev && prev.custom && prev.custom.provSignalTags) ? prev.custom.provSignalTags : []).concat([nm]);
+  var charts = (prev && prev.charts) || {}, n = 0;
+  Object.keys(charts).forEach(function(ck) { var c = charts[ck]; if (!c || !Array.isArray(c.signals)) return; c.signals.forEach(function(sg) { if (_elProvDemoteHit(sg, nm, prov)) n++; }); });
+  return n;
+}
 // 昇格したときに算入へ変わる記録の件数（確認ダイアログで件数を出すため）。
 function _elProvPromoteCount(prev, nm) {
   var prov = (Array.isArray(prev && prev.custom && prev.custom.provSignalTags) ? prev.custom.provSignalTags : []).filter(function(t) { return t !== nm; });
@@ -8177,6 +8214,20 @@ function EntryRecordForm(_ref_erf) {
       setFTags(function(prev) { return prev.filter(function(x) { return x === t || !_isProvT(x); }); });
     });
   };
+  // 仮シグナルへの降格（通常→仮）2026-11-05 ユーザー要望。_elProvDemoteData＝昇格の逆。過去記録が合計から外れるので件数を出して確認する。
+  //   編集中の記録でこのタグと他の通常シグナルを併せて選んでいたら、仮との混在を避けるためこのタグを選択から外す。
+  var _demoteSigTag = function(t) {
+    var _n = _elProvDemoteCount(data, t);
+    var _mix = fTags.indexOf(t) >= 0 && fTags.some(function(x) { return x !== t && !_isProvT(x); });
+    window._snConfirm("「" + t + "」を仮シグナルへ降格します。\n\n"
+      + (_n ? ("該当する過去の記録 " + _n + "件が合計に算入されなくなり、その日の合計・カレンダー・月次の金額が変わります（分析には残ります）。\n\n") : "")
+      + (_mix ? "この記録ではほかの通常シグナルと一緒に選んでいるので、「" + t + "」は選択から外れます。\n\n" : "")
+      + "降格しますか？").then(function(ok) {
+      if (!ok) return;
+      save(function(prev) { return _elProvDemoteData(prev, t); });
+      if (_mix) setFTags(function(prev) { return prev.filter(function(x) { return x !== t; }); });
+    });
+  };
   var _delSigTag = function(t, isProv) {
     var _n = _cntRecsWithTag(t);
     window._snConfirm("「" + t + "」を" + (isProv ? "仮シグナル" : "シグナル") + "の一覧から削除します。\n\n"
@@ -9861,6 +9912,11 @@ function EntryRecordForm(_ref_erf) {
           if (!_rnMode || signalTags.indexOf(t) < 0) return _chip;
           return React.createElement("span", { key: "w_" + t, style: { display: "inline-flex", alignItems: "center", gap: 2 } },
             _chip,
+            React.createElement("button", {   // 仮へ降格 2026-11-05（⬆昇格の逆）
+              onClick: function() { _demoteSigTag(t); },
+              title: "「" + t + "」を仮シグナルへ降格します（このタグだけの過去記録も合計から外れます）",
+              style: { padding: "5px 7px", fontSize: 11, fontWeight: 800, border: "1px solid #86EFAC", background: "#F0FDF4", color: "#15803D", borderRadius: 6, cursor: "pointer" }
+            }, "⬇"),
             React.createElement("button", {
               onClick: function() { _delSigTag(t, false); },
               title: "「" + t + "」をシグナル一覧から削除します",
