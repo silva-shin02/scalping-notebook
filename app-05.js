@@ -8222,9 +8222,9 @@ function _SnLineChart(_p) {
     (_p.passVals || []).forEach(function(v) { var y = Y(v); ctx.fillStyle = "#fde68a"; ctx.beginPath(); ctx.arc(W - padR - 3, y, 2.4, 0, Math.PI * 2); ctx.fill(); });
   }, [bars, si, _p.level, _p.kitenT, _p.kitenP, (_p.passVals || []).join(","), W, H, tf]);
   if (si < 0) return null;
-  return React.createElement("canvas", { ref: ref, title: _p.onPick ? "足をタップすると起点の足の時刻（起点が「無し」ならその足の安値も株価欄）に入ります" : null,
+  return React.createElement("canvas", { ref: ref, title: _p.onPick ? "足をタップすると起点の足の時刻（起点が「無し」ならその足の実体の安値も株価欄）に入ります" : null,
     onClick: _p.onPick ? function(e) { var r = e.currentTarget.getBoundingClientRect(), x = (e.clientX - r.left) * (W / Math.max(1, r.width)); var i = from + Math.floor((x - padL) / cw); if (i >= from && i <= to && bars[i]) _p.onPick(bars[i]); } : null,
-    style: { width: W, height: H, display: "block", borderRadius: 6, border: "1px solid #333", cursor: _p.onPick ? "crosshair" : "default", flexShrink: 0, maxWidth: "100%" } });
+    style: { width: W, height: "auto", aspectRatio: W + " / " + H, display: "block", borderRadius: 6, border: "1px solid #333", cursor: _p.onPick ? "crosshair" : "default", flexShrink: 0, maxWidth: "100%" } });
 }
 // 右の縦の並び（上＝EP基準ライン／水準線、下＝起点）
 function _snlFlowNode(o) {
@@ -8790,8 +8790,8 @@ function EntryRecordForm(_ref_erf) {
     var differ = !man && r.ok && pNow.join("|") !== r.names.join("|");
     var kp = r.ok ? r.kp : (a.p !== "" && a.p != null && !isNaN(Number(a.p)) ? Number(a.p) : null);
     return React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap", margin: "2px 0 6px" } },
-      React.createElement(_SnLineChart, { bars: bars, sigIdx: si, tf: tf, level: fLevelPrice, kitenT: a.t, kitenP: kp, passVals: pass.map(function(x) { return x.v; }).filter(function(v) { return v != null; }), w: 320, h: 210,
-        onPick: function(b) { _setKitenAt(t, tf, _kitenHasNone(t, tf) ? { t: b.t, p: String(_snlR(b.l)) } : { t: b.t }); } }),
+      React.createElement(_SnLineChart, { bars: bars, sigIdx: si, tf: tf, level: fLevelPrice, kitenT: a.t, kitenP: kp, passVals: pass.map(function(x) { return x.v; }).filter(function(v) { return v != null; }), w: 400, h: 260,
+        onPick: function(b) { _setKitenAt(t, tf, _kitenHasNone(t, tf) ? { t: b.t, p: String(_snlR(Math.min(b.o, b.c))) } : { t: b.t }); } }),
       React.createElement("div", { style: { minWidth: 150 } },
         _snlFlowNode({ bNames: bNames, bShow: !!secsB && ktK !== "b", level: fLevelPrice, pass: pass, passNone: pNow.length === 1 && pNow[0] === _EL_PASS_NONE, kNames: _kitenNamesOf(t, tf), kPrice: kp, kTime: a.t }),
         (!r.ok && !man) ? React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 6 } }, "通過ラインの自動計算待ち：" + r.why) : null,
