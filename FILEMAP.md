@@ -3241,3 +3241,4 @@ HomeEventFormModal, App
 - 【📏指標線の並び分析 2026-11-05d・sw v601】app-06 新規 `_elLsFeat`（lineSnap→特徴：EPの上の指標線の本数／EMAパーフェクトオーダー／EPのすぐ上・すぐ下の線／並びパターン）・`_ElLineSnapBoard`（1分/5分切替・シグナル絞り込み・特徴別の表＝件数/損失なし率/E後の勝率/純損益/1件平均・行で `_elSigRecList`）。EntryLogViewBody の📅月別シグナル分析の下。母数＝`_v2recsAmt` のうち signal.lineSnap がある記録（過去分の一括取り込みはしない＝ユーザー決定）。
 
 - 【指標線ミニチャート調整 2026-11-05e・sw v602】実機確認を受けて：`_SnLineChart` を幅400×高さ260に（canvas は aspectRatio 指定で縮小時も歪まない）。EntryRecordForm `_snlPanel` の足タップ：起点「無し」の株価＝実体の安値（min(始値,終値)）。RN の取り方・丸印はヒゲ込み安値のまま。
+- 【指標線ミニチャート操作 2026-11-05f・sw v603】`_SnLineChart` に表示範囲 state（view）：ホイール＝カーソル位置中心で拡大縮小（native wheel・passive:false）、pointer events でドラッグ＝左右・2本指ピンチ＝拡大縮小（touch-action:pan-y）。時刻ラベル間隔は足幅で自動。描画は描画域で clip。`_snlPanel(t,tf,cur,extra)`＝右の列（並びの下）に ②起点・時刻・③通過ライン（extra）を入れる。
