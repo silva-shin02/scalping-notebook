@@ -1024,6 +1024,64 @@ function _ElProvSuccessBoard(_p) {
     React.createElement("div", { style: { fontSize: 9.5, color: "#9A9186", marginTop: 4, lineHeight: 1.5 } },
       "損失なし率＝損切りもEP損益マイナスも出なかった割合（未達・×見送りは損失なし）／E後の勝率＝エントリーできた記録の勝ち負け／見切り率・損切り率＝勝敗が出た記録のうち。純損益・1件平均は下の🌱月別と同じ想定損益（合計には入っていません）。行を押すとその記録の一覧が開きます。" + (multi ? "1件に仮シグナルが複数付いた記録は各行に数え、計では1件。" : "")));
 }
+// ===== 📏 指標線の並び分析 2026-11-05（ユーザー要望「このシグナルが出たとき指標線の並びはこうで、EPラインはここにあった→並びがこうのとき・EPラインがここにあるとき成功しやすい」）=====
+// 母数＝保存時に signal.lineSnap（app-05 _snlSnap・シグナルの1つ前の確定足の並び）が入った記録だけ（過去記録の一括取り込みはしない＝ユーザー決定）。
+// 分足（1分/5分）とシグナルで絞り込み。特徴別（ユーザー決定）: ①EPライン（水準線）の上にある指標線（EMA4本＋VWAP）の本数 ②EMAのパーフェクトオーダー
+//   ③EPラインのすぐ上・すぐ下の線（RN・POC含む） ④並びの上位パターン（EMA4本＋VWAP＋EP）。成功の判定は🎯シグナル別 成功度と同じ（_elSigOutcomeOf）。
+function _elLsFeat(snap) {
+  var v = snap.v || {}, lv = snap.lv, ks = ["ema200", "ema50", "ema22", "ema9", "vwap"], above = 0, have = 0;
+  ks.forEach(function(k) { if (v[k] != null) { have++; if (v[k] > lv) above++; } });
+  var e = [v.ema9, v.ema22, v.ema50, v.ema200], po = "混在";
+  if (e.every(function(x) { return x != null; })) { if (e[0] > e[1] && e[1] > e[2] && e[2] > e[3]) po = "上昇PO（9>22>50>200）"; else if (e[0] < e[1] && e[1] < e[2] && e[2] < e[3]) po = "下降PO（9<22<50<200）"; }
+  var od = snap.order || [], ix = od.indexOf("EP");
+  var pat = od.filter(function(n) { return ["200EMA", "50EMA", "22EMA", "9EMA", "VWAP", "EP"].indexOf(n) >= 0; }).map(function(n) { return n === "EP" ? "【EP】" : n; }).join(" › ");
+  return { above: have ? ("上に" + above + "本（下に" + (have - above) + "本）") : null, aboveN: above, po: po, up: ix > 0 ? od[ix - 1] : "（上に線なし）", dn: (ix >= 0 && ix < od.length - 1) ? od[ix + 1] : "（下に線なし）", pat: pat };
+}
+function _ElLineSnapBoard(_p) {
+  var recs = _p.recs || [], aiOf = _p.aiOf, data = _p.data, pnlOf = _p.pnlOf;
+  var _uT = useState("1"), tf = _uT[0], setTf = _uT[1];
+  var _uG = useState(""), sig = _uG[0], setSig = _uG[1];
+  var _uS = useState(null), sel = _uS[0], setSel = _uS[1];
+  var _uE = useState(null), exp = _uE[0], setExp = _uE[1];
+  var withSnap = recs.filter(function(r) { return r && r.signal && r.signal.lineSnap && r.signal.lineSnap[tf]; });
+  var sigs = {}; withSnap.forEach(function(r) { _elTagEntries(r.signal).forEach(function(e) { sigs[e.label] = (sigs[e.label] || 0) + 1; }); });
+  var pool = sig ? withSnap.filter(function(r) { return _elTagEntries(r.signal).some(function(e) { return e.label === sig; }); }) : withSnap;
+  var groups = { above: {}, po: {}, up: {}, dn: {}, pat: {} };
+  pool.forEach(function(r) { var f = _elLsFeat(r.signal.lineSnap[tf]); Object.keys(groups).forEach(function(g) { var k = f[g]; if (k == null) return; (groups[g][k] = groups[g][k] || []).push(r); }); });
+  var _st = function(rs) { var o = { n: rs.length, noLoss: 0, win: 0, lose: 0, draw: 0, amt: 0, sum: 0 }; rs.forEach(function(r) { var x = _elSigOutcomeOf(r, aiOf); if (x.noLoss) o.noLoss++; if (x.win) o.win++; if (x.lose) o.lose++; if (x.draw) o.draw++; var v = pnlOf(r); if (v != null) { o.amt++; o.sum += v; } }); return o; };
+  var _pct = function(n, d, hi) { if (!d) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var v = Math.round(n / d * 100); return React.createElement("span", { style: { fontWeight: 700, color: v >= hi ? "#1E8449" : "#B45309" } }, v + "%"); };
+  var _tbl = function(g, title, keys) {
+    if (!keys.length) return null;
+    var rows = keys.map(function(k) {
+      var rs = groups[g][k], o = _st(rs), on = !!(sel && sel.g === g && sel.k === k);
+      return React.createElement("tr", { key: k, onClick: function() { setSel(on ? null : { g: g, k: k }); setExp(null); }, style: { cursor: "pointer", background: on ? "#FFEDD5" : "transparent" } },
+        _elv2Td((on ? "▶ " : "") + k, { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412", whiteSpace: "normal" }),
+        _elv2Td(o.n + "件", { fontWeight: 700 }), _elv2Td(_pct(o.noLoss, o.n, 70)), _elv2Td(_elEwinCell(o.win, o.lose, o.draw)),
+        _elv2Td(React.createElement("b", { style: { color: _elPnlColor(o.amt ? o.sum : null) } }, o.amt ? _elPnlFmt(Math.round(o.sum)) : "—")),
+        _elv2Td(React.createElement("span", { style: { color: _elPnlColor(o.amt ? o.sum : null) } }, o.amt ? _elPnlFmt(Math.round(o.sum / o.amt)) : "—")));
+    });
+    var list = (sel && sel.g === g && groups[g][sel.k]) ? _elSigRecList(groups[g][sel.k], title + "：" + sel.k + (sig ? "（" + sig + "）" : ""), { aiOf: aiOf, data: data, pnlOf: pnlOf, exp: exp, setExp: setExp, onEdit: _p.onEdit, onGoDate: _p.onGoDate, onClose: function() { setSel(null); setExp(null); } }) : null;
+    return React.createElement("div", { key: g, style: { marginTop: 10 } },
+      React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#9A3412" } }, title),
+      _elv2Table([g === "pat" ? "並び（上から）" : "項目", "件数", "損失なし率", "E後の勝率", "純損益", "1件平均"], rows), list);
+  };
+  var byCnt = function(g) { return Object.keys(groups[g]).sort(function(a, b) { return groups[g][b].length - groups[g][a].length || (a < b ? -1 : 1); }); };
+  var aboveKeys = Object.keys(groups.above).sort(function(a, b) { return (+(/上に(\d)/.exec(b) || [0, 0])[1]) - (+(/上に(\d)/.exec(a) || [0, 0])[1]); });
+  var poKeys = ["上昇PO（9>22>50>200）", "下降PO（9<22<50<200）", "混在"].filter(function(k) { return groups.po[k]; });
+  var btn = function(on, label, onClick, key) { return React.createElement("button", { key: key, type: "button", onClick: onClick, style: { padding: "3px 10px", fontSize: 11, fontWeight: 800, border: "1px solid " + (on ? "#FB923C" : "#ddd"), background: on ? "#FFEDD5" : "#fff", color: on ? "#9A3412" : "#777", borderRadius: 6, cursor: "pointer" } }, label); };
+  return React.createElement("div", null,
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+      btn(tf === "1", "1分足", function() { setTf("1"); setSel(null); }, "t1"), btn(tf === "5", "5分足", function() { setTf("5"); setSel(null); }, "t5"),
+      React.createElement("select", { value: sig, onChange: function(e) { setSig(e.target.value); setSel(null); }, style: { marginLeft: 8, fontSize: 11, padding: "3px 6px", border: "1px solid #ddd", borderRadius: 6 } },
+        [React.createElement("option", { key: "", value: "" }, "全シグナル（" + withSnap.length + "件）")].concat(Object.keys(sigs).sort(function(a, b) { return sigs[b] - sigs[a]; }).map(function(t) { return React.createElement("option", { key: t, value: t }, stripCat(t) + "（" + sigs[t] + "件）"); })))),
+    !pool.length ? React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "並びが記録された記録がまだありません（記録フォームで CA のチャートが読めた記録を保存すると入ります）") : React.createElement(React.Fragment, null,
+      _tbl("above", "① EPライン（水準線）の上にある指標線の本数（EMA4本＋VWAP）", aboveKeys),
+      _tbl("po", "② EMAのパーフェクトオーダー", poKeys),
+      _tbl("up", "③ EPラインのすぐ上の線", byCnt("up")),
+      _tbl("dn", "③ EPラインのすぐ下の線", byCnt("dn")),
+      _tbl("pat", "④ 並びの上位パターン（EMA4本＋VWAP＋EP・件数の多い順に10まで）", byCnt("pat").slice(0, 10))),
+    React.createElement("div", { style: { fontSize: 9.5, color: "#9A9186", marginTop: 6, lineHeight: 1.5 } }, "並び＝シグナルの1つ前の確定足での各線の値（CA の足データ・EMA は前日から連続）。EPライン＝水準線。損失なし率・E後の勝率は🎯シグナル別 成功度と同じ判定。行を押すと記録の一覧が開きます。"));
+}
 // 期待度×（×見送り）の分析: ×宣言後にα到達したが取引を見送った記録について、もし取引していたらのEP/H1損益と、
 // 見送り判断の精度（取引EPがマイナス=損失回避=正解／プラス=機会損失=逃した利益）をシグナル別に集計。
 // aiOf=記録→{alpha,cutLine}。『取引していたら』は_epAsTradedの仮想エントリー＝各表の（）参考値と同基準。
@@ -8838,6 +8896,13 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           return [
             _secH("📅 月別シグナル分析", "シグナル×月の件数・損失なし率・E後の勝率・想定損益の合計。母数は" + (+_VAP_SINCE.slice(5, 7)) + "月" + (+_VAP_SINCE.slice(8, 10)) + "日以降の記録（" + _smRecs.length + "件）。マスを押すとその月×シグナルの記録が開きます"),
             React.createElement(_ElSigMonthBoard, { key: "sigmon", recs: _smRecs, aiOf: _ai, data: data, pnlOf: _smPnl, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate })];
+        })(),
+        (function() {   // 📏 指標線の並び分析 2026-11-05（ユーザー決定: 📅月別シグナル分析の下・母数は並び(lineSnap)が入った記録）
+          var _lsRecs = _v2recsAmt.filter(function(r) { return r && r.signal && r.signal.lineSnap; });
+          var _lsPnl = function(r) { var v = _elFinalPnlOf(r); if (v == null && r && _elIsProvisional(r.signal)) v = _provPnlOf(r); return v; };
+          return [
+            _secH("📏 指標線の並び分析", "シグナルの1つ前の確定足で、指標線とEPライン（水準線）がどう並んでいたか別に、件数・損失なし率・E後の勝率・損益（" + _lsRecs.length + "件）。CA のチャートが読めた状態で保存した記録だけが入ります"),
+            React.createElement(_ElLineSnapBoard, { key: "linesnap", recs: _lsRecs, aiOf: _ai, data: data, pnlOf: _lsPnl, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate })];
         })(),
         _v2recsAmt.length ? _fillRiskSection(_v2recsAmt) : null,
         _v2recsNewRule.length >= 2 ? [
