@@ -883,7 +883,39 @@ function _elSigOutcomeOf(r, aiOf) {
   var isStop = !xskip && !!_elIsStopFinal(s, a, c);
   var pp = entered ? _elDynPlanned(s, a, c) : null;
   var res = xskip ? "×見送り" : (!reach ? "未達" : (isStop ? "損切り" : (pp == null ? "—" : (pp > 0 ? "勝ち" : (pp < 0 ? "負け" : "同値")))));
-  return { noLoss: !(!xskip && (isStop || (pp != null && pp < 0))), win: pp != null && pp > 0, lose: pp != null && pp < 0, draw: pp != null && pp === 0, res: res };
+  return { noLoss: !(!xskip && (isStop || (pp != null && pp < 0))), win: pp != null && pp > 0, lose: pp != null && pp < 0, draw: pp != null && pp === 0, res: res, reach: reach, stop: isStop, soft: pp != null && pp < 0 && !isStop };
+}
+// 記録一覧（日付・時刻・銘柄・結果・想定損益→行で明細カード）。📅月別シグナル分析・🌱仮シグナル別 成功度で共用 2026-11-05。
+//   o={aiOf,data,pnlOf,exp,setExp,onEdit,onGoDate,onClose}
+function _elSigRecList(rs, title, o) {
+  var aiOf = o.aiOf, data = o.data, pnlOf = o.pnlOf, exp = o.exp, setExp = o.setExp;
+  var _pct = function(n, d, hi) { if (!d) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var v = Math.round(n / d * 100); return React.createElement("span", { style: { fontWeight: 700, color: v >= hi ? "#1E8449" : "#B45309" } }, v + "%"); };
+  var _stat = function(rs) { var q = { n: rs.length, noLoss: 0, win: 0, lose: 0, draw: 0, pnl: null }; rs.forEach(function(r) { var x = _elSigOutcomeOf(r, aiOf); if (x.noLoss) q.noLoss++; if (x.win) q.win++; if (x.lose) q.lose++; if (x.draw) q.draw++; var v = pnlOf(r); if (v != null) q.pnl = (q.pnl || 0) + v; }); return q; };
+    rs = rs.slice().sort(function(a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : String(b.signal.time || "") < String(a.signal.time || "") ? -1 : 1); });
+    var st = _stat(rs);
+    var _dow = function(ds) { var q = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+q[0], +q[1] - 1, +q[2]).getDay()]; };
+    return React.createElement("div", { style: { marginTop: 8, padding: "6px 8px", border: "1px solid #FDBA74", borderRadius: 8, background: "#FFFCF8" } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+        React.createElement("b", { style: { fontSize: 12, color: "#9A3412" } }, title),
+        React.createElement("span", { style: { fontSize: 10, color: "#666" } }, st.n + "件・損失なし率 ", _pct(st.noLoss, st.n, 70), "・E後の勝率 ", _pct(st.win, st.win + st.lose + st.draw, 50), "・想定損益 ",
+          React.createElement("b", { style: { color: _elPnlColor(st.pnl) } }, st.pnl == null ? "—" : _elPnlFmt(Math.round(st.pnl)))),
+        React.createElement("button", { type: "button", onClick: o.onClose, style: { marginLeft: "auto", fontSize: 10, padding: "2px 8px", border: "1px solid #ddd", borderRadius: 5, background: "#fff", cursor: "pointer", color: "#777" } }, "閉じる")),
+      React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "2px 0 0" } }, "行をタップすると明細カードが開きます"),
+      _elv2Table(["日付", "時刻", "銘柄", "結果", "想定損益"], rs.map(function(r, i) {
+        var ek = "sigmon_" + r.date + "_" + r.stock + "_" + ((r.signal && (r.signal.id || r.signal.time)) || i);
+        var on = exp === ek, x = _elSigOutcomeOf(r, aiOf), v = pnlOf(r);
+        var rc = { "勝ち": "#B91C1C", "負け": "#15803D", "損切り": "#15803D", "未達": "#94A3B8", "×見送り": "#94A3B8" }[x.res] || "#666";
+        var row = React.createElement("tr", { key: ek, onClick: function() { setExp(on ? null : ek); }, style: { background: on ? "#FFF7ED" : "transparent", cursor: "pointer" } },
+          _elv2Td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow(r.date) + ")", { textAlign: "left", paddingLeft: 8 }),
+          _elv2Td((r.signal && r.signal.time) || "—", { color: "#666" }),
+          _elv2Td(React.createElement("b", { style: { color: "#9A3412" } }, r.stock), { textAlign: "left" }),
+          _elv2Td(React.createElement("b", { style: { color: rc } }, x.res)),
+          _elv2Td(React.createElement("b", { style: { color: _elPnlColor(v) } }, v == null ? "—" : _elPnlFmt(Math.round(v)))));
+        if (!on) return row;
+        return [row, React.createElement("tr", { key: ek + "_c" },
+          React.createElement("td", { colSpan: 5, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+            React.createElement(EntryLogCard, { record: r, data: data, onEdit: o.onEdit, onGoDate: o.onGoDate })))];
+      })));
 }
 function _ElSigMonthBoard(_p) {
   var recs = _p.recs || [], aiOf = _p.aiOf, data = _p.data, pnlOf = _p.pnlOf;
@@ -946,33 +978,51 @@ function _ElSigMonthBoard(_p) {
   var list = null;
   if (sel && by[sel.tag]) {
     var rs = sel.ym ? (by[sel.tag][sel.ym] || []) : [].concat.apply([], yms.map(function(ym) { return by[sel.tag][ym] || []; }));
-    rs = rs.slice().sort(function(a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : String(b.signal.time || "") < String(a.signal.time || "") ? -1 : 1); });
-    var st = _stat(rs);
-    var _dow = function(ds) { var q = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+q[0], +q[1] - 1, +q[2]).getDay()]; };
-    list = React.createElement("div", { style: { marginTop: 8, padding: "6px 8px", border: "1px solid #FDBA74", borderRadius: 8, background: "#FFFCF8" } },
-      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-        React.createElement("b", { style: { fontSize: 12, color: "#9A3412" } }, (sel.ym ? _ymLbl(sel.ym) : "全月") + " × " + stripCat(sel.tag)),
-        React.createElement("span", { style: { fontSize: 10, color: "#666" } }, st.n + "件・損失なし率 ", _pct(st.noLoss, st.n, 70), "・E後の勝率 ", _pct(st.win, st.win + st.lose + st.draw, 50), "・想定損益 ",
-          React.createElement("b", { style: { color: _elPnlColor(st.pnl) } }, st.pnl == null ? "—" : _elPnlFmt(Math.round(st.pnl)))),
-        React.createElement("button", { type: "button", onClick: function() { setSel(null); setExp(null); }, style: { marginLeft: "auto", fontSize: 10, padding: "2px 8px", border: "1px solid #ddd", borderRadius: 5, background: "#fff", cursor: "pointer", color: "#777" } }, "閉じる")),
-      React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "2px 0 0" } }, "行をタップすると明細カードが開きます"),
-      _elv2Table(["日付", "時刻", "銘柄", "結果", "想定損益"], rs.map(function(r, i) {
-        var ek = "sigmon_" + r.date + "_" + r.stock + "_" + ((r.signal && (r.signal.id || r.signal.time)) || i);
-        var on = exp === ek, x = _elSigOutcomeOf(r, aiOf), v = pnlOf(r);
-        var rc = { "勝ち": "#B91C1C", "負け": "#15803D", "損切り": "#15803D", "未達": "#94A3B8", "×見送り": "#94A3B8" }[x.res] || "#666";
-        var row = React.createElement("tr", { key: ek, onClick: function() { setExp(on ? null : ek); }, style: { background: on ? "#FFF7ED" : "transparent", cursor: "pointer" } },
-          _elv2Td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow(r.date) + ")", { textAlign: "left", paddingLeft: 8 }),
-          _elv2Td((r.signal && r.signal.time) || "—", { color: "#666" }),
-          _elv2Td(React.createElement("b", { style: { color: "#9A3412" } }, r.stock), { textAlign: "left" }),
-          _elv2Td(React.createElement("b", { style: { color: rc } }, x.res)),
-          _elv2Td(React.createElement("b", { style: { color: _elPnlColor(v) } }, v == null ? "—" : _elPnlFmt(Math.round(v)))));
-        if (!on) return row;
-        return [row, React.createElement("tr", { key: ek + "_c" },
-          React.createElement("td", { colSpan: 5, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
-            React.createElement(EntryLogCard, { record: r, data: data, onEdit: _p.onEdit, onGoDate: _p.onGoDate })))];
-      })));
+    list = _elSigRecList(rs, (sel.ym ? _ymLbl(sel.ym) : "全月") + " × " + stripCat(sel.tag), { aiOf: aiOf, data: data, pnlOf: pnlOf, exp: exp, setExp: setExp, onEdit: _p.onEdit, onGoDate: _p.onGoDate, onClose: function() { setSel(null); setExp(null); } });
   }
   return React.createElement("div", null, tbl, list, items.length ? _elInsightBoxV2(items, { note: "マス＝件数／損なし＝損失なし率（損切りもEP損益マイナスも出なかった割合・未達/×見送りは損失なし）／勝率＝E後の勝率／最下段＝想定損益の合計（仮シグナルも含む＝上の合計には入らない）。複数シグナルの記録は各行に数える。マスを押すとその月×シグナルの記録、シグナル名を押すと全月の記録が下に開きます。" }) : null);
+}
+// ===== 🌱 仮シグナル別 成功度 2026-11-05（ユーザー要望「仮シグナルのみの分析：件数・成功率・損益」）=====
+// 行＝仮シグナル（custom.provSignalTags の並び・一覧外の旧名は末尾）＋仮シグナル計。列＝件数／損失なし率／E後の勝率／E到達率／見切り率／損切り率／純損益／1件平均。
+// 成功の判定は🎯シグナル別 成功度と同じ式（_elSigOutcomeOf）。金額は🌱仮シグナルの損益（月別）と同じ _provPnlOf（呼び出し側から pnlOf で渡す）。
+// 行を押すとその仮シグナルの記録一覧（_elSigRecList）→行で明細カード。母数は呼び出し側（🌱月別と同じ _provRecsOf＝画面上部の期間選択に従う）。
+function _ElProvSuccessBoard(_p) {
+  var recs = _p.recs || [], aiOf = _p.aiOf, data = _p.data, pnlOf = _p.pnlOf;
+  var _uSel = useState(null), sel = _uSel[0], setSel = _uSel[1];
+  var _uExp = useState(null), exp = _uExp[0], setExp = _uExp[1];
+  var order = _elProvTags(data).slice(), by = {}, TOT = "__tot__";
+  recs.forEach(function(r) {
+    if (!r || !r.signal) return;
+    var tags = (Array.isArray(r.signal.tags) ? r.signal.tags : []).filter(function(x) { return typeof x === "string" && x; });
+    if (!tags.length) tags = ["（シグナル名なし）"];
+    tags.forEach(function(t) { if (order.indexOf(t) < 0) order.push(t); (by[t] = by[t] || []).push(r); });
+  });
+  by[TOT] = recs.filter(function(r) { return r && r.signal; });
+  var _st = function(rs) {
+    var o = { n: rs.length, noLoss: 0, win: 0, lose: 0, draw: 0, reach: 0, soft: 0, stop: 0, amt: 0, sum: 0 };
+    rs.forEach(function(r) { var x = _elSigOutcomeOf(r, aiOf); if (x.noLoss) o.noLoss++; if (x.win) o.win++; if (x.lose) o.lose++; if (x.draw) o.draw++; if (x.reach) o.reach++; if (x.soft) o.soft++; if (x.stop) o.stop++; var v = pnlOf(r); if (v != null) { o.amt++; o.sum += v; } });
+    return o;
+  };
+  var _pct = function(n, d, hi, rev) { if (!d) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var v = Math.round(n / d * 100); return React.createElement("span", { style: { fontWeight: 700, color: rev ? (n ? "#B45309" : "#bbb") : (v >= hi ? "#1E8449" : "#B45309") } }, v + "%"); };
+  var rows = order.filter(function(t) { return by[t] && by[t].length; }).concat([TOT]).map(function(t) {
+    var o = _st(by[t]), dec = o.win + o.lose + o.draw, on = sel === t, isT = t === TOT;
+    return React.createElement("tr", { key: t, onClick: function() { setSel(on ? null : t); setExp(null); }, style: { cursor: "pointer", background: on ? "#FFEDD5" : (isT ? "#F0FDF4" : "transparent") } },
+      _elv2Td((on ? "▶ " : "") + (isT ? "仮シグナル計" : stripCat(t)), { textAlign: "left", paddingLeft: 8, fontWeight: isT ? 800 : 700, color: isT ? "#15803D" : "#9A3412", whiteSpace: "normal" }),
+      _elv2Td(o.n + "件", { fontWeight: 700 }),
+      _elv2Td(_pct(o.noLoss, o.n, 70)),
+      _elv2Td(_elEwinCell(o.win, o.lose, o.draw)),
+      _elv2Td(_pct(o.reach, o.n, 50)),
+      _elv2Td(_pct(o.soft, dec, 0, true)),
+      _elv2Td(_pct(o.stop, dec, 0, true)),
+      _elv2Td(React.createElement("b", { style: { color: _elPnlColor(o.amt ? o.sum : null) } }, o.amt ? _elPnlFmt(Math.round(o.sum)) : "—")),
+      _elv2Td(React.createElement("span", { style: { color: _elPnlColor(o.amt ? o.sum : null) } }, o.amt ? _elPnlFmt(Math.round(o.sum / o.amt)) : "—")));
+  });
+  var tbl = _elv2Table(["仮シグナル", "件数", "損失なし率", "E後の勝率", "E到達率", "見切り率", "損切り率", "純損益", "1件平均"], rows);
+  var list = (sel && by[sel]) ? _elSigRecList(by[sel], sel === TOT ? "仮シグナル計" : stripCat(sel), { aiOf: aiOf, data: data, pnlOf: pnlOf, exp: exp, setExp: setExp, onEdit: _p.onEdit, onGoDate: _p.onGoDate, onClose: function() { setSel(null); setExp(null); } }) : null;
+  var multi = recs.some(function(r) { return r && r.signal && Array.isArray(r.signal.tags) && r.signal.tags.length > 1; });
+  return React.createElement("div", null, tbl, list,
+    React.createElement("div", { style: { fontSize: 9.5, color: "#9A9186", marginTop: 4, lineHeight: 1.5 } },
+      "損失なし率＝損切りもEP損益マイナスも出なかった割合（未達・×見送りは損失なし）／E後の勝率＝エントリーできた記録の勝ち負け／見切り率・損切り率＝勝敗が出た記録のうち。純損益・1件平均は下の🌱月別と同じ想定損益（合計には入っていません）。行を押すとその記録の一覧が開きます。" + (multi ? "1件に仮シグナルが複数付いた記録は各行に数え、計では1件。" : "")));
 }
 // 期待度×（×見送り）の分析: ×宣言後にα到達したが取引を見送った記録について、もし取引していたらのEP/H1損益と、
 // 見送り判断の精度（取引EPがマイナス=損失回避=正解／プラス=機会損失=逃した利益）をシグナル別に集計。
@@ -7076,6 +7126,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     });
     rows.push(React.createElement.apply(null, ["tr", { key: "pm__all", style: { background: "#FFF7ED", fontWeight: 700 } }].concat(cells("合計（表示中の期間）", all, { fontWeight: 800 }))));
     return [
+      _secH("🌱 仮シグナル別 成功度", "仮シグナルの記録だけで、件数・成功率（損失なし率・E後の勝率）・到達・損切り・損益をシグナルごとに（" + pool.length + "件）。母数は下の🌱月別と同じ（画面上部の期間に従う）"),
+      React.createElement(_ElProvSuccessBoard, { key: "provsucc", recs: pool, aiOf: _ai, data: data, pnlOf: _provPnlOf, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate }),
       _secH("🌱 仮シグナルの損益（月別）",
         "仮シグナルの記録だけの想定損益（上の合計・カレンダー・ホームには入っていません）。純損益＝全体損益（期間別）と同じ想定損益の計算。勝率＝損益がプラスの件数÷金額が出た件数（0円の同値を含む）。期間は上部の期間選択に従う。" +
         (multi ? "※1件に仮シグナルが複数付いた記録は各シグナルの行に数え、仮シグナル計では1件として数えるため、行の和と計が合わないことがあります。" : "")),
