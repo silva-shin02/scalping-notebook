@@ -3249,3 +3249,4 @@ HomeEventFormModal, App
 - 【2026-11-07d・sw v608】`_osApplyAuto(onlyEmpty, auto)`：自動 effect は全部入れ直し（auto=true・失敗時はメッセージを出さない）。入れ直し時に OS1 高値が負なら空にする。
 - 【2026-11-07e・sw v609】`_snlFlowNode` から通過ライン行を削除→ `_renderSec` の p 自動分岐で縦（○名前 値 ↑）に表示。価格目盛りの数字の間引き閾値 16px→11px。
 - 【2026-11-07f・sw v610】EntryRecordForm：`_snlPassInfo`（並びの材料）・`_snlFlowBlock`（並び＋自動と違う警告＋自動に戻す）を新設し、`_renderSec` の③（p）で自動/手動とも表示。`_snlPanel` の右の列は extra（②・時刻・③）だけ。`_SnLineChart` の縦範囲から EMA/VWAP を外し、範囲外の線は右端に↑↓名前と値。
+- 【2026-11-07g・sw v611】`_snlPanel` のミニチャート高さ 260→360（ユーザー指定）。
