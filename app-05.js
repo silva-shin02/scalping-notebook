@@ -8889,7 +8889,7 @@ function EntryRecordForm(_ref_erf) {
     if (si < 0) return React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#B45309", margin: "2px 0 6px" } }, fTime ? "記録の時刻（" + fTime + "）の足が CA のチャートにありません" : "記録の時刻を入れるとチャートが出ます"), extra);
     var I = _snlPassInfo(t, tf, cur);
     return React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap", margin: "2px 0 6px" } },
-      React.createElement(_SnLineChart, { bars: bars, sigIdx: si, tf: tf, level: fLevelPrice, kitenT: I.a.t, kitenP: I.kp, passVals: I.pass.map(function(x) { return x.v; }).filter(function(v) { return v != null; }), w: 400, h: 260,
+      React.createElement(_SnLineChart, { bars: bars, sigIdx: si, tf: tf, level: fLevelPrice, kitenT: I.a.t, kitenP: I.kp, passVals: I.pass.map(function(x) { return x.v; }).filter(function(v) { return v != null; }), w: 400, h: 360,
         onPick: function(b) { _setKitenAt(t, tf, _kitenHasNone(t, tf) ? { t: b.t, p: String(_snlR(Math.min(b.o, b.c))) } : { t: b.t }); } }),
       React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, extra));
   };
