@@ -8260,10 +8260,12 @@ function _SnLineChart(_p) {
     var pad = Math.max(1, (hi - lo) * 0.06); lo -= pad; hi += pad;
     var Y = function(p) { return padT + (hi - p) / (hi - lo) * (H - padT - padB); };
     var X = function(i) { return padL + (i - from) * cw + cw / 2; };
-    var steps = [1, 2, 5, 10, 20, 50, 100, 200, 500], gs = steps[steps.length - 1];
-    for (var s = 0; s < steps.length; s++) if ((hi - lo) / steps[s] <= 7) { gs = steps[s]; break; }
+    // 価格の横線＝基本10円・10円の間隔が40px以上（相当拡大）なら5円。数字は重ならないよう間引く（10/20/50/100…円ごと）
+    var ppy = (H - padT - padB) / (hi - lo), steps = [5, 10, 20, 50, 100, 200, 500, 1000], gs = ppy * 10 >= 40 ? 5 : 10;
+    while (gs * ppy < 3 && steps.indexOf(gs) < steps.length - 1) gs = steps[steps.indexOf(gs) + 1];
+    var ls = gs; for (var s = steps.indexOf(gs); s < steps.length; s++) { ls = steps[s]; if (ls * ppy >= 16) break; }
     ctx.font = "9px sans-serif"; ctx.textBaseline = "middle";
-    for (var g = Math.ceil(lo / gs) * gs; g <= hi; g += gs) { var y = Y(g); ctx.strokeStyle = "#1f1f1f"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke(); ctx.fillStyle = "#8a8a8a"; ctx.textAlign = "left"; ctx.fillText(String(g), W - padR + 3, y); }
+    for (var g = Math.ceil(lo / gs) * gs; g <= hi; g += gs) { var y = Y(g), lb = g % ls === 0; ctx.strokeStyle = lb ? "#262626" : "#181818"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke(); if (lb) { ctx.fillStyle = "#8a8a8a"; ctx.textAlign = "left"; ctx.fillText(String(g), W - padR + 3, y); } }
     ctx.textBaseline = "alphabetic"; ctx.textAlign = "center";
     var _bm = tf === "5" ? 5 : 1, _iv = [5, 10, 15, 30, 60, 120].filter(function(v) { return v % _bm === 0; }), lbI = _iv[_iv.length - 1];
     for (var q = 0; q < _iv.length; q++) if (_iv[q] / _bm * cw >= 42) { lbI = _iv[q]; break; }
@@ -8823,12 +8825,33 @@ function EntryRecordForm(_ref_erf) {
   var _setKitenAt = function(t, tf, patch) { setFKitenAt(function(prev) { var o = Object.assign({}, prev); o[t] = Object.assign({}, o[t] || {}); o[t][tf] = Object.assign({ t: "", p: "" }, o[t][tf] || {}, patch); return o; }); };
   var _kitenHasNone = function(t, tf) { return _kitenNamesOf(t, tf).indexOf(_EL_PASS_NONE) >= 0; };
   // 起点の足の時刻（無しなら株価も）入力欄。新規は必須（ユーザー決定）。チャートの足をタップしても入る。
+  // 起点の足の時刻を合わせる（◀▶＝1本ずつ・数字打ち）。起点が「無し」なら株価もその足の実体の安値に（手でも直せる）
+  var _kitenBodyLow = function(b) { return String(_snlR(Math.min(b.o, b.c))); };
+  var _kitenSetTime = function(t, tf, v) {
+    var patch = { t: v };
+    if (_kitenHasNone(t, tf)) { var bs = _snlBars(caLine, tf), i = _snlIdxAt(bs, v, tf); if (i >= 0 && bs[i]) patch.p = _kitenBodyLow(bs[i]); }
+    _setKitenAt(t, tf, patch);
+  };
+  var _kitenStep = function(t, tf, dir) {
+    var a = ((fKitenAt || {})[t] || {})[tf] || {}, bs = _snlBars(caLine, tf);
+    if (bs.length) {
+      var i = a.t ? _snlIdxAt(bs, a.t, tf) : -1;
+      if (i < 0) { var si = _snlIdxAt(bs, fTime, tf); i = (si > 0 ? si - 1 : bs.length - 1) - dir; }   // 未入力なら最初はシグナルの1つ前の足
+      i = Math.max(0, Math.min(bs.length - 1, i + dir));
+      var b = bs[i], patch = { t: b.t }; if (_kitenHasNone(t, tf)) patch.p = _kitenBodyLow(b);
+      _setKitenAt(t, tf, patch); return;
+    }
+    var m = _snlTm(a.t); if (m == null) m = _snlTm(fTime); if (m == null) return;
+    var st = tf === "5" ? 5 : 1; m = m - (m % st) + dir * st;
+    _setKitenAt(t, tf, { t: _snlHm(Math.max(0, Math.min(1439, m))) });
+  };
   var _kitenInputs = function(t, tf) {
     var a = ((fKitenAt || {})[t] || {})[tf] || {}, none = _kitenHasNone(t, tf);
+    var stepBtn = function(dir) { return React.createElement("button", { type: "button", onClick: function() { _kitenStep(t, tf, dir); }, title: dir < 0 ? "1本前の足" : "1本後の足", style: { padding: "2px 7px", fontSize: 11, lineHeight: "16px", border: "1px solid #BAE6FD", borderRadius: 5, background: "#F0F9FF", color: "#0369A1", cursor: "pointer", fontWeight: 700 } }, dir < 0 ? "◀" : "▶"); };
     var inp = function(val, ph, w, on) { return React.createElement("input", { type: "text", inputMode: "decimal", value: val || "", placeholder: ph, onChange: function(e) { on(String(e.target.value).replace(/[０-９：．]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })); }, style: { width: w, padding: "3px 6px", fontSize: 12, border: "1px solid #E7D9C4", borderRadius: 5 } }); };
     return React.createElement("div", { key: "kat" + tf, style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", margin: "0 0 6px" } },
       React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700 } }, "起点の足の時刻"),
-      inp(a.t, "09:31", 64, function(v) { _setKitenAt(t, tf, { t: v }); }),
+      React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } }, stepBtn(-1), inp(a.t, "09:31", 56, function(v) { _kitenSetTime(t, tf, v); }), stepBtn(1)),
       none ? React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700, marginLeft: 4 } }, "起点の株価") : null,
       none ? inp(a.p, "6489", 70, function(v) { _setKitenAt(t, tf, { p: v }); }) : null,
       !isEdit ? React.createElement("span", { style: { fontSize: 9, color: "#DC2626", fontWeight: 800 } }, "必須") : null,
