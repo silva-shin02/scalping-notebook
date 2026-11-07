@@ -3247,3 +3247,4 @@ HomeEventFormModal, App
 - 【2026-11-07b・sw v606】EntryRecordForm に `_osAutoCalc`/`_osApplyAuto`/state `fOsAutoMsg`：CAの1分足から OS1〜OS5 の高値・確定値（高値／終値−水準線・整数・OS1〜3は"+"=↑、OS4/5(hold系)は"-"=↑、OS4/5確定値は _hwAfter/_h2wAfter も呼ぶ）。effect＝caLine/fTime/fLevelPrice 変化で空欄だけ（編集記録は時刻・水準線が開いた時のままなら何もしない）。OS欄見出しに「📥 チャートからOSを入れる」（全部入れ直し）。
 - 【2026-11-07c・sw v607】`_SnLineChart` 初期表示＝前後10本・時刻ラベルが近すぎる（昼休みの境目）ときは出さない。③通過ラインの自動表示に通過ライン（上から・値）を表示（`_renderSec` の p 自動分岐）。`_osAutoCalc` に水準線と株価の乖離チェック（10%）、自動入力 effect は1.2秒デバウンス。
 - 【2026-11-07d・sw v608】`_osApplyAuto(onlyEmpty, auto)`：自動 effect は全部入れ直し（auto=true・失敗時はメッセージを出さない）。入れ直し時に OS1 高値が負なら空にする。
+- 【2026-11-07e・sw v609】`_snlFlowNode` から通過ライン行を削除→ `_renderSec` の p 自動分岐で縦（○名前 値 ↑）に表示。価格目盛りの数字の間引き閾値 16px→11px。
