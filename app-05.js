@@ -8192,10 +8192,10 @@ function _snlSnap(ca, tf, sigTime, level) {
 function _SnLineChart(_p) {
   var ref = useRef(null);
   var bars = _p.bars || [], si = _p.sigIdx, W = _p.w || 320, H = _p.h || 210, tf = _p.tf, nB = bars.length;
-  // 表示範囲（ホイール＝カーソル位置中心で拡大縮小・ドラッグ＝左右・2本指ピンチ）。null＝初期（前後20本）
+  // 表示範囲（ホイール＝カーソル位置中心で拡大縮小・ドラッグ＝左右・2本指ピンチ）。null＝初期（前後10本）
   var _vw = useState(null), view = _vw[0], setView = _vw[1];
   useEffect(function() { setView(null); }, [bars, si]);
-  var from = view ? view.f : Math.max(0, si - 20), to = view ? view.t : Math.min(nB - 1, si + 20);
+  var from = view ? view.f : Math.max(0, si - 10), to = view ? view.t : Math.min(nB - 1, si + 10);
   var padL = 4, padR = 46, padT = 6, padB = 16, cw = (W - padL - padR) / Math.max(1, to - from + 1);
   var stRef = useRef({}); stRef.current = { from: from, to: to, n: nB };
   var gRef = useRef({ pts: {}, moved: false });
@@ -8269,7 +8269,7 @@ function _SnLineChart(_p) {
     ctx.textBaseline = "alphabetic"; ctx.textAlign = "center";
     var _bm = tf === "5" ? 5 : 1, _iv = [5, 10, 15, 30, 60, 120].filter(function(v) { return v % _bm === 0; }), lbI = _iv[_iv.length - 1];
     for (var q = 0; q < _iv.length; q++) if (_iv[q] / _bm * cw >= 42) { lbI = _iv[q]; break; }
-    for (var j = from; j <= to; j++) { var mm = _snlTm(bars[j].t); if (mm != null && mm % lbI === 0) { var x = X(j); ctx.strokeStyle = "#1a1a1a"; ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke(); ctx.fillStyle = "#8a8a8a"; if (x >= padL + 14 && x <= W - padR - 6) ctx.fillText(bars[j].t, x, H - 4); } }
+    var _lastLx = -1e9; for (var j = from; j <= to; j++) { var mm = _snlTm(bars[j].t); if (mm != null && mm % lbI === 0 && X(j) - _lastLx >= 36) { _lastLx = X(j); var x = X(j); ctx.strokeStyle = "#1a1a1a"; ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke(); ctx.fillStyle = "#8a8a8a"; if (x >= padL + 14 && x <= W - padR - 6) ctx.fillText(bars[j].t, x, H - 4); } }
     ctx.save(); ctx.beginPath(); ctx.rect(padL, 0, W - padL - padR, H); ctx.clip();
     var sx = X(si); ctx.strokeStyle = "#fb923c"; ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(sx, padT); ctx.lineTo(sx, H - padB); ctx.stroke(); ctx.setLineDash([]);
     if (si - 1 >= from) { ctx.fillStyle = "rgba(251,146,60,0.13)"; ctx.fillRect(X(si - 1) - cw / 2, padT, cw, H - padT - padB); }
@@ -9242,6 +9242,7 @@ function EntryRecordForm(_ref_erf) {
     if (!caLine || caLine.st !== "ok") return { ok: false, why: "CAのチャートなし" };
     var lv = Number(fLevelPrice); if (fLevelPrice === "" || fLevelPrice == null || isNaN(lv)) return { ok: false, why: "水準線が未入力" };
     var b1 = caLine.b1 || [], i0 = _snlIdxAt(b1, fTime, "1"); if (i0 < 0) return { ok: false, why: "記録の時刻の足がCAにありません" };
+    if (Math.abs(lv - b1[i0].c) > Math.abs(b1[i0].c) * 0.1) return { ok: false, why: "水準線（" + fLevelPrice + "）が株価とかけ離れています" };   // 入力途中の水準線で入れてしまわない
     var legs = []; for (var k = 0; k < 5; k++) { var b = b1[i0 + k]; legs.push(b ? { h: Math.round(b.h - lv), c: Math.round(b.c - lv) } : null); }
     return { ok: true, legs: legs };
   };
@@ -9268,7 +9269,8 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     if (!caLine || caLine.st !== "ok") return;
     if (isEdit && (fTime + "|" + fLevelPrice) === _osAutoInitKey.current) return;   // 過去記録は開いただけでは書き換えない
-    _osApplyAuto(true);
+    var _tm = setTimeout(function() { _osApplyAuto(true); }, 1200);   // 打ち終わるのを待つ（1文字ごとに入れると途中の水準線で空欄が埋まってしまう）
+    return function() { clearTimeout(_tm); };
   }, [caLine, fTime, fLevelPrice]);
 
 
@@ -10444,7 +10446,20 @@ function EntryRecordForm(_ref_erf) {
               if (_sc.key === "p" && _onlyTf && caLine.st === "ok" && !((fPassMan[_dt] || {})[_onlyTf])) {
                 return React.createElement("div", { key: "pauto" + _onlyTf, style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", margin: "2px 0 4px" } },
                   React.createElement("span", { style: { fontSize: 10, color: "#B45309", fontWeight: 700 } }, _sc.label),
-                  React.createElement("span", { style: { fontSize: 9.5, color: "#16A34A", fontWeight: 700 } }, "自動（起点と水準線の間にあった線・上から＝チャート右の並び）"),
+                  React.createElement("span", { style: { fontSize: 9.5, color: "#16A34A", fontWeight: 700 } }, "自動"),
+                  (function() {   // 通過ライン（上から）を③にも出す 2026-11-07
+                    var _pN = ((_curSec || {})["p" + _onlyTf] || []).filter(Boolean), _ra = _passAutoOf(_dt, _onlyTf);
+                    if (!_pN.length) return React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, _ra.ok ? "—" : "（計算待ち：" + _ra.why + "）");
+                    if (_pN.length === 1 && _pN[0] === _EL_PASS_NONE) return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 6, padding: "1px 8px" } }, "通過なし（直近）");
+                    var out = [];
+                    _pN.forEach(function(n, i) {
+                      var hit = _ra.ok ? _ra.list.filter(function(x) { return x.n === n; })[0] : null;
+                      if (i) out.push(React.createElement("span", { key: "a" + i, style: { color: "#C4B5A4", fontSize: 11 } }, "→"));
+                      out.push(React.createElement("span", { key: "n" + i, style: { fontSize: 11, fontWeight: 700, color: "#334155", background: "#F8FAFC", border: "1px solid #CBD5E1", borderRadius: 6, padding: "1px 8px", whiteSpace: "nowrap" } }, n,
+                        hit ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600, marginLeft: 4 } }, String(_snlR(hit.v))) : null));
+                    });
+                    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } }, out);
+                  })(),
                   React.createElement("button", { type: "button", onClick: function() { setFPassMan(function(pv) { var o = Object.assign({}, pv); o[_dt] = Object.assign({}, o[_dt] || {}); o[_dt][_onlyTf] = true; return o; }); },
                     style: { fontSize: 9.5, padding: "1px 7px", border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#777", cursor: "pointer" } }, "✎ 手で直す"));
               }
