@@ -3248,3 +3248,4 @@ HomeEventFormModal, App
 - 【2026-11-07c・sw v607】`_SnLineChart` 初期表示＝前後10本・時刻ラベルが近すぎる（昼休みの境目）ときは出さない。③通過ラインの自動表示に通過ライン（上から・値）を表示（`_renderSec` の p 自動分岐）。`_osAutoCalc` に水準線と株価の乖離チェック（10%）、自動入力 effect は1.2秒デバウンス。
 - 【2026-11-07d・sw v608】`_osApplyAuto(onlyEmpty, auto)`：自動 effect は全部入れ直し（auto=true・失敗時はメッセージを出さない）。入れ直し時に OS1 高値が負なら空にする。
 - 【2026-11-07e・sw v609】`_snlFlowNode` から通過ライン行を削除→ `_renderSec` の p 自動分岐で縦（○名前 値 ↑）に表示。価格目盛りの数字の間引き閾値 16px→11px。
+- 【2026-11-07f・sw v610】EntryRecordForm：`_snlPassInfo`（並びの材料）・`_snlFlowBlock`（並び＋自動と違う警告＋自動に戻す）を新設し、`_renderSec` の③（p）で自動/手動とも表示。`_snlPanel` の右の列は extra（②・時刻・③）だけ。`_SnLineChart` の縦範囲から EMA/VWAP を外し、範囲外の線は右端に↑↓名前と値。

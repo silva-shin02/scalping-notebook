@@ -8254,7 +8254,7 @@ function _SnLineChart(_p) {
     var ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = "#0b0b0b"; ctx.fillRect(0, 0, W, H);
     var lo = Infinity, hi = -Infinity, lv = Number(_p.level), hasLv = _p.level !== "" && _p.level != null && !isNaN(lv);
-    for (var i = from; i <= to; i++) { var b = bars[i]; if (b.l < lo) lo = b.l; if (b.h > hi) hi = b.h; _SNL_LINES.forEach(function(L) { var v = b[L[0]]; if (v != null) { if (v < lo) lo = v; if (v > hi) hi = v; } }); }
+    for (var i = from; i <= to; i++) { var b = bars[i]; if (b.l < lo) lo = b.l; if (b.h > hi) hi = b.h; }   // 縦の範囲＝足・水準線・起点だけ（遠い EMA は範囲外＝右端に↑↓で名前と値）2026-11-07
     if (hasLv) { lo = Math.min(lo, lv); hi = Math.max(hi, lv); }
     if (_p.kitenP != null && !isNaN(_p.kitenP)) { lo = Math.min(lo, _p.kitenP); hi = Math.max(hi, _p.kitenP); }
     var pad = Math.max(1, (hi - lo) * 0.06); lo -= pad; hi += pad;
@@ -8279,6 +8279,9 @@ function _SnLineChart(_p) {
     if (_kI >= from && _kI <= to) { var kb = bars[_kI], kpY = (_p.kitenP != null && !isNaN(_p.kitenP)) ? Y(_p.kitenP) : Y(kb.l); ctx.strokeStyle = "#67e8f9"; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(X(_kI), kpY, 5, 0, Math.PI * 2); ctx.stroke(); }
     (_p.passVals || []).forEach(function(v) { var y = Y(v); ctx.fillStyle = "#fde68a"; ctx.beginPath(); ctx.arc(W - padR - 3, y, 2.4, 0, Math.PI * 2); ctx.fill(); });
     ctx.restore();
+    var _offU = 0, _offD = 0; ctx.font = "9px sans-serif"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    _SNL_LINES.forEach(function(L) { var v = bars[to] && bars[to][L[0]]; if (v == null) return; var up = v > hi; if (!up && v >= lo) return;
+      var yy = up ? padT + 6 + 11 * _offU++ : H - padB - 6 - 11 * _offD++; ctx.fillStyle = L[2]; ctx.fillText((up ? "↑" : "↓") + L[1] + " " + _snlR(v), W - padR - 8, yy); });
   }, [bars, si, from, to, _p.level, _p.kitenT, _p.kitenP, (_p.passVals || []).join(","), W, H, tf]);
   if (si < 0) return null;
   return React.createElement("canvas", { ref: ref, title: (_p.onPick ? "足をタップすると起点の足の時刻（起点が「無し」ならその足の実体の安値も株価欄）に入ります。" : "") + "ホイール／ピンチで拡大縮小・左右ボタン同時押し（iPadは1本指）のドラッグで左右",
@@ -8298,7 +8301,8 @@ function _snlFlowNode(o) {
   var arrow = function(k) { return React.createElement("div", { key: k, style: { color: "#C4B5A4", fontSize: 11, lineHeight: "11px", marginLeft: 3 } }, "↑"); };
   var out = [];
   out.push(row("ep", "◎", "#B45309", (o.bNames && o.bNames.length) ? o.bNames.join("・") : "なし", o.level !== "" && o.level != null ? "水準線 " + o.level : "水準線 未入力", o.bShow ? "EP基準ライン" : "水準線", "#B45309"));
-  // 通過ライン（○↑○）は③の欄に出す（2026-11-07 ユーザー指定）＝ここは EP基準ライン↑起点だけ
+  (o.pass || []).forEach(function(p, i) { out.push(arrow("a" + i)); out.push(row("p" + i, "○", "#64748B", p.n, p.v != null ? _snlR(p.v) : "", null)); });
+  if (o.passNone) { out.push(arrow("an")); out.push(row("pn", "○", "#94A3B8", "通過なし（直近）", "", null)); }
   out.push(arrow("ak"));
   out.push(row("k", "●", "#0369A1", (o.kNames && o.kNames.length) ? o.kNames.join("・") : "未選択", [o.kPrice != null ? _snlR(o.kPrice) : null, o.kTime || null].filter(Boolean).join(" ／ "), "起点", "#0369A1"));
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, paddingTop: 4 } }, out);
@@ -8857,29 +8861,37 @@ function EntryRecordForm(_ref_erf) {
       caLine.st === "ok" ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "チャートの足をタップでも入ります") : null);
   };
   // ミニチャート＋縦の並び（その分足）
-  var _snlPanel = function(t, tf, cur, extra) {   // extra＝右の列（並びの下）に入れる ②起点・時刻・③通過ライン
+  // 並び（EP基準ライン ↑ 通過ライン ↑ 起点）＝③通過ラインの欄に出す（2026-11-07 ユーザー指定）
+  var _snlPassInfo = function(t, tf, cur) {
     if (caLine.st !== "ok") return null;
-    var bars = _snlBars(caLine, tf), si = _snlIdxAt(bars, fTime, tf);
-    if (si < 0) return React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#B45309", margin: "2px 0 6px" } }, fTime ? "記録の時刻（" + fTime + "）の足が CA のチャートにありません" : "記録の時刻を入れるとチャートが出ます"), extra);
+    var bars = _snlBars(caLine, tf), si = _snlIdxAt(bars, fTime, tf); if (si < 0) return null;
     var a = ((fKitenAt || {})[t] || {})[tf] || {}, r = _passAutoOf(t, tf), man = !!((fPassMan[t] || {})[tf]);
     var snapVals = _snlVals(caLine, tf, si - 1);
     var pNow = ((cur || {})["p" + tf] || []).filter(Boolean);
     var pass = pNow.filter(function(n) { return n !== _EL_PASS_NONE; }).map(function(n) { var hit = r.ok ? r.list.filter(function(x) { return x.n === n; })[0] : null; return { n: n, v: hit ? hit.v : _snlNameVal(snapVals, n) }; });
     var ktK = _elKitenKey(custom, t), secsB = _elSigSecs(data, t).filter(function(x) { return x.key === "b"; })[0];
     var bNames = (ktK === "b" || !secsB) ? [] : (((cur || {}).b || []).concat((cur || {})["b" + tf] || [])).filter(Boolean);
-    var differ = !man && r.ok && pNow.join("|") !== r.names.join("|");
     var kp = r.ok ? r.kp : (a.p !== "" && a.p != null && !isNaN(Number(a.p)) ? Number(a.p) : null);
+    return { bars: bars, si: si, a: a, r: r, man: man, pNow: pNow, pass: pass, ktK: ktK, secsB: secsB, bNames: bNames, kp: kp, differ: !man && r.ok && pNow.join("|") !== r.names.join("|") };
+  };
+  var _snlFlowBlock = function(t, tf, cur) {
+    var I = _snlPassInfo(t, tf, cur); if (!I) return null;
+    var r = I.r, man = I.man, differ = I.differ;
+    return React.createElement("div", { key: "flow" + tf, style: { flexBasis: "100%", margin: "2px 0 4px" } },
+      _snlFlowNode({ bNames: I.bNames, bShow: !!I.secsB && I.ktK !== "b", level: fLevelPrice, pass: I.pass, passNone: I.pNow.length === 1 && I.pNow[0] === _EL_PASS_NONE, kNames: _kitenNamesOf(t, tf), kPrice: I.kp, kTime: I.a.t }),
+      differ ? React.createElement("div", { style: { fontSize: 10, color: "#B45309", marginTop: 6 } }, "自動計算（" + r.names.join("→") + "）と違います ",
+        React.createElement("button", { type: "button", onClick: function() { _applyPassAuto(t, tf); }, style: { fontSize: 9.5, padding: "1px 6px", border: "1px solid #FDBA74", borderRadius: 5, background: "#FFF7ED", color: "#9A3412", cursor: "pointer" } }, "自動に置き換える")) : null,
+      man ? React.createElement("button", { type: "button", onClick: function() { setFPassMan(function(pv) { var o = Object.assign({}, pv); o[t] = Object.assign({}, o[t] || {}); delete o[t][tf]; return o; }); _applyPassAuto(t, tf); }, style: { marginTop: 6, fontSize: 9.5, padding: "1px 7px", border: "1px solid #86EFAC", borderRadius: 5, background: "#F0FDF4", color: "#15803D", cursor: "pointer" } }, "↺ 通過ラインを自動に戻す") : null);
+  };
+  var _snlPanel = function(t, tf, cur, extra) {   // extra＝右の列に入れる ②起点・時刻・③通過ライン（並びは③の中）
+    if (caLine.st !== "ok") return null;
+    var bars = _snlBars(caLine, tf), si = _snlIdxAt(bars, fTime, tf);
+    if (si < 0) return React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#B45309", margin: "2px 0 6px" } }, fTime ? "記録の時刻（" + fTime + "）の足が CA のチャートにありません" : "記録の時刻を入れるとチャートが出ます"), extra);
+    var I = _snlPassInfo(t, tf, cur);
     return React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap", margin: "2px 0 6px" } },
-      React.createElement(_SnLineChart, { bars: bars, sigIdx: si, tf: tf, level: fLevelPrice, kitenT: a.t, kitenP: kp, passVals: pass.map(function(x) { return x.v; }).filter(function(v) { return v != null; }), w: 400, h: 260,
+      React.createElement(_SnLineChart, { bars: bars, sigIdx: si, tf: tf, level: fLevelPrice, kitenT: I.a.t, kitenP: I.kp, passVals: I.pass.map(function(x) { return x.v; }).filter(function(v) { return v != null; }), w: 400, h: 260,
         onPick: function(b) { _setKitenAt(t, tf, _kitenHasNone(t, tf) ? { t: b.t, p: String(_snlR(Math.min(b.o, b.c))) } : { t: b.t }); } }),
-      React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } },
-        _snlFlowNode({ bNames: bNames, bShow: !!secsB && ktK !== "b", level: fLevelPrice, pass: pass, passNone: pNow.length === 1 && pNow[0] === _EL_PASS_NONE, kNames: _kitenNamesOf(t, tf), kPrice: kp, kTime: a.t }),
-        (!r.ok && !man) ? React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 6 } }, "通過ラインの自動計算待ち：" + r.why) : null,
-        differ ? React.createElement("div", { style: { fontSize: 10, color: "#B45309", marginTop: 6 } }, "自動計算（" + r.names.join("→") + "）と違います ",
-          React.createElement("button", { type: "button", onClick: function() { _applyPassAuto(t, tf); }, style: { fontSize: 9.5, padding: "1px 6px", border: "1px solid #FDBA74", borderRadius: 5, background: "#FFF7ED", color: "#9A3412", cursor: "pointer" } }, "自動に置き換える")) : null,
-        man ? React.createElement("button", { type: "button", onClick: function() { setFPassMan(function(pv) { var o = Object.assign({}, pv); o[t] = Object.assign({}, o[t] || {}); delete o[t][tf]; return o; }); _applyPassAuto(t, tf); }, style: { marginTop: 6, fontSize: 9.5, padding: "1px 7px", border: "1px solid #86EFAC", borderRadius: 5, background: "#F0FDF4", color: "#15803D", cursor: "pointer" } }, "↺ 通過ラインを自動に戻す") : null,
-        React.createElement("div", { style: { fontSize: 8.5, color: "#aaa", marginTop: 6, lineHeight: 1.4 } }, "値はシグナルの1つ前の確定足（" + (snapVals ? snapVals.t : "—") + "）。橙の帯＝その足・点線＝シグナル"),
-        extra));
+      React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, extra));
   };
   useEffect(function() {
     if (caLine.st !== "ok") return;
@@ -10440,30 +10452,17 @@ function EntryRecordForm(_ref_erf) {
             (function() {
             // 📈 2026-11-05 分足のタブをやめて「1分足」「5分足」のパネルを両方とも最初から出す（ユーザー決定）。1・5分共通の欄（EP基準ライン）は上。
             //   各パネル＝CA の足から描くミニチャート＋右に縦の並び（上＝水準線/EP基準ライン、下＝起点）＋起点のチップと「起点の足の時刻」（無しなら株価）＋通過ライン（自動／✎手で直す）。
-            var _renderSec = function(_sc, _si, _onlyTf) {
+            var _renderSec = function(_sc, _si, _onlyTf, _noFlow) {
               var _cands0 = _m2[_sc.key];
               if (_sc.key === "p" && _onlyTf && caLine.st === "ok" && !((fPassMan[_dt] || {})[_onlyTf])) {
                 return React.createElement("div", { key: "pauto" + _onlyTf, style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", margin: "2px 0 4px" } },
                   React.createElement("span", { style: { fontSize: 10, color: "#B45309", fontWeight: 700 } }, _sc.label),
                   React.createElement("span", { style: { fontSize: 9.5, color: "#16A34A", fontWeight: 700 } }, "自動"),
-                  (function() {   // 通過ライン（上から）を③にも出す 2026-11-07
-                    var _pN = ((_curSec || {})["p" + _onlyTf] || []).filter(Boolean), _ra = _passAutoOf(_dt, _onlyTf);
-                    if (!_pN.length) return React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, _ra.ok ? "—" : "（計算待ち：" + _ra.why + "）");
-                    if (_pN.length === 1 && _pN[0] === _EL_PASS_NONE) return React.createElement("div", { style: { flexBasis: "100%", display: "flex", alignItems: "center", gap: 5, fontSize: 12, paddingLeft: 2 } }, React.createElement("span", { style: { color: "#94A3B8", fontSize: 13, width: 14, textAlign: "center" } }, "○"), React.createElement("b", { style: { color: "#64748B" } }, "通過なし（直近）"));
-                    var out = [];   // 縦に上から（○ 名前 値 ↑ ○ …）＝右の並びの通過ライン部分
-                    _pN.forEach(function(n, i) {
-                      var hit = _ra.ok ? _ra.list.filter(function(x) { return x.n === n; })[0] : null;
-                      if (i) out.push(React.createElement("div", { key: "a" + i, style: { color: "#C4B5A4", fontSize: 11, lineHeight: "11px", marginLeft: 3 } }, "↑"));
-                      out.push(React.createElement("div", { key: "n" + i, style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12, whiteSpace: "nowrap" } },
-                        React.createElement("span", { style: { color: "#64748B", fontSize: 13, width: 14, textAlign: "center" } }, "○"),
-                        React.createElement("b", { style: { color: "#333" } }, n),
-                        hit ? React.createElement("span", { style: { color: "#999", fontSize: 10 } }, String(_snlR(hit.v))) : null));
-                    });
-                    return React.createElement("div", { style: { flexBasis: "100%", display: "flex", flexDirection: "column", gap: 2, paddingLeft: 2 } }, out);
-                  })(),
                   React.createElement("button", { type: "button", onClick: function() { setFPassMan(function(pv) { var o = Object.assign({}, pv); o[_dt] = Object.assign({}, o[_dt] || {}); o[_dt][_onlyTf] = true; return o; }); },
-                    style: { fontSize: 9.5, padding: "1px 7px", border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#777", cursor: "pointer" } }, "✎ 手で直す"));
+                    style: { fontSize: 9.5, padding: "1px 7px", border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#777", cursor: "pointer" } }, "✎ 手で直す"),
+                  _snlFlowBlock(_dt, _onlyTf, _curSec));   // 並び（EP基準ライン↑通過ライン↑起点）は③に 2026-11-07
               }
+              if (_sc.key === "p" && _onlyTf && caLine.st === "ok" && !_noFlow) return React.createElement(React.Fragment, { key: "pman" + _onlyTf }, _renderSec(_sc, _si, _onlyTf, true), _snlFlowBlock(_dt, _onlyTf, _curSec));
               return React.createElement(React.Fragment, { key: _sc.key + (_onlyTf || "") }, null, React.createElement("div", { style: { margin: "2px 0 6px" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 3 } },
                   // セクション名はシグナルごとに変えられる。2026-09-28b まで「✎ 名前変更」モード中だけ見出しを押せる作りだったが、
