@@ -9236,7 +9236,7 @@ function EntryRecordForm(_ref_erf) {
     setFHold2OsConf(_av2 - (-s));
   };
   // OS1〜OS5 をCAの1分足から自動入力（2026-11-07）。OS1＝記録の時刻の1分足・以降1分ずつ。高値＝高値−水準線・確定値＝終値−水準線（円・整数）。
-  //   空欄だけ自動（過去記録は開いただけでは書き換えない）＋「📥 チャートからOSを入れる」で全部入れ直し。OS1の高値が水準線より下なら入れずに知らせる。
+  //   水準線・時刻を変えたら打ち終わり（1.2秒）に全部入れ直す（過去記録は開いただけでは書き換えない）＋「📥 チャートからOSを入れる」でも全部入れ直し。OS1の高値が水準線より下なら入れずに知らせる。
   var _useStateOSA = useState(""), fOsAutoMsg = _useStateOSA[0], setFOsAutoMsg = _useStateOSA[1];
   var _osAutoCalc = function() {
     if (!caLine || caLine.st !== "ok") return { ok: false, why: "CAのチャートなし" };
@@ -9246,15 +9246,15 @@ function EntryRecordForm(_ref_erf) {
     var legs = []; for (var k = 0; k < 5; k++) { var b = b1[i0 + k]; legs.push(b ? { h: Math.round(b.h - lv), c: Math.round(b.c - lv) } : null); }
     return { ok: true, legs: legs };
   };
-  var _osApplyAuto = function(onlyEmpty) {
-    var r = _osAutoCalc(); if (!r.ok) { if (!onlyEmpty) setFOsAutoMsg("OSを入れられません：" + r.why); return; }
+  var _osApplyAuto = function(onlyEmpty, auto) {
+    var r = _osAutoCalc(); if (!r.ok) { setFOsAutoMsg(auto ? "" : "OSを入れられません：" + r.why); return; }
     var msg = [], L = r.legs;
     var put = function(cur, v, setVal, setSign, up, dn, after) {   // up/dn＝その欄の↑/↓の符号（OS1〜3:"+"/"-"・OS4/5:"-"/"+"）
       if (v == null || (onlyEmpty && cur !== "" && cur != null)) return;
       setVal(String(Math.abs(v))); setSign(v > 0 ? up : v < 0 ? dn : null); if (after) after(v);
     };
     if (L[0]) {
-      if (!(onlyEmpty && fOsVal !== "" && fOsVal != null)) { if (L[0].h < 0) msg.push("OS1の高値が水準線より下（" + L[0].h + "円）のため入れていません"); else setFOsVal(String(L[0].h)); }
+      if (!(onlyEmpty && fOsVal !== "" && fOsVal != null)) { if (L[0].h < 0) { msg.push("OS1の高値が水準線より下（" + L[0].h + "円）のため入れていません"); if (!onlyEmpty) setFOsVal(""); } else setFOsVal(String(L[0].h)); }
       put(fOsConfVal, L[0].c, setFOsConfVal, setFOsConfSign, "+", "-");
     }
     if (L[1]) { put(fOs2High, L[1].h, setFOs2High, setFOs2HighSign, "+", "-"); put(fOs2Conf, L[1].c, setFOs2Conf, setFOs2ConfSign, "+", "-"); }
@@ -9263,13 +9263,13 @@ function EntryRecordForm(_ref_erf) {
     if (L[4]) { put(fHold2HighVal, L[4].h, setFHold2HighVal, setFHold2HighSign, "-", "+"); put(fHold2WidthVal, L[4].c, setFHold2WidthVal, setFHold2WidthSign, "-", "+", _h2wAfter); }
     var nMiss = L.filter(function(x) { return !x; }).length;
     if (nMiss) msg.push("CAに足が無いOS（" + nMiss + "本）は入れていません");
-    setFOsAutoMsg(msg.length ? msg.join("／") : (onlyEmpty ? "" : "✓ チャートからOSを入れました"));
+    setFOsAutoMsg(msg.length ? msg.join("／") : (auto ? "✓ 自動で入れました" : "✓ チャートからOSを入れました"));
   };
   var _osAutoInitKey = useRef(fTime + "|" + fLevelPrice);
   useEffect(function() {
     if (!caLine || caLine.st !== "ok") return;
     if (isEdit && (fTime + "|" + fLevelPrice) === _osAutoInitKey.current) return;   // 過去記録は開いただけでは書き換えない
-    var _tm = setTimeout(function() { _osApplyAuto(true); }, 1200);   // 打ち終わるのを待つ（1文字ごとに入れると途中の水準線で空欄が埋まってしまう）
+    var _tm = setTimeout(function() { _osApplyAuto(false, true); }, 1200);   // 水準線・時刻を変えたら全部入れ直す（ボタンと同じ）2026-11-07 ユーザー決定   // 打ち終わるのを待つ（1文字ごとに入れると途中の水準線で空欄が埋まってしまう）
     return function() { clearTimeout(_tm); };
   }, [caLine, fTime, fLevelPrice]);
 
