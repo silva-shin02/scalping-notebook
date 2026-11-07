@@ -3244,3 +3244,4 @@ HomeEventFormModal, App
 - 【指標線ミニチャート操作 2026-11-05f・sw v603】`_SnLineChart` に表示範囲 state（view）：ホイール＝カーソル位置中心で拡大縮小（native wheel・passive:false）、pointer events でドラッグ＝左右・2本指ピンチ＝拡大縮小（touch-action:pan-y）。時刻ラベル間隔は足幅で自動。描画は描画域で clip。`_snlPanel(t,tf,cur,extra)`＝右の列（並びの下）に ②起点・時刻・③通過ライン（extra）を入れる。
 - 【2026-11-05g・sw v604】`_SnLineChart` のドラッグ：マウスは左右ボタン同時押し（buttons&3===3）のときだけ左右に動かす・右クリックメニュー抑止。タッチは1本指のまま。
 - 【2026-11-07・sw v605】`_SnLineChart` の価格目盛り：横線10円（10円間隔≧40pxなら5円）・数字は16px以上空くよう10/20/50/100円…に間引き。EntryRecordForm に `_kitenBodyLow`/`_kitenSetTime`/`_kitenStep`：起点の足の時刻の◀▶（1本ずつ・CAが無い日は1分/5分ずつ）＋数字打ち、起点「無し」なら株価＝その足の実体の安値を自動。
+- 【2026-11-07b・sw v606】EntryRecordForm に `_osAutoCalc`/`_osApplyAuto`/state `fOsAutoMsg`：CAの1分足から OS1〜OS5 の高値・確定値（高値／終値−水準線・整数・OS1〜3は"+"=↑、OS4/5(hold系)は"-"=↑、OS4/5確定値は _hwAfter/_h2wAfter も呼ぶ）。effect＝caLine/fTime/fLevelPrice 変化で空欄だけ（編集記録は時刻・水準線が開いた時のままなら何もしない）。OS欄見出しに「📥 チャートからOSを入れる」（全部入れ直し）。

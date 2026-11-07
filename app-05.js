@@ -9235,6 +9235,41 @@ function EntryRecordForm(_ref_erf) {
     if (_av2 == null) return;
     setFHold2OsConf(_av2 - (-s));
   };
+  // OS1〜OS5 をCAの1分足から自動入力（2026-11-07）。OS1＝記録の時刻の1分足・以降1分ずつ。高値＝高値−水準線・確定値＝終値−水準線（円・整数）。
+  //   空欄だけ自動（過去記録は開いただけでは書き換えない）＋「📥 チャートからOSを入れる」で全部入れ直し。OS1の高値が水準線より下なら入れずに知らせる。
+  var _useStateOSA = useState(""), fOsAutoMsg = _useStateOSA[0], setFOsAutoMsg = _useStateOSA[1];
+  var _osAutoCalc = function() {
+    if (!caLine || caLine.st !== "ok") return { ok: false, why: "CAのチャートなし" };
+    var lv = Number(fLevelPrice); if (fLevelPrice === "" || fLevelPrice == null || isNaN(lv)) return { ok: false, why: "水準線が未入力" };
+    var b1 = caLine.b1 || [], i0 = _snlIdxAt(b1, fTime, "1"); if (i0 < 0) return { ok: false, why: "記録の時刻の足がCAにありません" };
+    var legs = []; for (var k = 0; k < 5; k++) { var b = b1[i0 + k]; legs.push(b ? { h: Math.round(b.h - lv), c: Math.round(b.c - lv) } : null); }
+    return { ok: true, legs: legs };
+  };
+  var _osApplyAuto = function(onlyEmpty) {
+    var r = _osAutoCalc(); if (!r.ok) { if (!onlyEmpty) setFOsAutoMsg("OSを入れられません：" + r.why); return; }
+    var msg = [], L = r.legs;
+    var put = function(cur, v, setVal, setSign, up, dn, after) {   // up/dn＝その欄の↑/↓の符号（OS1〜3:"+"/"-"・OS4/5:"-"/"+"）
+      if (v == null || (onlyEmpty && cur !== "" && cur != null)) return;
+      setVal(String(Math.abs(v))); setSign(v > 0 ? up : v < 0 ? dn : null); if (after) after(v);
+    };
+    if (L[0]) {
+      if (!(onlyEmpty && fOsVal !== "" && fOsVal != null)) { if (L[0].h < 0) msg.push("OS1の高値が水準線より下（" + L[0].h + "円）のため入れていません"); else setFOsVal(String(L[0].h)); }
+      put(fOsConfVal, L[0].c, setFOsConfVal, setFOsConfSign, "+", "-");
+    }
+    if (L[1]) { put(fOs2High, L[1].h, setFOs2High, setFOs2HighSign, "+", "-"); put(fOs2Conf, L[1].c, setFOs2Conf, setFOs2ConfSign, "+", "-"); }
+    if (L[2]) { put(fOs3High, L[2].h, setFOs3High, setFOs3HighSign, "+", "-"); put(fOs3Conf, L[2].c, setFOs3Conf, setFOs3ConfSign, "+", "-"); }
+    if (L[3]) { put(fHoldHighVal, L[3].h, setFHoldHighVal, setFHoldHighSign, "-", "+"); put(fHoldWidthVal, L[3].c, setFHoldWidthVal, setFHoldWidthSign, "-", "+", _hwAfter); }
+    if (L[4]) { put(fHold2HighVal, L[4].h, setFHold2HighVal, setFHold2HighSign, "-", "+"); put(fHold2WidthVal, L[4].c, setFHold2WidthVal, setFHold2WidthSign, "-", "+", _h2wAfter); }
+    var nMiss = L.filter(function(x) { return !x; }).length;
+    if (nMiss) msg.push("CAに足が無いOS（" + nMiss + "本）は入れていません");
+    setFOsAutoMsg(msg.length ? msg.join("／") : (onlyEmpty ? "" : "✓ チャートからOSを入れました"));
+  };
+  var _osAutoInitKey = useRef(fTime + "|" + fLevelPrice);
+  useEffect(function() {
+    if (!caLine || caLine.st !== "ok") return;
+    if (isEdit && (fTime + "|" + fLevelPrice) === _osAutoInitKey.current) return;   // 過去記録は開いただけでは書き換えない
+    _osApplyAuto(true);
+  }, [caLine, fTime, fLevelPrice]);
 
 
 
@@ -11399,7 +11434,10 @@ function EntryRecordForm(_ref_erf) {
         return React.createElement(React.Fragment, null,
           React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }) },
             "OS",
-            _lvPriceBox("lv_os"),   // 2026-07-20b インライン実装から共通部品へ＝分足欄の右の欄と完全に同一（同じstateなので相互に自動反映）
+            _lvPriceBox("lv_os"),
+            caLine.st === "ok" ? React.createElement("button", { type: "button", onClick: function() { _osApplyAuto(false); }, title: "CAの1分足から OS1〜OS5 の高値・確定値（高値／終値−水準線）を全部入れ直します（次足期待度は変えません）",
+              style: { fontSize: 10, padding: "2px 8px", border: "1px solid #0EA5E9", borderRadius: 6, background: "#F0F9FF", color: "#0369A1", cursor: "pointer", fontWeight: 700, textTransform: "none", letterSpacing: 0 } }, "📥 チャートからOSを入れる") : null,
+            fOsAutoMsg ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, textTransform: "none", letterSpacing: 0, color: /^✓/.test(fOsAutoMsg) ? "#16A34A" : "#B45309" } }, fOsAutoMsg) : null,   // 2026-07-20b インライン実装から共通部品へ＝分足欄の右の欄と完全に同一（同じstateなので相互に自動反映）
             React.createElement("div", {
               style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
             },
