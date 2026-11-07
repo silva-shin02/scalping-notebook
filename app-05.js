@@ -8263,7 +8263,7 @@ function _SnLineChart(_p) {
     // 価格の横線＝基本10円・10円の間隔が40px以上（相当拡大）なら5円。数字は重ならないよう間引く（10/20/50/100…円ごと）
     var ppy = (H - padT - padB) / (hi - lo), steps = [5, 10, 20, 50, 100, 200, 500, 1000], gs = ppy * 10 >= 40 ? 5 : 10;
     while (gs * ppy < 3 && steps.indexOf(gs) < steps.length - 1) gs = steps[steps.indexOf(gs) + 1];
-    var ls = gs; for (var s = steps.indexOf(gs); s < steps.length; s++) { ls = steps[s]; if (ls * ppy >= 16) break; }
+    var ls = gs; for (var s = steps.indexOf(gs); s < steps.length; s++) { ls = steps[s]; if (ls * ppy >= 11) break; }   // 数字は基本その刻みごと（10円）。11px未満で重なるときだけ間引く
     ctx.font = "9px sans-serif"; ctx.textBaseline = "middle";
     for (var g = Math.ceil(lo / gs) * gs; g <= hi; g += gs) { var y = Y(g), lb = g % ls === 0; ctx.strokeStyle = lb ? "#262626" : "#181818"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke(); if (lb) { ctx.fillStyle = "#8a8a8a"; ctx.textAlign = "left"; ctx.fillText(String(g), W - padR + 3, y); } }
     ctx.textBaseline = "alphabetic"; ctx.textAlign = "center";
@@ -8298,8 +8298,7 @@ function _snlFlowNode(o) {
   var arrow = function(k) { return React.createElement("div", { key: k, style: { color: "#C4B5A4", fontSize: 11, lineHeight: "11px", marginLeft: 3 } }, "↑"); };
   var out = [];
   out.push(row("ep", "◎", "#B45309", (o.bNames && o.bNames.length) ? o.bNames.join("・") : "なし", o.level !== "" && o.level != null ? "水準線 " + o.level : "水準線 未入力", o.bShow ? "EP基準ライン" : "水準線", "#B45309"));
-  (o.pass || []).forEach(function(p, i) { out.push(arrow("a" + i)); out.push(row("p" + i, "○", "#64748B", p.n, p.v != null ? _snlR(p.v) : "", null)); });
-  if (o.passNone) { out.push(arrow("an")); out.push(row("pn", "○", "#94A3B8", "通過なし（直近）", "", null)); }
+  // 通過ライン（○↑○）は③の欄に出す（2026-11-07 ユーザー指定）＝ここは EP基準ライン↑起点だけ
   out.push(arrow("ak"));
   out.push(row("k", "●", "#0369A1", (o.kNames && o.kNames.length) ? o.kNames.join("・") : "未選択", [o.kPrice != null ? _snlR(o.kPrice) : null, o.kTime || null].filter(Boolean).join(" ／ "), "起点", "#0369A1"));
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, paddingTop: 4 } }, out);
@@ -10450,15 +10449,17 @@ function EntryRecordForm(_ref_erf) {
                   (function() {   // 通過ライン（上から）を③にも出す 2026-11-07
                     var _pN = ((_curSec || {})["p" + _onlyTf] || []).filter(Boolean), _ra = _passAutoOf(_dt, _onlyTf);
                     if (!_pN.length) return React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, _ra.ok ? "—" : "（計算待ち：" + _ra.why + "）");
-                    if (_pN.length === 1 && _pN[0] === _EL_PASS_NONE) return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 6, padding: "1px 8px" } }, "通過なし（直近）");
-                    var out = [];
+                    if (_pN.length === 1 && _pN[0] === _EL_PASS_NONE) return React.createElement("div", { style: { flexBasis: "100%", display: "flex", alignItems: "center", gap: 5, fontSize: 12, paddingLeft: 2 } }, React.createElement("span", { style: { color: "#94A3B8", fontSize: 13, width: 14, textAlign: "center" } }, "○"), React.createElement("b", { style: { color: "#64748B" } }, "通過なし（直近）"));
+                    var out = [];   // 縦に上から（○ 名前 値 ↑ ○ …）＝右の並びの通過ライン部分
                     _pN.forEach(function(n, i) {
                       var hit = _ra.ok ? _ra.list.filter(function(x) { return x.n === n; })[0] : null;
-                      if (i) out.push(React.createElement("span", { key: "a" + i, style: { color: "#C4B5A4", fontSize: 11 } }, "→"));
-                      out.push(React.createElement("span", { key: "n" + i, style: { fontSize: 11, fontWeight: 700, color: "#334155", background: "#F8FAFC", border: "1px solid #CBD5E1", borderRadius: 6, padding: "1px 8px", whiteSpace: "nowrap" } }, n,
-                        hit ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600, marginLeft: 4 } }, String(_snlR(hit.v))) : null));
+                      if (i) out.push(React.createElement("div", { key: "a" + i, style: { color: "#C4B5A4", fontSize: 11, lineHeight: "11px", marginLeft: 3 } }, "↑"));
+                      out.push(React.createElement("div", { key: "n" + i, style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12, whiteSpace: "nowrap" } },
+                        React.createElement("span", { style: { color: "#64748B", fontSize: 13, width: 14, textAlign: "center" } }, "○"),
+                        React.createElement("b", { style: { color: "#333" } }, n),
+                        hit ? React.createElement("span", { style: { color: "#999", fontSize: 10 } }, String(_snlR(hit.v))) : null));
                     });
-                    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } }, out);
+                    return React.createElement("div", { style: { flexBasis: "100%", display: "flex", flexDirection: "column", gap: 2, paddingLeft: 2 } }, out);
                   })(),
                   React.createElement("button", { type: "button", onClick: function() { setFPassMan(function(pv) { var o = Object.assign({}, pv); o[_dt] = Object.assign({}, o[_dt] || {}); o[_dt][_onlyTf] = true; return o; }); },
                     style: { fontSize: 9.5, padding: "1px 7px", border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#777", cursor: "pointer" } }, "✎ 手で直す"));
