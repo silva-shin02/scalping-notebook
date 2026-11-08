@@ -10476,6 +10476,7 @@ function EntryRecordForm(_ref_erf) {
                     style: { fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: "0 4px", marginLeft: -2,
                       border: "1px solid #E7D9C4", background: "#fff", color: "#A8977C", borderRadius: 4, cursor: "pointer" }
                   }, "✎")),
+                (_sc.key === _ktK && _onlyTf) ? _kitenInputs(_dt, _onlyTf) : null,
                 _rowTfs(_sc).filter(function(t) { return _onlyTf ? t === _onlyTf : !t; }).map(function(_tf) {   // 1分足・5分足の段（ユーザー要望 2026-10-29h）。選択肢（マスター）は共通・選択は段ごと。EP基準ラインは共通の1行（_tf ""）
                   var _rk = _sc.key + _tf;
                   var _cands = (fDetOrder && fDetOrder.tag === _dt && fDetOrder.sec === _rk) ? fDetOrder.list : _cands0;
@@ -10715,7 +10716,7 @@ function EntryRecordForm(_ref_erf) {
               var _miss = _tfMissing(tf);
               return React.createElement("div", { key: "tfp" + tf, style: { margin: "6px 0 8px", padding: "6px 8px", border: "1px solid #FED7AA", borderRadius: 8, background: "#fff" } },
                 React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: tf === "1" ? "#0369A1" : "#7C3AED", marginBottom: 4 } }, tf + "分足", _miss ? React.createElement("span", { style: { marginLeft: 5, fontSize: 9, color: "#DC2626" } }, "未") : null),
-                (function() { var _se = _secsAll.map(function(sc, i) { return _rowTfs(sc).length > 1 ? React.createElement(React.Fragment, { key: "s" + sc.key + tf }, _renderSec(sc, i, tf), sc.key === _ktK ? _kitenInputs(_dt, tf) : null) : null; }); return _snlPanel(_dt, tf, _curSec, _se) || _se; })());
+                (function() { var _se = _secsAll.map(function(sc, i) { return _rowTfs(sc).length > 1 ? React.createElement(React.Fragment, { key: "s" + sc.key + tf }, _renderSec(sc, i, tf)) : null; }); return _snlPanel(_dt, tf, _curSec, _se) || _se; })());
             });
             return _shared.concat([_caHead]).concat(_panels);
             })()
