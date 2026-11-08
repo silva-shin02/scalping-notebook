@@ -8825,11 +8825,7 @@ function EntryRecordForm(_ref_erf) {
     });
   }, [fSigDetail, fKitenAt, fLevelPrice, fTime, fTags.join("\u0001")]);
   // 起点の足の時刻・株価をセット（タップ・入力の共通）
-  var _setKitenAt = function(t, tf, patch) {
-    var p5 = null;
-    if (tf === "1" && patch.t !== undefined) { p5 = { t: patch.t }; if (_kitenHasNone(t, "5")) { var bs5 = _snlBars(caLine, "5"), i5 = _snlIdxAt(bs5, patch.t, "5"); if (i5 >= 0 && bs5[i5]) p5.p = _kitenBodyLow(bs5[i5]); } }
-    setFKitenAt(function(prev) { var o = Object.assign({}, prev); o[t] = Object.assign({}, o[t] || {}); o[t][tf] = Object.assign({ t: "", p: "" }, o[t][tf] || {}, patch); if (p5) o[t]["5"] = Object.assign({ t: "", p: "" }, o[t]["5"] || {}, p5); return o; });
-  };
+  var _setKitenAt = function(t, tf, patch) { setFKitenAt(function(prev) { var o = Object.assign({}, prev); o[t] = Object.assign({}, o[t] || {}); o[t][tf] = Object.assign({ t: "", p: "" }, o[t][tf] || {}, patch); return o; }); };
   var _kitenHasNone = function(t, tf) { return _kitenNamesOf(t, tf).indexOf(_EL_PASS_NONE) >= 0; };
   // 起点の足の時刻（無しなら株価も）入力欄。新規は必須（ユーザー決定）。チャートの足をタップしても入る。
   // 起点の足の時刻を合わせる（◀▶＝1本ずつ・数字打ち）。起点が「無し」なら株価もその足の実体の安値に（手でも直せる）
