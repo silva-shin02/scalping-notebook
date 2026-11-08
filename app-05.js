@@ -8852,6 +8852,20 @@ function EntryRecordForm(_ref_erf) {
     var st = tf === "5" ? 5 : 1; m = m - (m % st) + dir * st;
     _setKitenAt(t, tf, { t: _snlHm(Math.max(0, Math.min(1439, m))) });
   };
+  var _kitenTimeRef = useRef(null);
+  useEffect(function() {
+    var prevT = _kitenTimeRef.current; _kitenTimeRef.current = fTime;
+    var changed = prevT != null && prevT !== fTime;
+    if (_snlTm(fTime) == null) return;
+    fTags.forEach(function(t) {
+      if (!_elSigSecs(data, t).some(function(sc) { return sc.key === _elKitenKey(custom, t); })) return;
+      _EL_TFS.forEach(function(tf) {
+        var a = ((fKitenAt || {})[t] || {})[tf] || {};
+        if (changed || (!isEdit && !a.t)) { if (a.t !== fTime) _kitenSetTime(t, tf, fTime); return; }
+        if (!isEdit && a.t && (a.p === "" || a.p == null) && _kitenHasNone(t, tf)) _kitenSetTime(t, tf, a.t);
+      });
+    });
+  }, [fTime, fTags.join("\u0001"), caLine.st, fTags.map(function(t) { return _kitenNamesOf(t, "1").join(",") + "/" + _kitenNamesOf(t, "5").join(","); }).join("|")]);
   var _kitenInputs = function(t, tf) {
     var a = ((fKitenAt || {})[t] || {})[tf] || {}, none = _kitenHasNone(t, tf);
     var stepBtn = function(dir) { return React.createElement("button", { type: "button", onClick: function() { _kitenStep(t, tf, dir); }, title: dir < 0 ? "1本前の足" : "1本後の足", style: { padding: "2px 7px", fontSize: 11, lineHeight: "16px", border: "1px solid #BAE6FD", borderRadius: 5, background: "#F0F9FF", color: "#0369A1", cursor: "pointer", fontWeight: 700 } }, dir < 0 ? "◀" : "▶"); };
@@ -8861,7 +8875,6 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } }, stepBtn(-1), inp(a.t, "09:31", 56, function(v) { _kitenSetTime(t, tf, v); }), stepBtn(1)),
       none ? React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700, marginLeft: 4 } }, "起点の株価") : null,
       none ? inp(a.p, "6489", 70, function(v) { _setKitenAt(t, tf, { p: v }); }) : null,
-      !isEdit ? React.createElement("span", { style: { fontSize: 9, color: "#DC2626", fontWeight: 800 } }, "必須") : null,
       caLine.st === "ok" ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "チャートの足をタップでも入ります") : null);
   };
   // ミニチャート＋縦の並び（その分足）
