@@ -8851,7 +8851,7 @@ function EntryRecordForm(_ref_erf) {
   var _kitenBarLabel = function(v, tf) {
     var m = _snlTm(v); if (m == null) return "未選択";
     var st = tf === "5" ? 5 : 1; m = m - (m % st); var e = m + st, s0 = _snlHm(m), e0 = _snlHm(e);
-    return s0 + "～" + (Math.floor(m / 60) === Math.floor(e / 60) ? e0.slice(-2) + "分足" : e0 + "の足");
+    return s0 + "～" + (Math.floor(m / 60) === Math.floor(e / 60) ? e0.slice(-2) : e0);
   };
   var _kitenInputs = function(t, tf) {
     var a = ((fKitenAt || {})[t] || {})[tf] || {}, none = _kitenHasNone(t, tf);
