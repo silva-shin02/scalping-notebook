@@ -8848,13 +8848,18 @@ function EntryRecordForm(_ref_erf) {
     var st = tf === "5" ? 5 : 1; m = m - (m % st) + dir * st;
     _setKitenAt(t, tf, { t: _snlHm(Math.max(0, Math.min(1439, m))) });
   };
+  var _kitenBarLabel = function(v, tf) {
+    var m = _snlTm(v); if (m == null) return "未選択";
+    var st = tf === "5" ? 5 : 1; m = m - (m % st); var e = m + st, s0 = _snlHm(m), e0 = _snlHm(e);
+    return s0 + "～" + (Math.floor(m / 60) === Math.floor(e / 60) ? e0.slice(-2) + "分足" : e0 + "の足");
+  };
   var _kitenInputs = function(t, tf) {
     var a = ((fKitenAt || {})[t] || {})[tf] || {}, none = _kitenHasNone(t, tf);
     var stepBtn = function(dir) { return React.createElement("button", { type: "button", onClick: function() { _kitenStep(t, tf, dir); }, title: dir < 0 ? "1本前の足" : "1本後の足", style: { padding: "2px 7px", fontSize: 11, lineHeight: "16px", border: "1px solid #BAE6FD", borderRadius: 5, background: "#F0F9FF", color: "#0369A1", cursor: "pointer", fontWeight: 700 } }, dir < 0 ? "◀" : "▶"); };
     var inp = function(val, ph, w, on) { return React.createElement("input", { type: "text", inputMode: "decimal", value: val || "", placeholder: ph, onChange: function(e) { on(String(e.target.value).replace(/[０-９：．]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })); }, style: { width: w, padding: "3px 6px", fontSize: 12, border: "1px solid #E7D9C4", borderRadius: 5 } }); };
     return React.createElement("div", { key: "kat" + tf, style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", margin: "0 0 6px" } },
-      React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700 } }, "起点の足の時刻"),
-      React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } }, stepBtn(-1), inp(a.t, "09:31", 56, function(v) { _kitenSetTime(t, tf, v); }), stepBtn(1)),
+      React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700 } }, "起点の足"),
+      React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } }, stepBtn(-1), React.createElement("span", { style: { minWidth: 92, textAlign: "center", padding: "3px 6px", fontSize: 12, fontWeight: 700, border: "1px solid #E7D9C4", borderRadius: 5, background: "#fff", color: _snlTm(a.t) == null ? "#A8A29E" : "#1F2937", whiteSpace: "nowrap" } }, _kitenBarLabel(a.t, tf)), stepBtn(1)),
       none ? React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700, marginLeft: 4 } }, "起点の株価") : null,
       none ? inp(a.p, "6489", 70, function(v) { _setKitenAt(t, tf, { p: v }); }) : null,
       !isEdit ? React.createElement("span", { style: { fontSize: 9, color: "#DC2626", fontWeight: 800 } }, "必須") : null,
@@ -9983,7 +9988,7 @@ function EntryRecordForm(_ref_erf) {
       fTags.forEach(function(_t) { var _sb = fSigDetail && fSigDetail[_t]; if (_elBTfOne(custom, _t) && !(fBTf && fBTf[_t])) _vm.push("①EP基準ラインの分足（" + _t + "）");   // 指標線底抜け 2026-10-29m
         if (!isEdit && _elSigSecs(data, _t).some(function(_sc) { return _sc.key === _elKitenKey(custom, _t); })) _EL_TFS.forEach(function(tf) {   // 起点の足の時刻（無しなら株価も）新規は必須 2026-11-05
           var _ka = ((fKitenAt || {})[_t] || {})[tf] || {};
-          if (!_snlTm(_ka.t)) _vm.push("起点の足の時刻（" + tf + "分・" + _t + "）");
+          if (!_snlTm(_ka.t)) _vm.push("起点の足（" + tf + "分・" + _t + "）");
           if (_kitenHasNone(_t, tf) && (_ka.p === "" || _ka.p == null || isNaN(Number(_ka.p)))) _vm.push("起点の株価（" + tf + "分・" + _t + "）");
         });
         _elSigSecs(data, _t).forEach(function(_sc) { if (!_sc.req) return; ((_sc.key === "b" && _elBShared(custom, _t)) ? [""] : _EL_TFS).forEach(function(tf) { var _a = _sb && _sb[_sc.key + tf]; if (!(Array.isArray(_a) && _a.length)) _vm.push(_sc.num + _sc.name + "（" + (tf ? tf + "分・" : "") + _t + "）"); }); }); });
