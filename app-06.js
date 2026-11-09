@@ -7137,7 +7137,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _provRecsOf = function(rs) {
     return (rs || []).filter(function(r) {
       var s = r && r.signal;
-      if (!s || !_epIsV2(s) || !_elIsProvisional(s) || s.passThrough === true || !_elInclData(s)) return false;
+      if (!s || !_epIsV2(s) || s.passThrough === true || !_elInclData(s)) return false;
+      if (!_elIsProvisional(s)) { var _pt = _elProvTags(data), _tg = (Array.isArray(s.tags) && s.tags.length) ? s.tags : (s.tag ? [s.tag] : []); if (!_tg.some(function(t) { return _pt.indexOf(t) >= 0; })) return false; }   // 本＋仮の記録（算入）も仮の分析に数える 2026-11-09
       if (!legacy && _vapOf(s) == null) return false;
       if (addAlphaFil !== "all" && (addAlphaFil === "yes") !== !!_elSpecialUsed(s)) return false;   // v2recs と同じ追加αトグル
       if (_isAllStock && _isDataOnly(data, r)) return false;

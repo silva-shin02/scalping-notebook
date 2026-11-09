@@ -3259,3 +3259,4 @@ HomeEventFormModal, App
 - 【2026-11-09・sw v619】山頂サインライン（仮シグナル）も①EP基準ラインなし（ユーザー指示）。app-01 一回性 `_migBHide1109`＝sigSecLabels[山頂サインライン].bHide。過去記録の値は残す。
 - 【2026-11-09b・sw v620】app-01 一回性 `_migSkipOff1109`：2026-10-31以前（charts のキー末尾の日付）の見送り記録（要審議→見送り・仮シグナル含む）の skipReasons を「取引外日」だけに置き換え（未達タグは `_snSkipReasonsWith` で従来どおり・skipMemo は残す）。custom.skipReasons に「取引外日」が無ければ末尾に追加。件数はコンソールに出す。ユーザー指示・仕様は選択肢で決定。
 - 【2026-11-09c・sw v621】EntryRecordForm：②起点・③通過ライン（起点の足 kAt・手で直す pMan 含む）を選択中の全シグナルで同じにする（ユーザー指示・①EP基準ラインは別々）。`_kpSyncRef`＋effect：どれか1つで変えたら他にも写す・あとから足したシグナルには既存から写す・開いた直後は書き換えない。起点のキーは `_elKitenKey` で対応（①が起点のシグナルにも写る）。
+- 【2026-11-09d・sw v622】本シグナルと仮シグナルを1つの記録で一緒に選べるように（排他を撤廃・ユーザー決定）。本が1つでもあれば算入＝`_fIsProv = fTags.every(_isProvT)`。仮だけの記録は従来どおり不算入。昇格（`_elProvPromoteData`/`_elProvPromoteCount`）は他の仮が残っていても算入へ。フォームの昇格/降格時の選択外しを削除。app-06 `_provRecsOf`：本＋仮の記録（provisional なし）も仮タグがあれば仮の分析に数える。「仮」バッジは仮だけの記録のみ。
