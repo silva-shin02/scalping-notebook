@@ -32,10 +32,11 @@
 
 ## ▶ 次のセッションはこの続きから
 
-- 進行中の機能なし。直近：②起点の「起点の足」を選択肢の上へ移動し、◀ 10:30～35 ▶ の表示のみに（数字入力なし・◀▶とチャートタップで選ぶ・`_kitenInputs`/`_kitenBarLabel`・v618）。山頂サインラインの①EP基準ラインを非表示（app-01 `_migBHide1109`・v619）。10月末までの見送り理由を「取引外日」に一括置換（app-01 `_migSkipOff1109`・v620）。複数シグナルの②起点・③通過ラインを同じにそろえる（EntryRecordForm `_kpSyncRef` の effect・v621）。本＋仮シグナルを一緒に選べ、本が1つでもあれば算入（`_fIsProv`・app-06 `_provRecsOf`・v622、不算入のまま残る不具合を修正＋`_migMixIncl1109`・v623）。いずれも要実機確認。5分足同期・記録の時刻の流用は取り消し済み。「📈 指標線の並び」は完了。
-  - コード：app-05 `_snl*`/`_SnLineChart`、EntryRecordForm 内 `_snlPanel`・`_osAutoCalc`/`_osApplyAuto`、app-06 `_ElLineSnapBoard`。仕様と経緯は FILEMAP.md の 2026-11-05c〜。
-  - 保留（作らない）：過去記録の lineSnap 一括取り込み。
-- 「つづき」と言われたら、「起点の足」欄の位置と表示、山頂サインラインの①が消えたか、10月の見送り記録が「取引外日」になったか、複数シグナルで②③がそろうか、本＋仮の記録が算入されるかを確認し、次にやりたいことを選択肢で聞く。
+- 進行中：記録カード（EntryLogCard）の作り直し。案A（左チャート・右損益）を実装済み（v624）。モック：https://claude.ai/artifact/3LXm1Qt8XtVKHrPqU9pkmK
+  - 未確認（最初に聞く）：実データでチャート・EP/損切/到達の線・起点/決済の印が正しいか、カード一覧の重さ、iPadで縦積みになるか、カードを押したときの編集の開き方。
+  - コード：app-05 `_ElCardChart`・`_elCardChartMarks`（EntryLogCard の直前）、`_SnLineChart` の `hl`/`mk`。
+- 同日のほかの変更（要実機確認）：起点の足「◀ 10:30～35 ▶」表示（`_kitenBarLabel`）、山頂サインラインの①非表示、10月末までの見送り理由→取引外日、複数シグナルの②③同期（`_kpSyncRef`）、本＋仮の混在で算入（`_fIsProv`・`_migMixIncl1109`）。
+- 保留（作らない）：過去記録の lineSnap 一括取り込み。
 
 ## その他
 

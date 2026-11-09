@@ -8255,6 +8255,8 @@ function _SnLineChart(_p) {
     for (var i = from; i <= to; i++) { var b = bars[i]; if (b.l < lo) lo = b.l; if (b.h > hi) hi = b.h; }   // 縦の範囲＝足・水準線・起点だけ（遠い EMA は範囲外＝右端に↑↓で名前と値）2026-11-07
     if (hasLv) { lo = Math.min(lo, lv); hi = Math.max(hi, lv); }
     if (_p.kitenP != null && !isNaN(_p.kitenP)) { lo = Math.min(lo, _p.kitenP); hi = Math.max(hi, _p.kitenP); }
+    (_p.hl || []).forEach(function(L) { if (L.v != null && !isNaN(L.v)) { lo = Math.min(lo, L.v); hi = Math.max(hi, L.v); } });   // 記録カード：EP・損切・実現到達の横線 2026-11-09
+    (_p.mk || []).forEach(function(M) { if (M.i >= from && M.i <= to && M.p != null && !isNaN(M.p)) { lo = Math.min(lo, M.p); hi = Math.max(hi, M.p); } });   // 記録カード：決済の印
     var pad = Math.max(1, (hi - lo) * 0.06); lo -= pad; hi += pad;
     var Y = function(p) { return padT + (hi - p) / (hi - lo) * (H - padT - padB); };
     var X = function(i) { return padL + (i - from) * cw + cw / 2; };
@@ -8274,13 +8276,15 @@ function _SnLineChart(_p) {
     _SNL_LINES.forEach(function(L) { ctx.strokeStyle = L[2]; ctx.lineWidth = 1.2; ctx.beginPath(); var f = true; for (var i = from; i <= to; i++) { var v = bars[i][L[0]]; if (v == null) { f = true; continue; } var x = X(i), y = Y(v); if (f) { ctx.moveTo(x, y); f = false; } else ctx.lineTo(x, y); } ctx.stroke(); });
     for (var k = from; k <= to; k++) { var bb = bars[k], up = bb.c >= bb.o, col = up ? "#ff0054" : "#11ded9", x2 = X(k); ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x2, Y(bb.h)); ctx.lineTo(x2, Y(bb.l)); ctx.stroke(); ctx.fillStyle = col; var y1 = Y(Math.max(bb.o, bb.c)), y2 = Y(Math.min(bb.o, bb.c)); ctx.fillRect(x2 - cw * 0.35, y1, cw * 0.7, Math.max(1, y2 - y1)); }
     if (hasLv) { var ly = Y(lv); ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 1.3; ctx.setLineDash([5, 3]); ctx.beginPath(); ctx.moveTo(padL, ly); ctx.lineTo(W - padR, ly); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#fbbf24"; ctx.textAlign = "left"; ctx.fillText("水準 " + lv, padL + 2, ly - 3); }
+    (_p.hl || []).forEach(function(L) { if (L.v == null || isNaN(L.v)) return; var hy = Y(L.v); ctx.strokeStyle = L.color; ctx.lineWidth = 1.2; ctx.setLineDash(L.dash ? [4, 3] : []); ctx.beginPath(); ctx.moveTo(padL, hy); ctx.lineTo(W - padR, hy); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = L.color; ctx.textAlign = "right"; ctx.fillText(L.label + " " + _snlR(L.v), W - padR - 3, hy - 3); });
+    (_p.mk || []).forEach(function(M) { if (M.i < from || M.i > to || M.p == null || isNaN(M.p)) return; var mx = X(M.i), my = Y(M.p); ctx.fillStyle = M.color; ctx.strokeStyle = "#0b0b0b"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"; ctx.fillText(M.label, mx, my + 13); ctx.font = "9px sans-serif"; });
     if (_kI >= from && _kI <= to) { var kb = bars[_kI], kpY = (_p.kitenP != null && !isNaN(_p.kitenP)) ? Y(_p.kitenP) : Y(kb.l); ctx.strokeStyle = "#67e8f9"; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(X(_kI), kpY, 5, 0, Math.PI * 2); ctx.stroke(); }
     (_p.passVals || []).forEach(function(v) { var y = Y(v); ctx.fillStyle = "#fde68a"; ctx.beginPath(); ctx.arc(W - padR - 3, y, 2.4, 0, Math.PI * 2); ctx.fill(); });
     ctx.restore();
     var _offU = 0, _offD = 0; ctx.font = "9px sans-serif"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
     _SNL_LINES.forEach(function(L) { var v = bars[to] && bars[to][L[0]]; if (v == null) return; var up = v > hi; if (!up && v >= lo) return;
       var yy = up ? padT + 6 + 11 * _offU++ : H - padB - 6 - 11 * _offD++; ctx.fillStyle = L[2]; ctx.fillText((up ? "↑" : "↓") + L[1] + " " + _snlR(v), W - padR - 8, yy); });
-  }, [bars, si, from, to, _p.level, _p.kitenT, _p.kitenP, (_p.passVals || []).join(","), W, H, tf]);
+  }, [bars, si, from, to, _p.level, _p.kitenT, _p.kitenP, (_p.passVals || []).join(","), W, H, tf, JSON.stringify(_p.hl || null), JSON.stringify(_p.mk || null)]);
   if (si < 0) return null;
   return React.createElement("canvas", { ref: ref, title: (_p.onPick ? "足をタップすると起点の足の時刻（起点が「無し」ならその足の実体の安値も株価欄）に入ります。" : "") + "ホイール／ピンチで拡大縮小・左右ボタン同時押し（iPadは1本指）のドラッグで左右",
     onPointerDown: _pDown, onPointerMove: _pMove, onPointerUp: _pUp, onPointerCancel: _pUp, onContextMenu: function(e) { e.preventDefault(); },
@@ -12296,6 +12300,70 @@ function EntryRecordForm(_ref_erf) {
 
 
 
+// 記録カードのチャート 2026-11-09（ユーザー決定：案A＝左にチャート・右に損益）。CA の足データを、カードが画面に見えたときだけ読み込む（同じ銘柄・日は _snlCache で1回）。
+//   既定の分足＝記録の分足（1分のみ→1分・5分のみ→5分・両方/未設定→1分）、切り替え可。重ねるもの＝水準線・EP・損切・実現到達・起点の足・シグナルの足・決済（H1/H2/損切）。
+function _elCardChartMarks(s, alpha, cutLine) {
+  var lv = (s && s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))) ? Number(s.levelPrice) : null;
+  var a = (alpha != null && !isNaN(Number(alpha))) ? Number(alpha) : null;
+  var ep = (lv != null && a != null) ? Math.round((lv + a) * 100) / 100 : null;
+  var stop = (ep != null && cutLine != null && !isNaN(Number(cutLine))) ? Math.round((ep + Number(cutLine)) * 100) / 100 : null;
+  var rv = _elRideVals(s, alpha, cutLine);
+  var reach = (lv != null && rv && rv.mx != null) ? Math.round((lv + Number(rv.mx)) * 100) / 100 : null;
+  var hl = [];
+  if (ep != null) hl.push({ v: ep, label: "EP", color: "#fb923c" });
+  if (stop != null) hl.push({ v: stop, label: "損切", color: "#f87171" });
+  if (reach != null) hl.push({ v: reach, label: "到達", color: "#a78bfa", dash: true });
+  var exit = (rv && lv != null && rv.exitC != null) ? { off: rv.exitIdx, p: Math.round((lv + Number(rv.exitC)) * 100) / 100, label: rv.stopped ? "損切" : (rv.lbl === "EP" ? "決済" : "決済" + rv.lbl), color: rv.stopped ? "#f87171" : "#4ade80" } : null;
+  return { hl: hl, exit: exit };
+}
+function _ElCardChart(_p) {
+  var rec = _p.record, s = rec.signal || {};
+  var wrap = useRef(null);
+  var _vs = useState(false), vis = _vs[0], setVis = _vs[1];
+  var _cs = useState(null), ca = _cs[0], setCa = _cs[1];
+  var _ws = useState(0), cw = _ws[0], setCw = _ws[1];
+  var mb = _minBarList(s);
+  var _ts = useState(mb.length === 1 && mb[0] === 5 ? "5" : "1"), tf = _ts[0], setTf = _ts[1];
+  useEffect(function() {
+    var el = wrap.current; if (!el) return;
+    if (typeof IntersectionObserver === "undefined") { setVis(true); return; }
+    var io = new IntersectionObserver(function(es) { if (es.some(function(e) { return e.isIntersecting; })) { setVis(true); io.disconnect(); } }, { rootMargin: "200px" });
+    io.observe(el); return function() { io.disconnect(); };
+  }, []);
+  useEffect(function() {
+    var el = wrap.current; if (!el) return;
+    var upd = function() { setCw(Math.floor(el.getBoundingClientRect().width)); }; upd();
+    if (typeof ResizeObserver === "undefined") return;
+    var ro = new ResizeObserver(upd); ro.observe(el); return function() { ro.disconnect(); };
+  }, []);
+  useEffect(function() {
+    if (!vis) return; var alive = true;
+    _snlLoad(rec.stock, rec.date, (_p.data && _p.data.custom) || {}).then(function(x) { if (alive) setCa(x); });
+    return function() { alive = false; };
+  }, [vis, rec.stock, rec.date]);
+  var _btn = function(v, lbl) { var on = tf === v; return React.createElement("button", { type: "button", onClick: function(e) { e.stopPropagation(); setTf(v); }, style: { padding: "2px 10px", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer", background: on ? "#B45309" : "#fff", color: on ? "#fff" : "#B45309" } }, lbl); };
+  var _msg = function(t) { return React.createElement("div", { style: { fontSize: 11, color: "#9CA3AF", background: "#F9FAFB", border: "1px dashed #E5E7EB", borderRadius: 6, padding: "18px 10px", textAlign: "center" } }, t); };
+  var body;
+  if (!vis || !ca) body = _msg("チャートを読み込み中…");
+  else if (ca.st !== "ok") body = _msg("チャートなし（" + (ca.msg || "読み込めませんでした") + "）");
+  else {
+    var bars = _snlBars(ca, tf), si = _snlIdxAt(bars, s.time, tf);
+    if (si < 0) body = _msg("チャートなし（この時刻の" + tf + "分足がありません）");
+    else {
+      var mk = _elCardChartMarks(s, _p.alpha, _p.cutLine), marks = [];
+      if (mk.exit && mk.exit.off != null) { var t0 = _snlTm(s.time), ei = t0 == null ? -1 : _snlIdxAt(bars, _snlHm(t0 + mk.exit.off), tf); if (ei >= 0) marks.push({ i: ei, p: mk.exit.p, label: mk.exit.label, color: mk.exit.color }); }
+      var kT = null, kP = null, tags = (s.tags && s.tags.length) ? s.tags : (s.tag ? [s.tag] : []);
+      tags.some(function(t) { var ka = s.sigDetail && s.sigDetail[t] && s.sigDetail[t].kAt && s.sigDetail[t].kAt[tf]; if (ka && ka.t) { kT = ka.t; kP = (ka.p !== "" && ka.p != null && !isNaN(Number(ka.p))) ? Number(ka.p) : null; return true; } return false; });
+      body = React.createElement(_SnLineChart, { bars: bars, sigIdx: si, w: Math.max(260, cw || 420), h: 280, tf: tf, level: s.levelPrice, kitenT: kT, kitenP: kP, hl: mk.hl, mk: marks });
+    }
+  }
+  return React.createElement("div", { ref: wrap, onClick: function(e) { e.stopPropagation(); }, style: { display: "flex", flexDirection: "column", gap: 4, cursor: "default", minWidth: 0 } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+      React.createElement("span", { style: { fontSize: 10, color: "#B08968", fontWeight: 700 } }, "チャート"),
+      React.createElement("span", { style: { display: "inline-flex", border: "1px solid #FDBA74", borderRadius: 5, overflow: "hidden" } }, _btn("1", "1分足"), _btn("5", "5分足")),
+      React.createElement("span", { style: { fontSize: 9.5, color: "#9CA3AF" } }, "ホイール／ピンチで拡大・ドラッグで左右")),
+    body);
+}
 function EntryLogCard(_ref_elc) {
   var record = _ref_elc.record,
     onEdit = _ref_elc.onEdit,
@@ -12357,7 +12425,12 @@ function EntryLogCard(_ref_elc) {
         React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "E"),
         _epECell(s, _elcAi.alpha, _elcAi.cutLine)) : null
     ),
-    (function() {   // 詳細タグ（底/起/特徴）＝明細表のシグナル欄2行表示(_elSigCell)とカードを対称に 2026-07-07
+
+    React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" } },
+
+      React.createElement("div", { style: { flex: "1 1 420px", minWidth: 0, display: "flex", flexDirection: "column", gap: 4 } },
+        React.createElement(_ElCardChart, { record: record, data: _ref_elc.data, alpha: _alpElc, cutLine: _cutElc }),
+        (function() {   // 詳細タグ（底/起/特徴）＝明細表のシグナル欄2行表示(_elSigCell)とカードを対称に 2026-07-07
       var _dTags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []));
       var _parts = [];
       _dTags.forEach(function(t) {
@@ -12372,12 +12445,8 @@ function EntryLogCard(_ref_elc) {
         if (_b.length) _parts.push((_dTags.length > 1 ? t + ": " : "") + _b.join("・"));
       });
       if (!_parts.length) return null;
-      return React.createElement("div", { style: { fontSize: 9.5, color: "#64748B", margin: "-2px 0 6px", lineHeight: 1.4 } }, _parts.join(" ／ "));
+      return React.createElement("div", { style: { fontSize: 9.5, color: "#64748B", margin: "2px 0 2px", lineHeight: 1.4 } }, _parts.join(" ／ "));
     })(),
-
-    React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" } },
-
-      React.createElement("div", { style: { flex: "1 1 200px", minWidth: 0, display: "flex", flexDirection: "column", gap: 4 } },
         !_epIsV2(s) && (s.osVal != null || s.osConfSign || (s.osConfVal != null && Number(s.osConfVal) === 0)) ? React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },   // 旧v1記録のみ: OS連鎖が無いのでOS値/確定値チップを残す
           s.osVal != null ? _chip("OS値", s.osVal + "円", _vcol(s.osVal, true)) : null,
           (s.osConfSign || (s.osConfVal != null && Number(s.osConfVal) === 0)) ? _chip("確定値",
