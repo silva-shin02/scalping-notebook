@@ -9192,7 +9192,7 @@ function EntryRecordForm(_ref_erf) {
     return !_dailyStockHas(data, fDate, fStock);   // 候補で「その日の指定銘柄（複数可 2026-08-06）でない」→データのみ（合計算入OFF既定）。未指定日は候補すべてOFF既定（2026-07-23 ユーザー選択B＝_isDataOnlyと対称に未指定日カーブアウトを撤回）。指定銘柄のみON既定
   })();
   // ※見送り理由の必須判定 _skipMemoReq は EP位置(_fEpIdxLive)も見るので、その導出の直後に置いてある（下方を検索）。
-  var _useStateINC = useState(initSig.includeInTotal != null ? (initSig.includeInTotal !== false) : (_indDataOnlyCand ? false : true)),
+  var _useStateINC = useState((initSig.includeInTotal != null && initSig.provisional !== true) ? (initSig.includeInTotal !== false) : (_indDataOnlyCand ? false : true)),   // 仮の記録の不算入は仮のせい＝本を足したら算入に戻す 2026-11-09
     _useStateINCA = _slicedToArray(_useStateINC, 2),
     fIncl = _useStateINCA[0], setFIncl = _useStateINCA[1];
   var _useStateIND = useState(initSig.includeInData != null ? (initSig.includeInData !== false) : (_indDataOnlyCand ? true : (initSig.includeInTotal !== false))),

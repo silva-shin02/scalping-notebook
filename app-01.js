@@ -1727,6 +1727,26 @@ function migrateData(d) {
       console.log("[migrateData] skipOff1109: " + _offCnt + "件");
     } catch(e) { console.warn("[migrateData] skipOff1109 error:", e); }
   }
+  // 【一回性 _migMixIncl1109・2026-11-09】本＋仮を一緒に選べるようにした直後、仮だった記録に本を足して保存すると不算入のまま残った（フォームの初期値の不具合）。
+  //   2026-11-09以降の記録で、本シグナルと仮シグナルが混ざり・仮フラグなし・スルーでない・不算入のものを算入に戻す（混在はこの日から＝手で不算入にした記録と取り違えない）。
+  if (!d._migMixIncl1109) {
+    try {
+      var _pvT = Array.isArray(d.custom.provSignalTags) ? d.custom.provSignalTags : [], _sgT = Array.isArray(d.custom.signalTags) ? d.custom.signalTags : [];
+      Object.keys(d.charts || {}).forEach(function(ck) {
+        var cc = d.charts[ck]; if (!cc || !Array.isArray(cc.signals)) return;
+        var _dm2 = /(\d{4}-\d{2}-\d{2})$/.exec(ck); if (!_dm2 || _dm2[1] < "2026-11-09") return;
+        var _chg = false;
+        var _next = cc.signals.map(function(sg) {
+          if (!sg || sg.provisional === true || sg.passThrough === true || sg.includeInTotal !== false) return sg;
+          var tg = Array.isArray(sg.tags) ? sg.tags : [];
+          if (!tg.some(function(t) { return _pvT.indexOf(t) >= 0; }) || !tg.some(function(t) { return _sgT.indexOf(t) >= 0; })) return sg;
+          _chg = true; return Object.assign({}, sg, { includeInTotal: true, includeInData: true });
+        });
+        if (_chg) d.charts[ck] = Object.assign({}, cc, { signals: _next });
+      });
+      d._migMixIncl1109 = true;
+    } catch(e) { console.warn("[migrateData] mixIncl1109 error:", e); }
+  }
   // 【一回性 _migDetHide1101・2026-11-01】確定足浮き残りは詳細そのものが不要（ユーザー指示）＝sigSecLabels[確定足浮き残り].detHide。過去記録の値は残す。
   if (!d._migDetHide1101) {
     try {
