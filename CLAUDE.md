@@ -32,8 +32,8 @@
 
 ## ▶ 次のセッションはこの続きから
 
-- 進行中：記録カード（EntryLogCard）の作り直し。案A（左チャート・右損益）を実装済み（v624）。モック：https://claude.ai/artifact/3LXm1Qt8XtVKHrPqU9pkmK
-  - 未確認（最初に聞く）：実データでチャート・EP/損切/到達の線・起点/決済の印が正しいか、カード一覧の重さ、iPadで縦積みになるか、カードを押したときの編集の開き方。
+- 進行中：記録カード（EntryLogCard）の作り直し。案A（左チャート・右損益）を実装済み（v624）。EPは〇・損切/到達の線は削除（v625）。モック：https://claude.ai/artifact/3LXm1Qt8XtVKHrPqU9pkmK
+  - 未確認（最初に聞く）：実データでチャート・EPの〇・起点/決済の印が正しいか、カード一覧の重さ、iPadで縦積みになるか、カードを押したときの編集の開き方。
   - コード：app-05 `_ElCardChart`・`_elCardChartMarks`（EntryLogCard の直前）、`_SnLineChart` の `hl`/`mk`。
 - 同日のほかの変更（要実機確認）：起点の足「◀ 10:30～35 ▶」表示（`_kitenBarLabel`）、山頂サインラインの①非表示、10月末までの見送り理由→取引外日、複数シグナルの②③同期（`_kpSyncRef`）、本＋仮の混在で算入（`_fIsProv`・`_migMixIncl1109`）。
 - 保留（作らない）：過去記録の lineSnap 一括取り込み。

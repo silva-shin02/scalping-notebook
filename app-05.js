@@ -8277,7 +8277,7 @@ function _SnLineChart(_p) {
     for (var k = from; k <= to; k++) { var bb = bars[k], up = bb.c >= bb.o, col = up ? "#ff0054" : "#11ded9", x2 = X(k); ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x2, Y(bb.h)); ctx.lineTo(x2, Y(bb.l)); ctx.stroke(); ctx.fillStyle = col; var y1 = Y(Math.max(bb.o, bb.c)), y2 = Y(Math.min(bb.o, bb.c)); ctx.fillRect(x2 - cw * 0.35, y1, cw * 0.7, Math.max(1, y2 - y1)); }
     if (hasLv) { var ly = Y(lv); ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 1.3; ctx.setLineDash([5, 3]); ctx.beginPath(); ctx.moveTo(padL, ly); ctx.lineTo(W - padR, ly); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#fbbf24"; ctx.textAlign = "left"; ctx.fillText("水準 " + lv, padL + 2, ly - 3); }
     (_p.hl || []).forEach(function(L) { if (L.v == null || isNaN(L.v)) return; var hy = Y(L.v); ctx.strokeStyle = L.color; ctx.lineWidth = 1.2; ctx.setLineDash(L.dash ? [4, 3] : []); ctx.beginPath(); ctx.moveTo(padL, hy); ctx.lineTo(W - padR, hy); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = L.color; ctx.textAlign = "right"; ctx.fillText(L.label + " " + _snlR(L.v), W - padR - 3, hy - 3); });
-    (_p.mk || []).forEach(function(M) { if (M.i < from || M.i > to || M.p == null || isNaN(M.p)) return; var mx = X(M.i), my = Y(M.p); ctx.fillStyle = M.color; ctx.strokeStyle = "#0b0b0b"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"; ctx.fillText(M.label, mx, my + 13); ctx.font = "9px sans-serif"; });
+    (_p.mk || []).forEach(function(M) { if (M.i < from || M.i > to || M.p == null || isNaN(M.p)) return; var mx = X(M.i), my = Y(M.p); if (M.ring) { ctx.strokeStyle = M.color; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(mx, my, 5, 0, Math.PI * 2); ctx.stroke(); return; } ctx.fillStyle = M.color; ctx.strokeStyle = "#0b0b0b"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"; ctx.fillText(M.label, mx, my + 13); ctx.font = "9px sans-serif"; });
     if (_kI >= from && _kI <= to) { var kb = bars[_kI], kpY = (_p.kitenP != null && !isNaN(_p.kitenP)) ? Y(_p.kitenP) : Y(kb.l); ctx.strokeStyle = "#67e8f9"; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(X(_kI), kpY, 5, 0, Math.PI * 2); ctx.stroke(); }
     (_p.passVals || []).forEach(function(v) { var y = Y(v); ctx.fillStyle = "#fde68a"; ctx.beginPath(); ctx.arc(W - padR - 3, y, 2.4, 0, Math.PI * 2); ctx.fill(); });
     ctx.restore();
@@ -12309,12 +12309,11 @@ function _elCardChartMarks(s, alpha, cutLine) {
   var stop = (ep != null && cutLine != null && !isNaN(Number(cutLine))) ? Math.round((ep + Number(cutLine)) * 100) / 100 : null;
   var rv = _elRideVals(s, alpha, cutLine);
   var reach = (lv != null && rv && rv.mx != null) ? Math.round((lv + Number(rv.mx)) * 100) / 100 : null;
-  var hl = [];
-  if (ep != null) hl.push({ v: ep, label: "EP", color: "#fb923c" });
-  if (stop != null) hl.push({ v: stop, label: "損切", color: "#f87171" });
-  if (reach != null) hl.push({ v: reach, label: "到達", color: "#a78bfa", dash: true });
+  var hl = [];   // 損切・到達の横線は不要・EPは起点と同じ〇（ユーザー指示 2026-11-09）
+  var _r = (ep != null && _epIsV2(s) && a != null) ? _epResolve(s, a) : null;
+  var epMk = (_r && _r.epIdx >= 0 && _r.judge === "ok") ? { off: _r.epIdx, p: ep, ring: true, color: "#fb923c" } : null;
   var exit = (rv && lv != null && rv.exitC != null) ? { off: rv.exitIdx, p: Math.round((lv + Number(rv.exitC)) * 100) / 100, label: rv.stopped ? "損切" : (rv.lbl === "EP" ? "決済" : "決済" + rv.lbl), color: rv.stopped ? "#f87171" : "#4ade80" } : null;
-  return { hl: hl, exit: exit };
+  return { hl: hl, exit: exit, ep: epMk };
 }
 function _ElCardChart(_p) {
   var rec = _p.record, s = rec.signal || {};
@@ -12351,6 +12350,7 @@ function _ElCardChart(_p) {
     if (si < 0) body = _msg("チャートなし（この時刻の" + tf + "分足がありません）");
     else {
       var mk = _elCardChartMarks(s, _p.alpha, _p.cutLine), marks = [];
+      if (mk.ep) { var t1 = _snlTm(s.time), pi = t1 == null ? -1 : _snlIdxAt(bars, _snlHm(t1 + mk.ep.off), tf); if (pi >= 0) marks.push({ i: pi, p: mk.ep.p, ring: true, color: mk.ep.color }); }
       if (mk.exit && mk.exit.off != null) { var t0 = _snlTm(s.time), ei = t0 == null ? -1 : _snlIdxAt(bars, _snlHm(t0 + mk.exit.off), tf); if (ei >= 0) marks.push({ i: ei, p: mk.exit.p, label: mk.exit.label, color: mk.exit.color }); }
       var kT = null, kP = null, tags = (s.tags && s.tags.length) ? s.tags : (s.tag ? [s.tag] : []);
       tags.some(function(t) { var ka = s.sigDetail && s.sigDetail[t] && s.sigDetail[t].kAt && s.sigDetail[t].kAt[tf]; if (ka && ka.t) { kT = ka.t; kP = (ka.p !== "" && ka.p != null && !isNaN(Number(ka.p))) ? Number(ka.p) : null; return true; } return false; });
