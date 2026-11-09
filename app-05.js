@@ -3762,7 +3762,6 @@ function _elProvPromoteData(prev, nm) {
       if (!sg || sg.provisional !== true) return sg;
       var tags = (Array.isArray(sg.tags) && sg.tags.length) ? sg.tags : (sg.tag ? [sg.tag] : []);
       if (tags.indexOf(nm) < 0) return sg;
-      if (tags.some(function(t) { return prov.indexOf(t) >= 0; })) return sg;   // まだ仮タグが残っている＝仮のまま
       hit = true;
       return Object.assign({}, sg, { provisional: null, includeInTotal: true, includeInData: true });
     });
@@ -3818,7 +3817,6 @@ function _elProvPromoteCount(prev, nm) {
       if (!sg || sg.provisional !== true) return;
       var tags = (Array.isArray(sg.tags) && sg.tags.length) ? sg.tags : (sg.tag ? [sg.tag] : []);
       if (tags.indexOf(nm) < 0) return;
-      if (tags.some(function(t) { return prov.indexOf(t) >= 0; })) return;
       n++;
     });
   });
@@ -8368,7 +8366,7 @@ function EntryRecordForm(_ref_erf) {
     fTags = _useStateE10[0], setFTags = _useStateE10[1];
   // いま仮シグナルを選んでいるか＝保存時に算入フラグを強制する。
   // ⚠️fTags は上の useState で代入されるので、**この行より前に置くと var 巻き上げで undefined.some() になる**。
-  var _fIsProv = fTags.some(_isProvT);
+  var _fIsProv = fTags.length > 0 && fTags.every(_isProvT);   // 本シグナルが1つでもあれば算入 2026-11-09（ユーザー指示）
   // シグナル名をこの場で追加して、そのまま選択する 2026-09-22b（ユーザー要望）。
   // 従来はマスター管理が設定画面にしか無く、記録中に思いついたシグナルを足すには一度フォームを閉じる必要があった。
   // とくに仮シグナルは「試しに使ってみる」のが性格なので、ここから足せないと存在にすら気づけない。
@@ -8382,7 +8380,7 @@ function EntryRecordForm(_ref_erf) {
       var _inSig = signalTags.indexOf(nm) >= 0, _inProv = provTags.indexOf(nm) >= 0;
       var _pick = function(asProv) {
         // 排他: 仮を足したら通常を外す／通常を足したら仮とカスタムを外す。
-        setFTags(function(prev) { return prev.indexOf(nm) >= 0 ? prev : (asProv ? prev.filter(_isProvT) : prev.filter(function(x) { return !_isProvT(x); })).concat([nm]); });
+        setFTags(function(prev) { return prev.indexOf(nm) >= 0 ? prev : prev.concat([nm]); });   // 通常と仮は一緒に選べる 2026-11-09
         setFIsCustom(false);
       };
       if (_inSig || _inProv) {
@@ -8450,21 +8448,20 @@ function EntryRecordForm(_ref_erf) {
   //   そうしないと「通常タグ＋仮タグ」が混ざった選択になり、排他の前提（_fIsProv で算入を決める）が崩れる。
   var _promoteSigTag = function(t) {
     var _n = _elProvPromoteCount(data, t);
-    var _mix = fTags.indexOf(t) >= 0 && fTags.some(function(x) { return x !== t && _isProvT(x); });
+    var _mix = false;
     window._snConfirm("「" + t + "」を通常シグナルへ昇格します。\n\n"
       + (_n ? ("該当する過去の記録 " + _n + "件が合計に算入されるようになり、その日の合計・カレンダー・月次の金額が変わります。\n\n") : "")
       + (_mix ? "この記録で選択中のほかの仮シグナルは選択から外れます。\n\n" : "")
       + "昇格しますか？").then(function(ok) {
       if (!ok) return;
       save(function(prev) { return _elProvPromoteData(prev, t); });
-      setFTags(function(prev) { return prev.filter(function(x) { return x === t || !_isProvT(x); }); });
     });
   };
   // 仮シグナルへの降格（通常→仮）2026-11-05 ユーザー要望。_elProvDemoteData＝昇格の逆。過去記録が合計から外れるので件数を出して確認する。
   //   編集中の記録でこのタグと他の通常シグナルを併せて選んでいたら、仮との混在を避けるためこのタグを選択から外す。
   var _demoteSigTag = function(t) {
     var _n = _elProvDemoteCount(data, t);
-    var _mix = fTags.indexOf(t) >= 0 && fTags.some(function(x) { return x !== t && !_isProvT(x); });
+    var _mix = false;
     window._snConfirm("「" + t + "」を仮シグナルへ降格します。\n\n"
       + (_n ? ("該当する過去の記録 " + _n + "件が合計に算入されなくなり、その日の合計・カレンダー・月次の金額が変わります（分析には残ります）。\n\n") : "")
       + (_mix ? "この記録ではほかの通常シグナルと一緒に選んでいるので、「" + t + "」は選択から外れます。\n\n" : "")
@@ -10327,7 +10324,7 @@ function EntryRecordForm(_ref_erf) {
               // 名前変更モード中は選択ではなく改名。マスターに無い孤児タグは改名対象にしない（消す対象なので）。
               if (_rnMode) { if (signalTags.indexOf(t) >= 0) _renameSigTag(t, false); return; }
               // 排他: 通常シグナルを付けたら、選択中の仮シグナルとカスタムタグは外す。
-              setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.filter(function(x) { return !_isProvT(x); }).concat([t]); });
+              setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.concat([t]); });   // 仮と一緒に選べる 2026-11-09
               if (!on) setFIsCustom(false);
             },
             style: {
@@ -10397,7 +10394,7 @@ function EntryRecordForm(_ref_erf) {
               onClick: function() {
                 if (_rnMode) { _renameSigTag(t, true); return; }
                 // 排他: 仮シグナルを付けたら通常シグナルとカスタムタグは外す。仮同士は複数選べる。
-                setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.filter(_isProvT).concat([t]); });
+                setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.concat([t]); });   // 通常と一緒に選べる 2026-11-09
                 if (!on) setFIsCustom(false);
               },
               style: {
