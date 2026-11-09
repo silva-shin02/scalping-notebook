@@ -1700,6 +1700,33 @@ function migrateData(d) {
       d._migRange1105 = true;
     } catch(e) { console.warn("[migrateData] range1105 error:", e); }
   }
+  // 【一回性 _migSkipOff1109・2026-11-09】2026-10-31以前の見送り記録（要審議→見送り・仮シグナル含む）の見送り理由を「取引外日」だけに置き換え（ユーザー指示）。
+  //   詳細メモ(skipMemo)は残す。自動の「未達」タグは _snSkipReasonsWith で従来どおり。選択肢マスターに「取引外日」が無ければ末尾に追加。
+  if (!d._migSkipOff1109 && typeof _snSkipMissWant === "function" && typeof _snSkipReasonsWith === "function") {
+    try {
+      var _offNm = "取引外日", _offCnt = 0;
+      var _skM = Array.isArray(d.custom.skipReasons) ? d.custom.skipReasons.slice() : (typeof _DEF_SKIP_REASONS !== "undefined" ? _DEF_SKIP_REASONS.slice() : []);
+      if (_skM.indexOf(_offNm) < 0) { _skM.push(_offNm); d.custom.skipReasons = _skM; }
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var cc = d.charts[ck]; if (!cc || !Array.isArray(cc.signals)) return;
+          var _dm = /(\d{4}-\d{2}-\d{2})$/.exec(ck); var _dt = _dm ? _dm[1] : String(cc.date || "");
+          if (!_dt || _dt > "2026-10-31") return;
+          var _chg = false;
+          var _next = cc.signals.map(function(sg) {
+            if (!sg || sg.entered === true || sg.passThrough === true || (sg.review === true && sg.reviewSkip !== true)) return sg;
+            var out = _snSkipReasonsWith([_offNm], _snSkipMissWant(sg));
+            if ((Array.isArray(sg.skipReasons) ? sg.skipReasons : []).join("|") === out.join("|")) return sg;
+            _chg = true; _offCnt++;
+            return Object.assign({}, sg, { skipReasons: out });
+          });
+          if (_chg) d.charts[ck] = Object.assign({}, cc, { signals: _next });
+        });
+      }
+      d._migSkipOff1109 = true;
+      console.log("[migrateData] skipOff1109: " + _offCnt + "件");
+    } catch(e) { console.warn("[migrateData] skipOff1109 error:", e); }
+  }
   // 【一回性 _migDetHide1101・2026-11-01】確定足浮き残りは詳細そのものが不要（ユーザー指示）＝sigSecLabels[確定足浮き残り].detHide。過去記録の値は残す。
   if (!d._migDetHide1101) {
     try {
