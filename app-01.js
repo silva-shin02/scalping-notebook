@@ -1680,6 +1680,14 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslH2; d._migBHide1102 = true;
     } catch(e) { console.warn("[migrateData] bHide1102 error:", e); }
   }
+  // 【一回性 _migBHide1109・2026-11-09】山頂サインライン（仮シグナル）も①EP基準ライン不要（ユーザー指示）＝sigSecLabels[山頂サインライン].bHide。過去記録の値は残す。
+  if (!d._migBHide1109) {
+    try {
+      var _sslH3 = Object.assign({}, d.custom.sigSecLabels || {});
+      _sslH3["山頂サインライン"] = Object.assign({}, _sslH3["山頂サインライン"] || {}, { bHide: true });
+      d.custom.sigSecLabels = _sslH3; d._migBHide1109 = true;
+    } catch(e) { console.warn("[migrateData] bHide1109 error:", e); }
+  }
   // 【一回性 _migRange1105・2026-11-05】レンジ崩れ：①EP基準ライン不要（bHide）＋仮シグナルへ降格（過去記録も仮＝合計から外す・ユーザー決定）。
   if (!d._migRange1105 && typeof _elProvDemoteData === "function") {   // 降格の関数は app-05＝読み込み前には走らせない（フラグも立てない）
     try {
