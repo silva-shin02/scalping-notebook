@@ -8824,6 +8824,27 @@ function EntryRecordForm(_ref_erf) {
       _applyPassAuto(pp[0], pp[1]);
     });
   }, [fSigDetail, fKitenAt, fLevelPrice, fTime, fTags.join("\u0001")]);
+  // ②起点・③通過ライン（起点の足・手で直す含む）は選択中の全シグナルで同じにする 2026-11-09（ユーザー指示・①EP基準ラインは別々）。
+  //   どれか1つで変えたら他にも写す・あとから足したシグナルには既存のシグナルから写す。開いた直後は書き換えない。
+  var _kpSyncRef = useRef(null);
+  useEffect(function() {
+    var tags = fTags.filter(function(t) { var kk = _elKitenKey(custom, t); return _elSigSecs(data, t).some(function(sc) { return sc.key === kk; }); });
+    var snap = function(t) { var kk = _elKitenKey(custom, t), e = (fSigDetail || {})[t] || {}, a = (fKitenAt || {})[t] || {}, pm = (fPassMan || {})[t] || {}; return JSON.stringify(_EL_TFS.map(function(tf) { return [e[kk + tf] || [], e["p" + tf] || [], a[tf] || null, !!pm[tf]]; })); };
+    var cur = {}; tags.forEach(function(t) { cur[t] = snap(t); });
+    var prev = _kpSyncRef.current; _kpSyncRef.current = cur;
+    if (prev == null || tags.length < 2) return;
+    var src = null, targets;
+    tags.forEach(function(t) { if (src == null && prev[t] != null && prev[t] !== cur[t]) src = t; });
+    if (src != null) targets = tags.filter(function(t) { return t !== src; });
+    else { targets = tags.filter(function(t) { return prev[t] == null; }); src = tags.filter(function(t) { return prev[t] != null; })[0]; }
+    if (src == null) return;
+    targets = targets.filter(function(t) { return cur[t] !== cur[src]; });
+    if (!targets.length) return;
+    var kS = _elKitenKey(custom, src), eS = (fSigDetail || {})[src] || {}, aS = (fKitenAt || {})[src] || {}, pmS = (fPassMan || {})[src] || {};
+    setFSigDetail(function(pv) { var o = Object.assign({}, pv); targets.forEach(function(t) { var kT = _elKitenKey(custom, t), hasP = _elSigSecs(data, t).some(function(sc) { return sc.key === "p"; }), e = _secClone(pv[t]); _EL_TFS.forEach(function(tf) { e[kT + tf] = (eS[kS + tf] || []).slice(); if (hasP) e["p" + tf] = (eS["p" + tf] || []).slice(); }); o[t] = e; }); return o; });
+    setFKitenAt(function(pv) { var o = Object.assign({}, pv); targets.forEach(function(t) { var n = {}; _EL_TFS.forEach(function(tf) { if (aS[tf]) n[tf] = Object.assign({}, aS[tf]); }); o[t] = n; }); return o; });
+    setFPassMan(function(pv) { var o = Object.assign({}, pv); targets.forEach(function(t) { var n = {}; _EL_TFS.forEach(function(tf) { if (pmS[tf]) n[tf] = true; }); o[t] = n; }); return o; });
+  }, [fSigDetail, fKitenAt, fPassMan, fTags.join("\u0001")]);
   // 起点の足の時刻・株価をセット（タップ・入力の共通）
   var _setKitenAt = function(t, tf, patch) { setFKitenAt(function(prev) { var o = Object.assign({}, prev); o[t] = Object.assign({}, o[t] || {}); o[t][tf] = Object.assign({ t: "", p: "" }, o[t][tf] || {}, patch); return o; }); };
   var _kitenHasNone = function(t, tf) { return _kitenNamesOf(t, tf).indexOf(_EL_PASS_NONE) >= 0; };
