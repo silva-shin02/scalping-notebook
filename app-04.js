@@ -2921,6 +2921,32 @@ function SettingsModal(_ref54) {
               background: on ? "#EEF2FF" : "#fff", color: on ? "#4338CA" : "#666" } },
             (on ? "📅 " : "") + s);
         })),
+      // 選定の候補に出す銘柄 2026-11-11g（ユーザー指示「選定銘柄に表示する銘柄は設定で選べるように・非表示にできるように」）:
+      //   custom.pickHidden＝非表示の銘柄名。銘柄タブの右側（選定外）とEPナビの▽から消える。選定中の日はそのまま出る・記録/分析/記録帳は対象外。
+      (function() {
+        var _ph = Array.isArray(data.custom && data.custom.pickHidden) ? data.custom.pickHidden : [];
+        var _phTgl = function(nm) {
+          save(function(prev) {
+            var pc = prev.custom || {};
+            var cur = Array.isArray(pc.pickHidden) ? pc.pickHidden.slice() : [];
+            var i = cur.indexOf(nm);
+            if (i >= 0) cur.splice(i, 1); else cur.push(nm);
+            return Object.assign({}, prev, { custom: Object.assign({}, pc, { pickHidden: cur }) });
+          });
+        };
+        return React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #E2E8F0" } },
+          React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#1D4ED8", marginBottom: 4 } }, "〇 選定の候補に出す銘柄"),
+          React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 8 } },
+            "押すと表示／非表示を切り替えます。非表示の銘柄は、銘柄別記録の銘柄タブ（選定外の欄）とEPナビの▽に出ません。すでに選定している日はそのまま表示されます。記録・分析・記録帳には影響しません。"),
+          React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+            stocks.filter(function(s) { return s !== "日経平均株価"; }).map(function(s) {
+              var hid = _ph.indexOf(s) >= 0;
+              return React.createElement("button", { key: s, onClick: function() { _phTgl(s); }, title: hid ? "表示に戻す" : "非表示にする",
+                style: { padding: "5px 11px", fontSize: 12, fontWeight: 700, borderRadius: 6, cursor: "pointer",
+                  border: hid ? "1px dashed #ccc" : "1.5px solid #93C5FD", background: hid ? "#F5F5F5" : "#DBEAFE", color: hid ? "#aaa" : "#1E3A8A",
+                  textDecoration: hid ? "line-through" : "none" } }, (hid ? "非表示 " : "") + _stkLbl(s));
+            })));
+      })(),
       React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #E2E8F0" } },
         React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "💰 合計損益に算入する銘柄"),
         React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 8 } },
@@ -5214,7 +5240,8 @@ function EpNaviPanel(_refEPN) {
   // その日の3銘柄（2026-11-11〜・ユーザー指示「EPナビの3銘柄はすべて変更可能に」）: 3列とも見出しの▽で選ぶ＝dailyStock[日付]（日ごと・未選択日は直前の選択日を引き継ぐ）。
   //   旧来の「固定＋📅日替わり列」はこの日より前だけ。⚙は並べ替えのみ。
   var _trioOn = _dsTrioMode(date);
-  var _trioOpts = _epnAllStocks.filter(function(s) { return s !== "日経平均株価"; });
+  var _pickHid = Array.isArray(custom.pickHidden) ? custom.pickHidden : [];   // 設定「選定の候補に出す銘柄」で非表示（選定中はそのまま出す）2026-11-11g
+  var _trioOpts = _epnAllStocks.filter(function(s) { return s !== "日経平均株価" && (_pickHid.indexOf(s) < 0 || _dailyStockHas(data, date, s)); });
   var _trioSlots = null;
   if (_trioOn) {
     var _tl = _dailyStockList(data, date).filter(function(s) { return _trioOpts.indexOf(s) >= 0; }).slice(0, _DS_TRIO_MAX);
@@ -5745,7 +5772,8 @@ function DayView(_ref57) {
   // 2026-11-11b 銘柄タブ＝左にその日の選定銘柄（青）→右に全銘柄（日経除く）。全日で📅日替わりタブは出さない。
   //   選定銘柄＝11/11以降はその日の3銘柄／それより前は 固定タブ＋その日の日替わり指定（表示だけ・合計は従来どおり）。
   var _tabPicked = (_trioDay ? _dailyStockList(data, date) : _dsTrioBase(data, _dailyStockList(data, date))).filter(function(s) { return allStocks.indexOf(s) >= 0; });
-  var _trioTabs = _tabPicked.concat(allStocks.filter(function(s) { return s !== "日経平均株価" && _tabPicked.indexOf(s) < 0; }));
+  var _pickHidT = Array.isArray(custom.pickHidden) ? custom.pickHidden : [];   // 設定で非表示にした銘柄は選定外の欄に出さない 2026-11-11g
+  var _trioTabs = _tabPicked.concat(allStocks.filter(function(s) { return s !== "日経平均株価" && _tabPicked.indexOf(s) < 0 && _pickHidT.indexOf(s) < 0; }));
   var activeStock = _trioTabs
     ? ((_trioTabs.indexOf(cs) >= 0) ? cs : (_tabPicked[0] || _trioTabs[0] || allStocks[0] || ""))
     : ((allStocks.includes(cs) && rotStocks.indexOf(cs) < 0) ? cs : (_regStocks[0] || allStocks[0] || ""));
@@ -5902,7 +5930,8 @@ function DayView(_ref57) {
       var _pepn = Array.isArray(pc.epnStocks) ? pc.epnStocks.map(function(s) { return s === oldName ? newName : s; }) : pc.epnStocks;
       var _prot = Array.isArray(pc.rotatingStocks) ? pc.rotatingStocks.map(function(s) { return s === oldName ? newName : s; }) : pc.rotatingStocks;   // 日替わり属性も追従 2026-07-22
       var _prord = Array.isArray(pc.rotStockOrder) ? pc.rotStockOrder.map(function(s) { return s === oldName ? newName : s; }) : pc.rotStockOrder;   // 手動並び順も追従 2026-08-17d（追従しないと改名した銘柄だけ並びの末尾へ飛ぶ）
-      next.custom = Object.assign({}, pc, { stocks: ps, stockCodes: psc, epnStocks: _pepn, rotatingStocks: _prot, rotStockOrder: _prord, stockInfoTabs: _rnStockKey(pc.stockInfoTabs) });
+      var _pph = Array.isArray(pc.pickHidden) ? pc.pickHidden.map(function(s) { return s === oldName ? newName : s; }) : pc.pickHidden;   // 選定候補の非表示も追従 2026-11-11g
+      next.custom = Object.assign({}, pc, { pickHidden: _pph, stocks: ps, stockCodes: psc, epnStocks: _pepn, rotatingStocks: _prot, rotStockOrder: _prord, stockInfoTabs: _rnStockKey(pc.stockInfoTabs) });
       
       var pch = prev.charts || {};
       var nch = {};
