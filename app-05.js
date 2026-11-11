@@ -10169,7 +10169,21 @@ function EntryRecordForm(_ref_erf) {
       vapAdjBatch: (_vapMode && fVapAdj && initSig.vapAdjBatch === true && fVapAdj === _vapAdjOf(initSig)) ? true : null,   // 一括反映の印は補正を変えなければ引き継ぐ   // VAP値（8/20以降）。alphaVal にも同値を書く＝下流の計算は無改修
       lineCoexist: fLineCoexist,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
-      minBar: (fMinBars && fMinBars.length) ? fMinBars.map(Number).sort(function(_a, _b) { return _a - _b; }) : null,
+      minBar: (function() {
+        // 2026-11-11j 分足は詳細から自動: どれかのシグナルで、その分足のタブに詳細（①分足別・②③④）が入っていればその分足。何も無ければ従来の値のまま。
+        var _got = {};
+        fTags.forEach(function(_t) {
+          var _s = (fSigDetail && fSigDetail[_t]) || null;
+          _EL_TFS.forEach(function(tf) {
+            if (_s && ["b", "k", "p", "f"].some(function(sk) { if (sk === "b" && _elBShared(custom, _t)) return false; return ((_s[sk + tf] || []).filter(Boolean)).length > 0; })) _got[tf] = 1;
+          });
+          var _bt = _elBTfOne(custom, _t) && fBTf && fBTf[_t];
+          if (_bt && _s && ((_s.b || []).filter(Boolean)).length) _got[_bt] = 1;
+        });
+        var _auto = _EL_TFS.filter(function(tf) { return _got[tf]; });
+        var _use = _auto.length ? _auto : (fMinBars || []);
+        return _use.length ? _use.map(Number).sort(function(_a, _b) { return _a - _b; }) : null;
+      })(),
       specialUsed: (_vapMode || fUkiUsed === "○") ? false : (fAlphaKind === "special"),   // 浮き足〇＝土台α（基本α/応用α）不使用 2026-07-14g
       specialAlpha: (!_vapMode && fUkiUsed !== "○" && fAlphaKind === "special") ? _fSpecialA : null,
       specialReasons: (!_vapMode && fUkiUsed !== "○" && fAlphaKind === "special") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
@@ -10349,9 +10363,9 @@ function EntryRecordForm(_ref_erf) {
         })
       ),
       
-      React.createElement("div", { style: SH_ }, "分足"),
+      // 2026-11-11j 分足欄（1・5）は画面から外した（ユーザー決定）＝シグナル詳細の1分／5分タブで入力するため。記録の minBar は保存時に詳細から自動で埋める（_autoMinBars）。水準線値欄は残す。
       React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8, alignItems: "center" } },
-        ["1", "5"].map(function(_mb) {
+        false && ["1", "5"].map(function(_mb) {
           var on = fMinBars.indexOf(_mb) >= 0;
           return React.createElement("button", {
             key: _mb,
@@ -10365,7 +10379,6 @@ function EntryRecordForm(_ref_erf) {
             }, "data-mb": _mb
           }, _mb);
         }),
-        React.createElement("span", { style: { fontSize: 12, color: "#94A3B8", fontWeight: 600 } }, "分足"),
         _lvPriceBox("lv_mb")   // 2026-07-20b 分足欄の右に水準線値欄（下のOS見出し右の欄と同じ部品・同じstate＝相互に自動反映）。早い段階で入れておくとRN加算自動判定が効く
       ),
 
