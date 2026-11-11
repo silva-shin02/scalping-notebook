@@ -3542,6 +3542,13 @@ function _elAmtStockPicker(props) {
   var sel = Array.isArray(custom.amtStocks) ? custom.amtStocks : [];
   var _u = useState(false), open = _u[0], setOpen = _u[1];
   var _lbl = sel.length ? sel.join("・") : "全銘柄";
+  // 2026-11-11e 日付つき（日別ページの合計欄）で選定銘柄の日（11/11〜）＝実際に算入されるのはその日の選定銘柄（EPナビ）。見出しもそれを出す（ここでは変えない）。
+  if (props.date && _dsTrioMode(props.date)) {
+    var _pk = _dailyStockList(data, props.date);
+    return React.createElement("div", { style: { margin: compact ? "2px 0" : "6px 0" } },
+      React.createElement("span", { title: "合計損益に算入するのはその日の選定銘柄です（EPナビの▽で変更）", style: { display: "inline-block", fontSize: compact ? 10 : 11, fontWeight: 700, color: "#1E3A8A", background: "#DBEAFE",
+        border: "1px solid #93C5FD", borderRadius: 5, padding: "2px 8px", whiteSpace: "nowrap" } }, "算入: " + (_pk.length ? _pk.map(_stkLbl).join("・") : "なし")));
+  }
   var _toggle = function(st) {
     save(function(prev) {
       var _c = Object.assign({}, prev.custom || {});
@@ -3562,7 +3569,7 @@ function _elAmtStockPicker(props) {
     open ? React.createElement("div", { style: { marginTop: 4, padding: "6px 8px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6 } },
       React.createElement("div", { style: { fontSize: 10, color: "#64748B", fontWeight: 600, marginBottom: 5, lineHeight: 1.5 } },
         "合計金額に足す銘柄を選びます。件数・到達・勝率・分析の母数は全銘柄のままです。1つも選ばなければ全銘柄を算入します。" +
-        "（" + _elAmtSinceLbl() + "以降の記録にだけ効きます。それより前は従来どおり全銘柄）"),
+        "（" + _elAmtSinceLbl() + "以降の記録にだけ効きます。それより前は従来どおり全銘柄。2026年11月11日以降はその日の選定銘柄（EPナビ）が算入され、この設定は使いません）"),
       React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
         all.map(function(st) {
           var on = sel.indexOf(st) >= 0;
