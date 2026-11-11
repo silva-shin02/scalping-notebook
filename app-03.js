@@ -1118,7 +1118,8 @@ function StockTabs(_ref34) {
     rotHasData = _ref34.rotHasData,
     rotDayStock = _ref34.rotDayStock,
     rotDayCount = _ref34.rotDayCount,
-    picked = _ref34.picked || [];   // その日の選定銘柄（左に並ぶ・青で色分け 2026-11-11）
+    picked = _ref34.picked || [],   // その日の選定銘柄（左に並ぶ・青で色分け 2026-11-11）
+    onTogglePick = _ref34.onTogglePick;   // 〇で選定に入れる/外す（11/11以降の日だけ渡る 2026-11-11f）
   var _useState105 = useState(null),
     _useState106 = _slicedToArray(_useState105, 2),
     drag = _useState106[0],
@@ -1328,9 +1329,19 @@ function StockTabs(_ref34) {
         pointerEvents: "none"
       }
     }), (exclCount && exclCount(s) > 0) ? _elExclDot(exclCount(s), { position: "absolute", top: 4, left: 15, pointerEvents: "none" }) : null, (collCount && collCount(s) > 0) ? _elCollDot(collCount(s), { position: "absolute", top: 4, left: (exclCount && exclCount(s) > 0) ? 24 : 15, pointerEvents: "none" }) : null,
-      // 銘柄名の下に銘柄番号（4桁）を中央ぞろえ 2026-11-11
-      _stkCode(s) ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, s,
-        React.createElement("span", { style: { fontSize: 10, fontWeight: 600, opacity: 0.75, fontVariantNumeric: "tabular-nums" } }, _stkCode(s))) : s,
+      React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 } },
+        // 〇＝その日の選定銘柄に入れる/外す（塗り＝選定中）2026-11-11f
+        (onTogglePick && s !== "日経平均株価") ? React.createElement("span", {
+          onClick: function(e) { e.stopPropagation(); onTogglePick(s); },
+          onTouchStart: function(e) { e.stopPropagation(); },
+          title: picked.indexOf(s) >= 0 ? "この日の選定銘柄から外す" : "この日の選定銘柄に入れる",
+          style: { flexShrink: 0, width: IS_TOUCH ? 18 : 14, height: IS_TOUCH ? 18 : 14, borderRadius: "50%", boxSizing: "border-box", cursor: "pointer",
+            border: "2px solid " + (picked.indexOf(s) >= 0 ? (active === s ? "#93C5FD" : "#1D4ED8") : (active === s ? "#bbb" : "#aaa")),
+            background: picked.indexOf(s) >= 0 ? (active === s ? "#93C5FD" : "#1D4ED8") : "transparent" }
+        }) : null,
+        // 銘柄名の下に銘柄番号（4桁）を中央ぞろえ 2026-11-11
+        _stkCode(s) ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, s,
+          React.createElement("span", { style: { fontSize: 10, fontWeight: 600, opacity: 0.75, fontVariantNumeric: "tabular-nums" } }, _stkCode(s))) : s),
       (onRename && s !== "日経平均株価") && React.createElement("span", {
       onClick: function onClickRn(e) {
         e.stopPropagation();
