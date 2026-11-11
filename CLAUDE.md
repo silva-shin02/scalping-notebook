@@ -35,7 +35,7 @@
 
 - 2026-11-11 の一連（v626〜v629・すべて実機未確認＝最初に聞く）：
   - その日の選定銘柄（11/11〜・最大4）＝dailyStock[日付]＝EPナビの列（▽で選択・前日を引き継ぐ）・銘柄タブの青・合計算入。app-04 `_DS_TRIO_*`/`_dailyStockList`/`_dsTrioSet`、EpNaviPanel `_trioSlots`、DayView `_tabPicked`。
-  - 銘柄タブ＝選定（青）＋全銘柄・名前の下に番号・名前の左の〇で選定に入れる/外す（v631・StockTabs `onTogglePick`）／銘柄名表示「名前（番号）」＝app-05 `_stkLbl`。
+  - 銘柄タブ＝選定（青）＋全銘柄（それぞれ番号順・ドラッグ無し v633 `_byCode`）・名前の下に番号・名前の左の〇で選定に入れる/外す（v631・StockTabs `onTogglePick`）／銘柄名表示「名前（番号）」＝app-05 `_stkLbl`。
   - CA の銘柄を起動10秒後に自動追加（app-05 `_caStocksSync`・削除は custom.caAutoSkip）。
   - 画面の最大横幅 1280（app-01 `_SN_PAGE_MAXW`）。
   - 設定「データ・銘柄」の「〇 選定の候補に出す銘柄」で非表示（custom.pickHidden・v632）＝銘柄タブ右側とEPナビ▽から消える。

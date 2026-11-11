@@ -5773,7 +5773,15 @@ function DayView(_ref57) {
   //   選定銘柄＝11/11以降はその日の3銘柄／それより前は 固定タブ＋その日の日替わり指定（表示だけ・合計は従来どおり）。
   var _tabPicked = (_trioDay ? _dailyStockList(data, date) : _dsTrioBase(data, _dailyStockList(data, date))).filter(function(s) { return allStocks.indexOf(s) >= 0; });
   var _pickHidT = Array.isArray(custom.pickHidden) ? custom.pickHidden : [];   // 設定で非表示にした銘柄は選定外の欄に出さない 2026-11-11g
-  var _trioTabs = _tabPicked.concat(allStocks.filter(function(s) { return s !== "日経平均株価" && _tabPicked.indexOf(s) < 0 && _pickHidT.indexOf(s) < 0; }));
+  // 並び＝選定・非選定それぞれ銘柄番号の若い順（番号なしは各グループの最後・名前順）2026-11-11h。ドラッグ並べ替えは無し。
+  var _byCode = function(a, b) {
+    var ca = _stkCode(a), cb = _stkCode(b), ha = !!ca, hb = !!cb;   // 4桁コード（英字入り 285A 等も）＝文字列比較で番号順
+    if (ha && hb && ca !== cb) return ca < cb ? -1 : 1;
+    if (ha !== hb) return ha ? -1 : 1;
+    return a < b ? -1 : a > b ? 1 : 0;
+  };
+  _tabPicked = _tabPicked.slice().sort(_byCode);
+  var _trioTabs = _tabPicked.concat(allStocks.filter(function(s) { return s !== "日経平均株価" && _tabPicked.indexOf(s) < 0 && _pickHidT.indexOf(s) < 0; }).sort(_byCode));
   var activeStock = _trioTabs
     ? ((_trioTabs.indexOf(cs) >= 0) ? cs : (_tabPicked[0] || _trioTabs[0] || allStocks[0] || ""))
     : ((allStocks.includes(cs) && rotStocks.indexOf(cs) < 0) ? cs : (_regStocks[0] || allStocks[0] || ""));
@@ -6552,24 +6560,7 @@ function DayView(_ref57) {
       _dsTrioSet(save, date, cur);
     } : null,
     onSelect: function(s) { setCs(s); setFmActive(false); setRotTabActive(false); },
-    onReorder: function onReorder(reordered) {
-      if (_trioTabs) {
-        // 選定銘柄どうしの並び替え（11/11以降）＝その日の並びに保存。全体の並びは銘柄マスターへ。
-        var _pk = reordered.filter(function(s) { return _tabPicked.indexOf(s) >= 0; });
-        if (_trioDay && _pk.join("|") !== _tabPicked.join("|")) _dsTrioSet(save, date, _pk);
-        var _rest = reordered.filter(function(s) { return _tabPicked.indexOf(s) < 0; });
-        var _keptA = allStocks.filter(function(s) { return reordered.indexOf(s) < 0; });
-        var _pkM = allStocks.filter(function(s) { return _tabPicked.indexOf(s) >= 0; });   // 選定銘柄のマスター上の位置は変えない
-        var _ns = [], _ri = 0;
-        allStocks.forEach(function(s) { if (_tabPicked.indexOf(s) >= 0 || _keptA.indexOf(s) >= 0) _ns.push(s); else _ns.push(_rest[_ri++]); });
-        return updCustom({ stocks: _ns });
-      }
-      // タブに出していない銘柄（日経平均・日替わり）を末尾で保持＝並べ替えでマスターから消さない 2026-07-22
-      var kept = allStocks.filter(function(s) { return reordered.indexOf(s) < 0; });
-      return updCustom({
-        stocks: reordered.concat(kept)
-      });
-    },
+    onReorder: null,   // 日別ページの銘柄タブは番号順＝ドラッグ並べ替え無し 2026-11-11h
     onAdd: addStock,
     onDel: handleDelStock,
     onRename: handleRenameStock,

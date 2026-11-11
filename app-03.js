@@ -1274,7 +1274,7 @@ function StockTabs(_ref34) {
     return React.createElement("button", {
       key: s,
       "data-si": i,
-      draggable: true,
+      draggable: !!onReorder,   // 並べ替えを渡さない画面（日別ページ＝番号順 2026-11-11h）はドラッグしない
       onClick: function onClick() {
         if (!touchState.current.on) onSelect(s);
       },
@@ -1297,6 +1297,7 @@ function StockTabs(_ref34) {
         setOver(null);
       },
       onTouchStart: function onTouchStart(e) {
+        if (!onReorder) return;
         return tStart(e, i);
       },
       style: {
@@ -1309,7 +1310,7 @@ function StockTabs(_ref34) {
         fontWeight: picked.indexOf(s) >= 0 ? 800 : 600,
         border: active === s ? "1.5px solid #1a1a1a" : over === i && drag != null ? "2px solid #6366F1" : (picked.indexOf(s) >= 0 ? "1.5px solid #93C5FD" : "1px solid #ccc"),
         borderRadius: 7,
-        cursor: "grab",
+        cursor: onReorder ? "grab" : "pointer",
         background: active === s ? "#1a1a1a" : over === i && drag != null ? "#EEF2FF" : (picked.indexOf(s) >= 0 ? "#DBEAFE" : "#fff"),
         color: active === s ? "#fff" : (picked.indexOf(s) >= 0 ? "#1E3A8A" : "#666"),
         opacity: drag === i ? .4 : 1,
