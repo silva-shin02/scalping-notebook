@@ -1785,7 +1785,7 @@ function NewsHistoryView(_ref_nhv) {
     });
   };
 
-  var pageStyle = { padding: "10px 4px 80px", maxWidth: 1080, margin: "0 auto" };
+  var pageStyle = { padding: "10px 4px 80px", maxWidth: _SN_PAGE_MAXW, margin: "0 auto" };
   var btnGhost = { padding: "8px 12px", fontSize: 13, fontWeight: 700,
     background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 7,
     cursor: "pointer", minHeight: IS_TOUCH ? 44 : 36 };
@@ -2427,7 +2427,7 @@ function SummaryHistoryView(_ref_shv) {
   };
 
   
-  var pageStyle = { padding: "10px 4px 80px", maxWidth: 1080, margin: "0 auto" };
+  var pageStyle = { padding: "10px 4px 80px", maxWidth: _SN_PAGE_MAXW, margin: "0 auto" };
   var btnGhost = { padding: "8px 12px", fontSize: 13, fontWeight: 700,
     background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 7,
     cursor: "pointer", minHeight: IS_TOUCH ? 44 : 36 };
@@ -4532,7 +4532,7 @@ function StockHistoryView(_ref_shv) {
   var totalCharts = filtered.reduce(function(s, e){ return s + (e.chart ? 1 : 0); }, 0);
   var totalTrades = filtered.reduce(function(s, e){ return s + e.items.length; }, 0);
   
-  return React.createElement("div", { style: { padding: "10px 4px 60px", maxWidth: 920, margin: "0 auto" } },
+  return React.createElement("div", { style: { padding: "10px 4px 60px", maxWidth: _SN_PAGE_MAXW, margin: "0 auto" } },
     
     React.createElement("div", {
       style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }

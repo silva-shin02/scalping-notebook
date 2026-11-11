@@ -391,7 +391,7 @@ function Calendar(_ref60) {
     },
     style: {
       width: "100%",
-      maxWidth: 1100,
+      maxWidth: _SN_PAGE_MAXW,
       margin: "0 auto",
       maxHeight: "88vh",
       overflowY: "auto",

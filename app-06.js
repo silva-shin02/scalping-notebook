@@ -9598,7 +9598,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   // 任意の開始日〜終了日という自由レンジは無くなるが、年→月→週→日を複数選択できるので実用上の指定はカバーできる。
 
   // レイアウト刷新・案A（2026-07-12）: ヘッダー=アイコン＋タイトル＋スコープサブタイトル。期間はチップ風セレクト・＋新規は右端。
-  return React.createElement("div", { style: { padding: "12px 14px", maxWidth: 1100, margin: "0 auto" } },
+  return React.createElement("div", { style: { padding: "12px 14px", maxWidth: _SN_PAGE_MAXW, margin: "0 auto" } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, marginBottom: 8, flexWrap: "wrap" } },
       onBack ? React.createElement("button", { onClick: onBack, title: "戻る", style: { padding: "6px 11px", fontSize: 13, fontWeight: 700, background: "#fff", border: "1px solid #E4DFD7", borderRadius: 9, cursor: "pointer", color: "#5C554B" } }, "←") : null,
       React.createElement("div", { style: { width: 30, height: 30, borderRadius: 9, background: "#FBEDE6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 } }, "📒"),
