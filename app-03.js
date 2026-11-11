@@ -1117,7 +1117,8 @@ function StockTabs(_ref34) {
     onRotSelect = _ref34.onRotSelect,
     rotHasData = _ref34.rotHasData,
     rotDayStock = _ref34.rotDayStock,
-    rotDayCount = _ref34.rotDayCount;
+    rotDayCount = _ref34.rotDayCount,
+    picked = _ref34.picked || [];   // その日の選定銘柄（左に並ぶ・青で色分け 2026-11-11）
   var _useState105 = useState(null),
     _useState106 = _slicedToArray(_useState105, 2),
     drag = _useState106[0],
@@ -1300,15 +1301,16 @@ function StockTabs(_ref34) {
       style: {
         position: "relative",
         flexShrink: 0,
-        padding: "8px 14px",
+        padding: _stkCode(s) ? "3px 14px" : "8px 14px",
         paddingRight: (s !== "日経平均株価") ? ((onDel ? 28 : 0) + (onRename ? 24 : 0) + 6) : 14,
+        marginRight: (picked.length && i === picked.length - 1 && stocks.length > picked.length) ? 8 : 0,   // 選定銘柄と他の銘柄の間をあける
         fontSize: 13,
-        fontWeight: 600,
-        border: active === s ? "1.5px solid #1a1a1a" : over === i && drag != null ? "2px solid #6366F1" : "1px solid #ccc",
+        fontWeight: picked.indexOf(s) >= 0 ? 800 : 600,
+        border: active === s ? "1.5px solid #1a1a1a" : over === i && drag != null ? "2px solid #6366F1" : (picked.indexOf(s) >= 0 ? "1.5px solid #93C5FD" : "1px solid #ccc"),
         borderRadius: 7,
         cursor: "grab",
-        background: active === s ? "#1a1a1a" : over === i && drag != null ? "#EEF2FF" : "#fff",
-        color: active === s ? "#fff" : "#666",
+        background: active === s ? "#1a1a1a" : over === i && drag != null ? "#EEF2FF" : (picked.indexOf(s) >= 0 ? "#DBEAFE" : "#fff"),
+        color: active === s ? "#fff" : (picked.indexOf(s) >= 0 ? "#1E3A8A" : "#666"),
         opacity: drag === i ? .4 : 1,
         whiteSpace: "nowrap",
         minHeight: IS_TOUCH ? 40 : 32,
@@ -1325,7 +1327,11 @@ function StockTabs(_ref34) {
         background: "#E53935",
         pointerEvents: "none"
       }
-    }), (exclCount && exclCount(s) > 0) ? _elExclDot(exclCount(s), { position: "absolute", top: 4, left: 15, pointerEvents: "none" }) : null, (collCount && collCount(s) > 0) ? _elCollDot(collCount(s), { position: "absolute", top: 4, left: (exclCount && exclCount(s) > 0) ? 24 : 15, pointerEvents: "none" }) : null, s, (onRename && s !== "日経平均株価") && React.createElement("span", {
+    }), (exclCount && exclCount(s) > 0) ? _elExclDot(exclCount(s), { position: "absolute", top: 4, left: 15, pointerEvents: "none" }) : null, (collCount && collCount(s) > 0) ? _elCollDot(collCount(s), { position: "absolute", top: 4, left: (exclCount && exclCount(s) > 0) ? 24 : 15, pointerEvents: "none" }) : null,
+      // 銘柄名の下に銘柄番号（4桁）を中央ぞろえ 2026-11-11
+      _stkCode(s) ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, s,
+        React.createElement("span", { style: { fontSize: 10, fontWeight: 600, opacity: 0.75, fontVariantNumeric: "tabular-nums" } }, _stkCode(s))) : s,
+      (onRename && s !== "日経平均株価") && React.createElement("span", {
       onClick: function onClickRn(e) {
         e.stopPropagation();
         window._snPrompt("銘柄名を変更", s).then(function(nn){
