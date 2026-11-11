@@ -291,7 +291,10 @@ function App() {
     var onLoaded = function() { _setCaTagV(function(v) { return v + 1; }); };
     window.addEventListener("sn_ca_tags_loaded", onLoaded);
     _caTagsRefresh(cfg, true);
+    // CA の銘柄を SN の銘柄一覧へ自動追加 2026-11-11。起動直後の Firebase 取り込みと競らないよう10秒待つ（足すだけ＝取り込みで消えても次の起動でまた足す）。
+    var _caStkT = setTimeout(function() { _caStocksSync(cfg, save); }, 10000);
     return function() {
+      clearTimeout(_caStkT);
       window.removeEventListener("sn_ca_tags_loaded", onLoaded);
     };
   }, [cfg && cfg.fbUrl, cfg && cfg.fbSecret]);

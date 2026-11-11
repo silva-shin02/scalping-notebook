@@ -36,6 +36,7 @@
 - 直近（v626・2026-11-11）：EPナビの3銘柄を日ごとに▽で変更可能に（11/11以降。dailyStock[日付]＝その日の3銘柄＝EPナビ3列・銘柄タブ・合計算入。未選択日は直前の選択日を引き継ぐ。📅日替わりタブは11/11以降なし）。
   - 未確認（最初に聞く）：実データで今日の3列がフジクラ・SBG・（日替わり）になっているか、▽で入れ替え・翌日への引き継ぎ、銘柄タブの表示、合計額（3銘柄外の記録が合計から外れるか）。
   - コード：app-04 `_DS_TRIO_SINCE`/`_dsTrioMode`/`_dsPoolHas`/`_dailyStockList`/`_dsTrioSet`（_dailyStockList 付近）、EpNaviPanel の `_trioSlots`/`_trioHdr`、DayView の `_trioTabs`、app-01 `_migTrio1111`、app-05 `_elAmtStockOk`。
+- 直近（v627）：CA の銘柄を起動10秒後に SN の銘柄一覧へ自動追加（app-05 `_caStocksSync`、SN で削除した銘柄は custom.caAutoSkip で戻さない）。未確認：実データで CA の銘柄が追加されたか・二重追加が無いか。
 - 保留（作らない）：過去記録の lineSnap 一括取り込み。
 
 ## その他
