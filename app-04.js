@@ -3561,7 +3561,7 @@ function StockQuickRefTable(_props_qrt) {
         React.createElement("div", {
           style: { fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 6 }
         },
-          React.createElement("span", null, activeStock + " 早見表")
+          React.createElement("span", null, _stkLbl(activeStock) + " 早見表")
         ),
         React.createElement("div", {
           style: { fontSize: 11, color: "#888" }
@@ -5058,7 +5058,7 @@ function _EpnCalcForm(_p) {
   var _spModal = null;   // 旧・応用α詳細ポップアップは開くボタンが撤去され到達不能（setShowSpTable(true)の呼出無し）＝死コードのため本体を削除。「表を参照」は_ElDayAlphaPairに集約済み 2026-07-22j
   return React.createElement("div", { ref: _rootRef, style: { minWidth: 0, boxSizing: "border-box", background: _editing ? "#FFFBEB" : "#fff", border: _editing ? "2px solid #F59E0B" : "1px solid #BFDBFE", borderRadius: 8, padding: _editing ? 7 : 8 } },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" } },   // 列が狭いと「計算：…」と銘柄名が切れてどの列か分からなくなるので、入らなければ↺リセットを下段へ折り返す 2026-08-07
-      React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: _editing ? "#B45309" : "#1D4ED8", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (_editing ? "✎ 編集：" : "計算：") + stock),
+      React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: _editing ? "#B45309" : "#1D4ED8", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (_editing ? "✎ 編集：" : "計算：") + _stkLbl(stock)),
       React.createElement("button", { type: "button", onClick: _resetForm, title: "計算内容をリセット（シグナル/" + (_vapWorld(date) ? "VAP値" : "α") + "/水準線などを初期化）",
         style: { flexShrink: 0, padding: "3px 9px", fontSize: 10.5, fontWeight: 700, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 30 : 22 } }, "↺ リセット")),
     editId ? React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6, padding: "4px 8px", background: "#FEF9C3", border: "1px solid #FDE68A", borderRadius: 6, flexWrap: "wrap" } },
@@ -5460,14 +5460,14 @@ function EpNaviPanel(_refEPN) {
   var _trioHdr = function(st, i) {
     return React.createElement("select", { value: st, onChange: function(ev) { _trioPick(i, ev.target.value); }, title: "この日の銘柄（他の列の銘柄を選ぶと入れ替え・翌日以降に引き継ぎ）",
         style: { width: "100%", fontSize: 12, fontWeight: 800, color: "#1E3A8A", background: "#DBEAFE", border: "1px solid #BFDBFE", borderRadius: 5, padding: "3px 4px", marginBottom: 5, boxSizing: "border-box", minHeight: IS_TOUCH ? 30 : 24 } },
-      (st ? [] : [React.createElement("option", { key: "", value: "" }, "▽ 銘柄を選ぶ")]).concat(_trioOpts.map(function(s) { var _c = data.charts[s + "_" + date]; var cnt = (_c && Array.isArray(_c.signals)) ? _c.signals.length : 0; return React.createElement("option", { key: s, value: s }, s + (cnt ? "（" + cnt + "）" : "")); })));
+      (st ? [] : [React.createElement("option", { key: "", value: "" }, "▽ 銘柄を選ぶ")]).concat(_trioOpts.map(function(s) { var _c = data.charts[s + "_" + date]; var cnt = (_c && Array.isArray(_c.signals)) ? _c.signals.length : 0; return React.createElement("option", { key: s, value: s }, _stkLbl(s) + (cnt ? "［" + cnt + "］" : "")); })));
   };
   var _cellsTop = (_trioSlots || epnStocks).map(function(st, _ci) {
     if (_trioSlots && !st) return React.createElement("div", { key: "epnc_empty" + _ci, style: { minWidth: 0 } }, _trioHdr("", _ci),
       React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", textAlign: "center", padding: "6px 0" } }, "銘柄を選択"));
     var _cards = savedByStock.map[st] || [];
     return React.createElement("div", { key: "epnc_" + st, style: { minWidth: 0 } },
-      _trioSlots ? _trioHdr(st, _ci) : React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", background: "#DBEAFE", borderRadius: 5, padding: "3px 7px", marginBottom: 5, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, st),
+      _trioSlots ? _trioHdr(st, _ci) : React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", background: "#DBEAFE", borderRadius: 5, padding: "3px 7px", marginBottom: 5, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, _stkLbl(st)),
       _vapWorld(date) ? null : React.createElement(_ElDayAlphaPair, { key: "epnda_" + st, data: data, save: save, date: date, stock: st, stacked: true }),   // VAP日は基本α/応用αの採用α値欄を出さない 2026-10-05
       _cards.map(function(e) { return _renderCard(st, e); }),
       _cards.length ? null : React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1", textAlign: "center", padding: "1px 0 4px" } }, "EPなし"));
@@ -5501,7 +5501,7 @@ function EpNaviPanel(_refEPN) {
             if (other && !_epnRotGet(date, _oSlot)) { setOtherRaw(other); _epnRotSet(date, other, _oSlot); }
           },
           style: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "#3730A3", background: "#fff", border: "1px solid #C7D2FE", borderRadius: 4, padding: "3px 4px", boxSizing: "border-box", minHeight: IS_TOUCH ? 30 : 24 } },
-          _opts.map(function(s) { var _c = data.charts[s + "_" + date]; var cnt = (_c && Array.isArray(_c.signals)) ? _c.signals.length : 0; return React.createElement("option", { key: s, value: s }, s + (cnt ? "（" + cnt + "）" : "")); }))),
+          _opts.map(function(s) { var _c = data.charts[s + "_" + date]; var cnt = (_c && Array.isArray(_c.signals)) ? _c.signals.length : 0; return React.createElement("option", { key: s, value: s }, _stkLbl(s) + (cnt ? "［" + cnt + "］" : "")); }))),
       sel ? React.createElement(React.Fragment, null,
         _vapWorld(date) ? null : React.createElement(_ElDayAlphaPair, { key: "epndarot" + slot + "_" + sel, data: data, save: save, date: date, stock: sel, stacked: true }),
         _cards.map(function(e) { return _renderCard(sel, e); }),
@@ -5566,7 +5566,7 @@ function EpNaviPanel(_refEPN) {
           onPointerCancel: function() { _stkDragRef.current = null; _stkMovedRef.current = false; setStkOrd(null); },
           style: { touchAction: "none", boxShadow: _dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null, transform: _dragging ? "scale(1.06)" : null, opacity: _dragging ? 0.9 : null } },
           React.createElement("button", { type: "button", onClick: function() { if (_stkMovedRef.current) { _stkMovedRef.current = false; return; } _epnStockToggle(st); }, title: "ドラッグで並び替え・タップで表示から外す",
-            style: { padding: "3px 9px", fontSize: 11, fontWeight: 800, border: "1.5px solid #1D4ED8", background: "#DBEAFE", color: "#1E3A8A", borderRadius: 5, cursor: "pointer" } }, st));
+            style: { padding: "3px 9px", fontSize: 11, fontWeight: 800, border: "1.5px solid #1D4ED8", background: "#DBEAFE", color: "#1E3A8A", borderRadius: 5, cursor: "pointer" } }, _stkLbl(st)));
       }),
       epnStocks.length === 0 ? React.createElement("span", { style: { fontSize: 10, color: "#CBD5E1" } }, "↓ から銘柄を選択") : null),
     (function() {
@@ -5741,14 +5741,17 @@ function DayView(_ref57) {
   var _regStocks = allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; });   // 通常タブに出る固定銘柄（日経・候補プールを除く）2026-07-22d
   // その日の3銘柄（2026-11-11〜）: 銘柄タブ＝その日の3銘柄（EPナビの列順）・📅日替わりタブは出さない。
   var _trioDay = _dsTrioMode(date);
-  var _trioTabs = _trioDay ? _dailyStockList(data, date).filter(function(s) { return allStocks.indexOf(s) >= 0; }) : null;
+  // 2026-11-11b 銘柄タブ＝左にその日の選定銘柄（青）→右に全銘柄（日経除く）。全日で📅日替わりタブは出さない。
+  //   選定銘柄＝11/11以降はその日の3銘柄／それより前は 固定タブ＋その日の日替わり指定（表示だけ・合計は従来どおり）。
+  var _tabPicked = (_trioDay ? _dailyStockList(data, date) : _dsTrioBase(data, _dailyStockList(data, date))).filter(function(s) { return allStocks.indexOf(s) >= 0; });
+  var _trioTabs = _tabPicked.concat(allStocks.filter(function(s) { return s !== "日経平均株価" && _tabPicked.indexOf(s) < 0; }));
   var activeStock = _trioTabs
-    ? ((_trioTabs.indexOf(cs) >= 0) ? cs : (_trioTabs[0] || _regStocks[0] || allStocks[0] || ""))
+    ? ((_trioTabs.indexOf(cs) >= 0) ? cs : (_tabPicked[0] || _trioTabs[0] || allStocks[0] || ""))
     : ((allStocks.includes(cs) && rotStocks.indexOf(cs) < 0) ? cs : (_regStocks[0] || allStocks[0] || ""));
   var dayStocks = _dailyStockList(data, date);   // その日の本日の取引銘柄（複数可 2026-08-06・指定・赤マーク・合計算入）
   var dayStock = dayStocks[0] || "";   // 表示の既定に使う先頭1つ（指定かどうかの判定は dayStocks.indexOf で行う）
   var _rotView = (rotViewStock && rotStocks.indexOf(rotViewStock) >= 0) ? rotViewStock : (dayStock || rotStocks[0] || "");   // タブ内の表示銘柄（指定の先頭優先→候補先頭）
-  var dispStock = (rotTabActive && !_trioDay) ? _rotView : activeStock;   // フル表示に渡す銘柄（タブ時=表示中の候補／通常時=固定銘柄）
+  var dispStock = (rotTabActive && !_trioTabs) ? _rotView : activeStock;   // フル表示に渡す銘柄（タブ時=表示中の候補／通常時=固定銘柄）
   // 前日の選定を引き継ぐ 2026-08-18: 今日以降の日を開いたとき、未選定なら直近の選定を既定として入れる（1日1回きり・過去日は触らない）。
   // 依存は[date]だけ＝「日を開いたとき」の1回。dataが古くても_dsSeedFromPrevがsave内で再判定するので取りこぼし/二重書きにならない。
   useEffect(function() {
@@ -6510,10 +6513,21 @@ function DayView(_ref57) {
     )
   ), tab === "charts" && React.createElement("div", null, React.createElement(StockTabs, {
     stocks: _trioTabs || allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; }),
-    active: (fmActive || (rotTabActive && !_trioDay)) ? "" : activeStock,
+    active: (fmActive || (rotTabActive && !_trioTabs)) ? "" : activeStock,
+    picked: _tabPicked,
     onSelect: function(s) { setCs(s); setFmActive(false); setRotTabActive(false); },
     onReorder: function onReorder(reordered) {
-      if (_trioTabs) { _dsTrioSet(save, date, reordered); return; }   // 3銘柄の日＝その日の並びを変える
+      if (_trioTabs) {
+        // 選定銘柄どうしの並び替え（11/11以降）＝その日の並びに保存。全体の並びは銘柄マスターへ。
+        var _pk = reordered.filter(function(s) { return _tabPicked.indexOf(s) >= 0; });
+        if (_trioDay && _pk.join("|") !== _tabPicked.join("|")) _dsTrioSet(save, date, _pk);
+        var _rest = reordered.filter(function(s) { return _tabPicked.indexOf(s) < 0; });
+        var _keptA = allStocks.filter(function(s) { return reordered.indexOf(s) < 0; });
+        var _pkM = allStocks.filter(function(s) { return _tabPicked.indexOf(s) >= 0; });   // 選定銘柄のマスター上の位置は変えない
+        var _ns = [], _ri = 0;
+        allStocks.forEach(function(s) { if (_tabPicked.indexOf(s) >= 0 || _keptA.indexOf(s) >= 0) _ns.push(s); else _ns.push(_rest[_ri++]); });
+        return updCustom({ stocks: _ns });
+      }
       // タブに出していない銘柄（日経平均・日替わり）を末尾で保持＝並べ替えでマスターから消さない 2026-07-22
       var kept = allStocks.filter(function(s) { return reordered.indexOf(s) < 0; });
       return updCustom({
@@ -6537,7 +6551,7 @@ function DayView(_ref57) {
     rotLabel: "📅 日替わり",
     rotDayStock: _dailyStockLabel(dayStocks, 2),   // 複数指定は「A・B」／3つ以上は「A・B 他N」2026-08-06
     rotDayCount: dayStocks.length,
-    onRotSelect: _trioDay ? null : function() { setRotTabActive(true); setFmActive(false); },
+    onRotSelect: _trioTabs ? null : function() { setRotTabActive(true); setFmActive(false); },
     rotHasData: dayStocks.length ? dayStocks.some(stockHasData) : rotStocks.some(stockHasData)
   }),
   fmActive
@@ -6552,7 +6566,7 @@ function DayView(_ref57) {
         })
       )
     : React.createElement(React.Fragment, null,
-  (rotTabActive && !_trioDay) ? _rotPickerBar : null,
+  (rotTabActive && !_trioTabs) ? _rotPickerBar : null,
   null,   // 2026-10-28 「本日の株価帯・固有材料」欄は画面から外した（ユーザー決定・データ/分析はそのまま）。旧: React.createElement(_PbDayBandBar, …)
   React.createElement(StockQuickRefTableWithChart, {
     data: data,
@@ -6746,7 +6760,7 @@ function DayView(_ref57) {
               _epIncompleteMark(s), _elCollMarkNode(data, r, null, _EL_COLL_HIDE_KEEP), _elCollPickNode(data, r, save), _elFillRiskNode(r),
               (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()   // 2026-07-29 選外(データのみ)も無印にしない
             ),
-            React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
+            React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, _stkLbl(r.stock)),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", whiteSpace: "nowrap" } }, _elSigCell(s, "flex-start")),
             React.createElement("td", { style: { padding: "4px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
               _elAlphaTypeCell(s, _aiTr.alpha)),

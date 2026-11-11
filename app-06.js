@@ -908,7 +908,7 @@ function _elSigRecList(rs, title, o) {
         var row = React.createElement("tr", { key: ek, onClick: function() { setExp(on ? null : ek); }, style: { background: on ? "#FFF7ED" : "transparent", cursor: "pointer" } },
           _elv2Td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow(r.date) + ")", { textAlign: "left", paddingLeft: 8 }),
           _elv2Td((r.signal && r.signal.time) || "—", { color: "#666" }),
-          _elv2Td(React.createElement("b", { style: { color: "#9A3412" } }, r.stock), { textAlign: "left" }),
+          _elv2Td(React.createElement("b", { style: { color: "#9A3412" } }, _stkLbl(r.stock)), { textAlign: "left" }),
           _elv2Td(React.createElement("b", { style: { color: rc } }, x.res)),
           _elv2Td(React.createElement("b", { style: { color: _elPnlColor(v) } }, v == null ? "—" : _elPnlFmt(Math.round(v)))));
         if (!on) return row;
@@ -6239,7 +6239,7 @@ function _elKabuLadderSimV2(props) {
     var rows2 = list.map(function(g) {
       var d = (g.simHas || g.convHas) ? (g.sim - g.conv) : null;
       return React.createElement("tr", { key: g.stock, style: { background: (g.simHas && g.sim < 0) ? "#FEF2F2" : "transparent" } },
-        _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: g.built ? "#334155" : "#94A3B8" } }, g.stock), { textAlign: "left", paddingLeft: 8 }),
+        _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: g.built ? "#334155" : "#94A3B8" } }, _stkLbl(g.stock)), { textAlign: "left", paddingLeft: 8 }),
         _elv2Td(g.n + "件"),
         _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: g.built ? "#0F766E" : "#94A3B8" } }, g.built + "件")),
         _elv2Td(_nbCell(g), { textAlign: "left" }),
@@ -9659,7 +9659,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setDetTagMode("sig"); setSelDetTag(null); if (view === "proj" || view === "ce") setView("sum"); },
           style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
             border: "1px solid " + (on ? "#9A3412" : "#E0DAD1"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#6B6459" } },
-          s + " (" + (_cntByStock[s] || 0) + ")");
+          _stkLbl(s) + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
     (!_isAllStock && !_isSigTotal && _sigAxisGroups.length && !(view === "sum" && ((detTagMode === "det" && _hasDetTags) || detTagMode === "band"))) ? React.createElement("div", { style: { margin: "0 0 10px", background: "#fff", border: "1px solid #ECE7DE", borderRadius: 13, padding: "10px 12px", boxShadow: "0 1px 2px rgba(0,0,0,.03)" } },   // 文脈カード（案A 2026-07-12）: 旧シグナル行＋内訳行を1枚に統合。内訳（浮き足/その他 2026-07-02）は右上のセグメント・シグナルは折返しチップ。
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" } },

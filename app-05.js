@@ -1123,6 +1123,14 @@ function _caGetStockInfo(stock, custom) {
 
 
 
+// 銘柄の表示ラベル 2026-11-11（ユーザー指示「銘柄名には番号も括弧で」）: 「フジクラ（5803）」。番号は stockCodes（設定の銘柄コード）→既定表（DEFAULT_STOCK_MAP）。
+//   表示だけ＝保存する銘柄名・照合キーは変えない。custom は App 描画ごとに _caTagSetCustom で入る（_caTagCustom）。
+function _stkCode(name) {
+  if (!name || name === "日経平均株価") return "";
+  var inf = _caGetStockInfo(name, (typeof _caTagCustom !== "undefined") ? _caTagCustom : null);
+  return (inf && inf.code) ? String(inf.code) : "";
+}
+function _stkLbl(name) { var c = _stkCode(name); return c ? (name + "（" + c + "）") : (name || ""); }
 function _caResolveDate(meta) {
   if (!meta) return "";
   
@@ -3560,7 +3568,7 @@ function _elAmtStockPicker(props) {
           var on = sel.indexOf(st) >= 0;
           return React.createElement("button", { key: st, onClick: function() { _toggle(st); },
             style: { fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6, cursor: "pointer",
-              border: on ? "1.5px solid #0EA5E9" : "1px solid #ddd", background: on ? "#E0F2FE" : "#fff", color: on ? "#0369A1" : "#666" } }, st);
+              border: on ? "1.5px solid #0EA5E9" : "1px solid #ddd", background: on ? "#E0F2FE" : "#fff", color: on ? "#0369A1" : "#666" } }, _stkLbl(st));
         }))) : null);
 }
 function _elInclTotal(s) { return !s || (s.includeInTotal !== false && s.passThrough !== true); }   // スルー(passThrough=true)は算入チェックに関わらず常に不算入 2026-07-06
@@ -8021,7 +8029,7 @@ function VirtualAlphaCalc(_ref_vac) {
         var res = calcResults(stock, aStr);
         var plan = res ? res.plan : null, result = res ? res.result : null;
         return React.createElement("div", { key: stock, style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
-          stocks.length > 1 && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#92400E", minWidth: 48 } }, stock),
+          stocks.length > 1 && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#92400E", minWidth: 48 } }, _stkLbl(stock)),
           React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "α値"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
@@ -10311,7 +10319,7 @@ function EntryRecordForm(_ref_erf) {
           value: fStock,
           onChange: function(e) { setFStock(e.target.value); setFItemId(null); },
           style: I
-        }, allStocks.map(function(s) { return React.createElement("option", { key: s, value: s }, s); }))
+        }, allStocks.map(function(s) { return React.createElement("option", { key: s, value: s }, _stkLbl(s)); }))
       ),
       
       React.createElement("div", { style: SH_ }, "売/買"),
@@ -12450,7 +12458,7 @@ function EntryLogCard(_ref_elc) {
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" } }, _fmtDow(record.date)),
       (_elIsExcluded(s) && !_elIsThru(s)) ? _elNotInclBadge() : null,   // スルーは下の実エントリー状態チップで表示＝二重バッジ回避 2026-07-06
       s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time, _minBarBadge(s)),
-      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, record.stock)
+      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, _stkLbl(record.stock))
     ),
     _ref_elc.data ? _elCollPairNode(_ref_elc.data, record, _ref_elc.collScope) : null,
 
