@@ -1666,6 +1666,45 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslB; d._migBTfOne1029 = true;
     } catch(e) { console.warn("[migrateData] bTfOne1029 error:", e); }
   }
+  // 【一回性 _migBTfOne1111・2026-11-11】長期EMA-OS（仮シグナル）も①EP基準ラインは1分か5分のどちらかを選ぶ（ユーザー指示・指標線底抜けと同じ bTfOne）。
+  //   既存記録で①に分足が無いもの（tf のどちらにも b が無い）は、記録の基準分足（minBar）で埋める＝5分だけなら5分／それ以外（1分だけ・両方・未設定）は1分。
+  if (!d._migBTfOne1111) {
+    try {
+      var _emaRe = /長期\s*EMA\s*[-‐－ー]?\s*OS/i;
+      var _emaTags = [];
+      [d.custom.signalTags, d.custom.provSignalTags].forEach(function(arr) { (Array.isArray(arr) ? arr : []).forEach(function(t) { var n = (t && typeof t === "object") ? t.name : t; if (typeof n === "string" && _emaRe.test(n) && _emaTags.indexOf(n) < 0) _emaTags.push(n); }); });
+      if (_emaTags.indexOf("長期EMA-OS") < 0) _emaTags.push("長期EMA-OS");
+      var _sslE = Object.assign({}, d.custom.sigSecLabels || {});
+      _emaTags.forEach(function(t) { _sslE[t] = Object.assign({}, _sslE[t] || {}, { bTfOne: true }); });
+      d.custom.sigSecLabels = _sslE;
+      var _emaN = 0;
+      Object.keys(d.charts || {}).forEach(function(ck) {
+        var c = d.charts[ck]; if (!c || !Array.isArray(c.signals)) return;
+        var hit = false;
+        var ns = c.signals.map(function(s) {
+          if (!s || !s.sigDetail || typeof s.sigDetail !== "object") return s;
+          var sd = null;
+          _emaTags.forEach(function(t) {
+            var v = s.sigDetail[t];
+            if (!v || typeof v !== "object" || Array.isArray(v) || !v.tf || typeof v.tf !== "object") return;
+            var has = ["1", "5"].some(function(tf) { return v.tf[tf] && Array.isArray(v.tf[tf].b) && v.tf[tf].b.length; });
+            var bl = (Array.isArray(v.bs) && v.bs.length) ? v.bs.slice() : (v.b ? [v.b] : []);
+            if (has || !bl.length) return;
+            var mb = Array.isArray(s.minBar) ? s.minBar.map(String) : [];
+            var tfc = (mb.length === 1 && mb[0] === "5") ? "5" : "1";
+            var ntf = Object.assign({}, v.tf); ntf[tfc] = Object.assign({}, ntf[tfc] || {}, { b: bl });
+            if (!sd) sd = Object.assign({}, s.sigDetail);
+            sd[t] = Object.assign({}, v, { tf: ntf }); _emaN++;
+          });
+          if (!sd) return s;
+          hit = true; return Object.assign({}, s, { sigDetail: sd });
+        });
+        if (hit) d.charts[ck] = Object.assign({}, c, { signals: ns });
+      });
+      d._migBTfOne1111 = true;
+      console.log("[migrateData] bTfOne1111: " + _emaTags.join(",") + " / 記録 " + _emaN + " 件の①に分足を付与");
+    } catch(e) { console.warn("[migrateData] bTfOne1111 error:", e); }
+  }
   // 【一回性 _migBHide1031・2026-10-31】三角保ち合い崩れは①EP基準ライン不要（ユーザー指示）＝sigSecLabels[三角保ち合い崩れ].bHide。過去記録の値は残す。
   if (!d._migBHide1031) {
     try {

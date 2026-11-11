@@ -3271,3 +3271,4 @@ HomeEventFormModal, App
 - 【2026-11-11f・sw v631】銘柄別記録の銘柄タブに〇（銘柄名の左）＝その日の選定銘柄に入れる/外す（塗り＝選定中）。app-03 StockTabs の `onTogglePick`、app-04 DayView が11/11以降の日だけ渡す（`_dsTrioSet`・最大 `_DS_TRIO_MAX`、満杯は「先に外して」の案内で追加しない）。
 - 【2026-11-11g・sw v632】設定「データ・銘柄」に「〇 選定の候補に出す銘柄」（custom.pickHidden＝非表示の銘柄名・チップで切替・改名追従）。非表示は銘柄タブの選定外の欄（DayView `_pickHidT`）とEPナビの▽（`_pickHid`/`_trioOpts`）から外す。その日に選定中ならそのまま出す。記録・分析・記録帳は対象外。
 - 【2026-11-11h・sw v633】日別ページの銘柄タブ：選定・非選定それぞれ銘柄番号の若い順（DayView `_byCode`＝4桁コードの文字列比較・番号なしは各グループの最後で名前順）。ドラッグ並べ替えは廃止（onReorder: null・app-03 StockTabs は onReorder が無ければ draggable/長押しドラッグしない）。EPナビの列順・▽・⚙は従来どおり。
+- 【2026-11-11i・sw v634】長期EMA-OS（仮シグナル）の①EP基準ラインを1分/5分のどちらかを選ぶ形に（指標線底抜けと同じ sigSecLabels[tag].bTfOne）。app-01 一回性 `_migBTfOne1111`：フラグ設定＋既存記録で tf のどちらにも b が無いものは minBar で埋める（5分だけ→5分・他→1分）。
