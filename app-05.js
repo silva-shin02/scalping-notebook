@@ -1321,6 +1321,52 @@ var _caTagRaw = null, _caTagRawAt = 0, _caTagLoading = null, _caTagSig = "", _ca
 var _caTagCustom = null;
 var _caTagIdxCache = { raw: null, custom: null, idx: null };
 var _CA_TAG_TRADE_CAT = "取引";   // 取引
+// ===== CA の銘柄を SN の銘柄一覧へ自動追加 2026-11-11（ユーザー指示「CAに追加した銘柄は自動でSNに」「既にある分も」）=====
+// CA の銘柄一覧＝Firebase /chart-annotator-tickers（名前の配列）＋コード＝/chart-annotator-prefs/ca_ticker_codes_v1（{v: JSON文字列}）。
+//   Firebase が無い/読めないときは同じオリジンの CA の localStorage（ca_tickers_v1 / ca_ticker_codes_v1）。
+// 照合は SN の各銘柄の CA 対応（_caGetStockInfo の caTicker・code）と銘柄名。どれにも当たらない CA 銘柄だけ末尾に足し、stockCodes に caTicker/code を入れる。
+// SN で削除した銘柄は custom.caAutoSkip に入る（app-04 handleDelStock）＝自動で戻さない（復元で外れる）。
+function _caStocksLoad(cfg) {
+  var loc = function() {
+    var t = null, c = null;
+    try { t = JSON.parse(localStorage.getItem("ca_tickers_v1") || "null"); } catch (_) {}
+    try { c = JSON.parse(localStorage.getItem("ca_ticker_codes_v1") || "null"); } catch (_) {}
+    return { tickers: Array.isArray(t) ? t : [], codes: (c && typeof c === "object") ? c : {} };
+  };
+  if (!cfg || !cfg.fbUrl) return Promise.resolve(loc());
+  var base = cfg.fbUrl.replace(/\/$/, ""), auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
+  var get = function(p) { return fetch(base + p + ".json" + auth).then(function(r) { return r.ok ? _fbJsonTracked(r, "CA銘柄") : null; }).catch(function() { return null; }); };
+  return Promise.all([get("/chart-annotator-tickers"), get("/chart-annotator-prefs/ca_ticker_codes_v1")]).then(function(r) {
+    var l = loc();
+    var t = Array.isArray(r[0]) && r[0].length ? r[0] : l.tickers;
+    var c = {};
+    try { if (r[1] && r[1].v) c = JSON.parse(r[1].v) || {}; } catch (_) {}
+    return { tickers: t, codes: Object.assign({}, l.codes, c) };
+  });
+}
+function _caStocksMerge(prev, ca) {
+  var pc = prev.custom || {};
+  var ps = (pc.stocks && pc.stocks.length > 0) ? pc.stocks.slice() : [].concat(DEF_STOCKS);
+  var skip = Array.isArray(pc.caAutoSkip) ? pc.caAutoSkip : [];
+  var names = {}, codes = {};
+  ps.forEach(function(s) { names[s] = 1; var inf = _caGetStockInfo(s, pc); if (inf && inf.caTicker) names[inf.caTicker] = 1; if (inf && inf.code) codes[String(inf.code)] = 1; });
+  var psc = Object.assign({}, pc.stockCodes || {}), added = [];
+  (ca.tickers || []).forEach(function(t) {
+    if (!t || typeof t !== "string") return;
+    var _dm = DEFAULT_STOCK_MAP[t];
+    var cd = ca.codes && ca.codes[t] ? String(ca.codes[t]) : ((_dm && _dm.code) || "");
+    if (names[t] || (cd && codes[cd]) || skip.indexOf(t) >= 0) return;
+    ps.push(t); names[t] = 1; if (cd) codes[cd] = 1;
+    if (!psc[t]) psc[t] = { caTicker: (_dm && _dm.caTicker) || t, code: cd };
+    added.push(t);
+  });
+  if (!added.length) return prev;
+  try { console.log("[CA銘柄] SNに追加:", added.join(", ")); } catch (_) {}
+  return Object.assign({}, prev, { custom: Object.assign({}, pc, { stocks: ps, stockCodes: psc }) });
+}
+function _caStocksSync(cfg, save) {
+  return _caStocksLoad(cfg).then(function(ca) { if (ca && ca.tickers && ca.tickers.length) save(function(prev) { return _caStocksMerge(prev, ca); }); }).catch(function(e) { try { console.warn("[CA銘柄] failed:", e); } catch (_) {} });
+}
 function _caTagSetCustom(custom) { _caTagCustom = custom || null; }
 function _caTagLocalRaw() {
   try {

@@ -5822,7 +5822,10 @@ function DayView(_ref57) {
       var pc = prev.custom || {};
       var ps = (pc.stocks && pc.stocks.length > 0) ? pc.stocks.slice() : [].concat(DEF_STOCKS);
       var pns = ps.filter(function(s) { return s !== stock; });
-      return Object.assign({}, prev, { custom: Object.assign({}, pc, { stocks: pns }) });
+      // CA から自動追加された銘柄を消したら、次の起動で戻さない（_caStocksSync・app-05）2026-11-11
+      var _sk = Array.isArray(pc.caAutoSkip) ? pc.caAutoSkip.slice() : [], _inf = _caGetStockInfo(stock, pc);
+      [stock, _inf && _inf.caTicker].forEach(function(x) { if (x && _sk.indexOf(x) < 0) _sk.push(x); });
+      return Object.assign({}, prev, { custom: Object.assign({}, pc, { stocks: pns, caAutoSkip: _sk }) });
     });
     if (activeStock === stock) setCs(ns[0] || "");
   };
@@ -5852,8 +5855,9 @@ function DayView(_ref57) {
       var pc = prev.custom || {};
       var ps = (pc.stocks && pc.stocks.length > 0) ? pc.stocks.slice() : [].concat(DEF_STOCKS);
       if (ps.indexOf(stock) === -1) ps.push(stock);
+      var _inf = _caGetStockInfo(stock, pc), _sk = (Array.isArray(pc.caAutoSkip) ? pc.caAutoSkip : []).filter(function(x) { return x !== stock && x !== (_inf && _inf.caTicker); });
       return Object.assign({}, prev, {
-        custom: Object.assign({}, pc, { stocks: ps })
+        custom: Object.assign({}, pc, { stocks: ps, caAutoSkip: _sk })
       });
     });
     setCs(stock);
