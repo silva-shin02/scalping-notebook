@@ -3322,8 +3322,10 @@ var _EL_AMT_BYPASS = false;
 var _EL_UI_VAP = false;
 function _elAW(s) { return (_EL_UI_VAP || (s && _vapOf(s) != null)) ? "VAP" : "α"; }   // sを渡せばその記録のVAP有無で判定（VAP値入力済み＝8/20以降の記録）
 function _elBasisW() { return _EL_UI_VAP ? "VAP基準" : "採用α基準"; }
-function _elAmtStocksSet(list, pool) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; _EL_AMT_POOL = Array.isArray(pool) ? pool : null; _EL_AMT_BYPASS = false; _EL_UI_VAP = false; }
+var _EL_AMT_DATA = null;
+function _elAmtStocksSet(list, pool, data) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; _EL_AMT_POOL = Array.isArray(pool) ? pool : null; _EL_AMT_DATA = data || null; _EL_AMT_BYPASS = false; _EL_UI_VAP = false; }
 function _elAmtStockOk(stock, date) {
+  if (stock && _EL_AMT_DATA && _dsTrioMode(date)) return _dailyStockHas(_EL_AMT_DATA, date, stock);   // 3銘柄の日(2026-11-11〜)＝その日の3銘柄だけ算入（算入銘柄設定より優先）
   if (!_EL_AMT_STOCKS || !stock) return true;
   if (!date || String(date) < _EL_AMT_SINCE) return true;   // 境界より前は従来どおり全銘柄算入
   if (_EL_AMT_STOCKS.indexOf(stock) >= 0) return true;
@@ -3530,8 +3532,7 @@ function _isDataOnly(data, r) {
   // 2026-07-22f 合計算入チェックの2軸化に伴う整合: signal.includeInTotal が明示設定済み（true/false）ならチェックが制御＝自動判定は上書きしない。
   // ＝候補でも「合計算入ON」にチェックすれば合計に入り（return false）、「OFF」なら_elInclTotalが別途除外。未設定(null)の旧記録だけ下の動的自動判定にフォールバック（遡及・後方互換）。
   if (r.signal.includeInTotal != null) return false;
-  var pool = (data && data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
-  if (!r.stock || pool.indexOf(r.stock) < 0) return false;   // 候補プール外（固定銘柄）＝従来通り
+  if (!r.stock || !_dsPoolHas(data, r.date, r.stock)) return false;   // 3銘柄の日(2026-11-11〜)は全銘柄が候補／それ以前は候補プール外（固定銘柄）＝従来通り
   return !_dailyStockHas(data, r.date, r.stock);   // その日の指定銘柄（複数可 2026-08-06・_dailyStockHasで正規化）でない候補＝データのみ。未指定日は候補すべてがデータのみ＝合計除外（2026-07-23 ユーザー選択B＝旧2026-07-22iの未指定日カーブアウトを撤回・指定銘柄のみ算入）
 }
 // 合計額算入（金額版）: 従来の_elInclTotal（スルー/手動不算入）に加え、②データのみ（候補で未指定）も合計から外す。
@@ -9191,8 +9192,7 @@ function EntryRecordForm(_ref_erf) {
   // 合計算入／データ算入（2軸 2026-07-22f）: 記録固有 signal.includeInTotal / includeInData。既定は算入(ON)。旧記録の未設定はincludeInTotalに追従。
   // 「本日の取引銘柄」に選ばれていない候補銘柄（rotatingStocksに属しdailyStock[日]でない＝データのみ）の新規記録は、既定で【合計算入OFF・データ算入ON】＝合計から外れ分析に残る（ユーザー要望 2026-07-22f・見た目でも除外が分かるようチェックを外す）。明示設定(includeInTotal/InData)があればそれを優先。
   var _indDataOnlyCand = (function() {
-    var pool = (data && data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
-    if (!fStock || pool.indexOf(fStock) < 0) return false;
+    if (!fStock || !_dsPoolHas(data, fDate, fStock)) return false;   // 3銘柄の日(2026-11-11〜)は全銘柄が候補
     return !_dailyStockHas(data, fDate, fStock);   // 候補で「その日の指定銘柄（複数可 2026-08-06）でない」→データのみ（合計算入OFF既定）。未指定日は候補すべてOFF既定（2026-07-23 ユーザー選択B＝_isDataOnlyと対称に未指定日カーブアウトを撤回）。指定銘柄のみON既定
   })();
   // ※見送り理由の必須判定 _skipMemoReq は EP位置(_fEpIdxLive)も見るので、その導出の直後に置いてある（下方を検索）。
