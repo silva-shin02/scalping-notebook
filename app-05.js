@@ -8881,7 +8881,7 @@ function EntryRecordForm(_ref_erf) {
     var prev = _passSigRef.current; _passSigRef.current = sig;
     if (prev == null) return;
     Object.keys(sig).forEach(function(k) {
-      if (prev[k] === undefined || prev[k] === sig[k]) return;
+      if (prev[k] === sig[k]) return;   // 2026-11-11l 新しく選んだシグナル（prev に無いキー）も計算する＝旧: undefined を飛ばしていて、他の欄を触るまで通過ラインが出なかった
       var pp = k.split("\u0001"); if (((fPassMan || {})[pp[0]] || {})[pp[1]]) return;
       if (caLine.st !== "ok") { _passPendRef.current[k] = true; return; }
       _applyPassAuto(pp[0], pp[1]);
@@ -8933,6 +8933,27 @@ function EntryRecordForm(_ref_erf) {
     });
     fills.forEach(function(x) { _setKitenAt(x[0], x[1], { p: x[2] }); });
   }, [fSigDetail, fKitenAt, caLine, fTags]);
+  // 2026-11-11l 新規記録で起点の足が未選択なら「シグナルの1つ前の確定足」を既定に入れる（ユーザー決定）。起点が「無し」ならその足の実体の安値も。
+  //   自動で入れた足のままなら、記録の時刻を変えたときに追従する。手で選んだ足・手で直した株価は触らない。編集（過去記録）では何もしない。
+  var _kitenDefRef = useRef({});
+  useEffect(function() {
+    if (isEdit || !caLine || caLine.st !== "ok") return;
+    var patches = [];
+    (fTags || []).forEach(function(t) {
+      _EL_TFS.forEach(function(tf) {
+        if (!_kitenNamesOf(t, tf).length) return;
+        var k = t + "|" + tf, a = ((fKitenAt || {})[t] || {})[tf] || {}, d = _kitenDefRef.current[k] || {};
+        if (a.t && a.t !== d.t) return;   // 手で選んだ足
+        var bs = _snlBars(caLine, tf), si = _snlIdxAt(bs, fTime, tf); if (si < 1 || !bs[si - 1]) return;
+        var bb = bs[si - 1], patch = {};
+        if (a.t !== bb.t) patch.t = bb.t;
+        if (_kitenHasNone(t, tf)) { var lo = _kitenBodyLow(bb); if ((a.p === "" || a.p == null || a.p === d.p) && a.p !== lo) patch.p = lo; d.p = lo; }
+        d.t = bb.t; _kitenDefRef.current[k] = d;
+        if (Object.keys(patch).length) patches.push([t, tf, patch]);
+      });
+    });
+    patches.forEach(function(x) { _setKitenAt(x[0], x[1], x[2]); });
+  }, [fSigDetail, fKitenAt, caLine, fTime, fTags]);
   var _kitenSetTime = function(t, tf, v) {
     var patch = { t: v };
     if (_kitenHasNone(t, tf)) { var bs = _snlBars(caLine, tf), i = _snlIdxAt(bs, v, tf); if (i >= 0 && bs[i]) patch.p = _kitenBodyLow(bs[i]); }
