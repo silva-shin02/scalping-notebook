@@ -8914,6 +8914,25 @@ function EntryRecordForm(_ref_erf) {
   // 起点の足の時刻（無しなら株価も）入力欄。新規は必須（ユーザー決定）。チャートの足をタップしても入る。
   // 起点の足の時刻を合わせる（◀▶＝1本ずつ・数字打ち）。起点が「無し」なら株価もその足の実体の安値に（手でも直せる）
   var _kitenBodyLow = function(b) { return String(_snlR(Math.min(b.o, b.c))); };
+  // 2026-11-11k 起点に「無し」を選んだ時点で、起点の足が決まっていて株価が空なら、その足の実体の安値を入れる（ユーザー指示・手で直した値は上書きしない）。
+  var _kitenAutoDone = useRef({});   // 「タグ|分足|足の時刻」ごとに1回だけ（手で消して打ち直すときに入れ直さない）
+  useEffect(function() {
+    if (!caLine || caLine.st !== "ok") return;
+    var fills = [];
+    (fTags || []).forEach(function(t) {
+      _EL_TFS.forEach(function(tf) {
+        if (!_kitenHasNone(t, tf)) return;
+        var a = ((fKitenAt || {})[t] || {})[tf] || {};
+        var _dk = t + "|" + tf + "|" + a.t;
+        if (!a.t || _kitenAutoDone.current[_dk]) return;
+        _kitenAutoDone.current[_dk] = 1;
+        if (a.p !== "" && a.p != null) return;
+        var bs = _snlBars(caLine, tf), i = _snlIdxAt(bs, a.t, tf);
+        if (i >= 0 && bs[i]) fills.push([t, tf, _kitenBodyLow(bs[i])]);
+      });
+    });
+    fills.forEach(function(x) { _setKitenAt(x[0], x[1], { p: x[2] }); });
+  }, [fSigDetail, fKitenAt, caLine, fTags]);
   var _kitenSetTime = function(t, tf, v) {
     var patch = { t: v };
     if (_kitenHasNone(t, tf)) { var bs = _snlBars(caLine, tf), i = _snlIdxAt(bs, v, tf); if (i >= 0 && bs[i]) patch.p = _kitenBodyLow(bs[i]); }
