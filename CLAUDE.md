@@ -38,6 +38,7 @@
   - 銘柄タブ＝選定（青）＋全銘柄・名前の下に番号・名前の左の〇で選定に入れる/外す（v631・StockTabs `onTogglePick`）／銘柄名表示「名前（番号）」＝app-05 `_stkLbl`。
   - CA の銘柄を起動10秒後に自動追加（app-05 `_caStocksSync`・削除は custom.caAutoSkip）。
   - 画面の最大横幅 1280（app-01 `_SN_PAGE_MAXW`）。
+  - 設定「データ・銘柄」の「〇 選定の候補に出す銘柄」で非表示（custom.pickHidden・v632）＝銘柄タブ右側とEPナビ▽から消える。
   - 今週の損益データの「算入:」＝11/11以降はその日の選定銘柄を表示（v630・app-05 `_elAmtStockPicker` の date）。
 - 保留（作らない）：過去記録の lineSnap 一括取り込み。
 
