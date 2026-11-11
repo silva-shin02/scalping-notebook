@@ -4011,13 +4011,38 @@ function _dailyStockRaw(data, date) {
   src.forEach(function(s) { var n = (s == null) ? "" : String(s); if (n && out.indexOf(n) < 0) out.push(n); });
   return out;
 }
+// ===== その日の3銘柄（EPナビ3列・銘柄タブ・合計算入）2026-11-11 ユーザー指示 =====
+// _DS_TRIO_SINCE 以降の日は「本日の取引銘柄」(dailyStock[日付])＝その日の3銘柄（EPナビの3列・日別ページの銘柄タブ・合計算入の正本）。
+//   全銘柄（日経平均株価を除く）が候補扱い＝3銘柄に入っていない銘柄の記録はデータのみ。未選択の日は直前の選択日の3銘柄を引き継ぐ。
+//   それより前の日は従来どおり（固定タブ＋日替わり候補プール）＝過去の合計額は変わらない。
+var _DS_TRIO_SINCE = "2026-11-11", _DS_TRIO_MAX = 3;
+function _dsTrioMode(date) { return !!date && String(date) >= _DS_TRIO_SINCE; }
+function _dsPoolHas(data, date, stock) {
+  if (!stock) return false;
+  if (_dsTrioMode(date)) return stock !== "日経平均株価";
+  var pl = (data && data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
+  return pl.indexOf(stock) >= 0;
+}
+function _dsTrioBase(data, list) {
+  var ft = (data && data.custom && Array.isArray(data.custom.fixedTabs)) ? data.custom.fixedTabs : [];
+  var out = [];
+  ft.concat(list || []).forEach(function(x) { if (x && x !== "日経平均株価" && out.indexOf(x) < 0) out.push(x); });
+  return out.slice(0, _DS_TRIO_MAX);
+}
 function _dailyStockList(data, date) {
-  var m = (data && data.dailyStock) || null, sd = (data && data.dailyStockSeed) || null, pl = (data && data.custom && data.custom.rotatingStocks) || null;
-  if (_dsListCache.map !== m || _dsListCache.seed !== sd || _dsListCache.pool !== pl) _dsListCache = { map: m, seed: sd, pool: pl, out: {} };   // dailyStockマップの差し替え（保存/同期）でキャッシュ全捨て
+  var m = (data && data.dailyStock) || null, sd = (data && data.dailyStockSeed) || null, pl = (data && data.custom && data.custom.rotatingStocks) || null, ftr = (data && data.custom && data.custom.fixedTabs) || null;
+  if (_dsListCache.map !== m || _dsListCache.seed !== sd || _dsListCache.pool !== pl || _dsListCache.ft !== ftr) _dsListCache = { map: m, seed: sd, pool: pl, ft: ftr, out: {} };   // dailyStockマップの差し替え（保存/同期）でキャッシュ全捨て
   var _k = date || "";
   if (Object.prototype.hasOwnProperty.call(_dsListCache.out, _k)) return _dsListCache.out[_k];
   var out = _dailyStockRaw(data, date);
-  if (!out.length && date && String(date) >= _DS_DEFAULT_SINCE && !(sd && sd[date]) && pl && pl.indexOf(_DS_DEFAULT_STOCK) >= 0) out = [_DS_DEFAULT_STOCK];
+  if (!out.length && date && _dsTrioMode(date)) {
+    if (!(sd && sd[date])) {   // 未選択の日＝直前の選択日の3銘柄（それが切替日より前なら固定タブで補って3つに）
+      var _pb = "";
+      if (m) { for (var _pk in m) { if (_pk < date && _pk > _pb && _dailyStockRaw(data, _pk).length) _pb = _pk; } }
+      var _pl = _pb ? _dailyStockRaw(data, _pb) : [];
+      out = (_pb && _pb >= _DS_TRIO_SINCE) ? _pl.slice(0, _DS_TRIO_MAX) : _dsTrioBase(data, _pl);
+    }
+  } else if (!out.length && date && String(date) >= _DS_DEFAULT_SINCE && !(sd && sd[date]) && pl && pl.indexOf(_DS_DEFAULT_STOCK) >= 0) out = [_DS_DEFAULT_STOCK];
   _dsListCache.out[_k] = out;
   return out;   // 返り値は共有＝呼び出し側で破壊的変更をしない（変更時は slice() する）
 }
@@ -4092,7 +4117,7 @@ function _dsShouldSeed(data, date) {
 function _dsSeedFromPrev(save, date) {
   save(function(prev) {
     if (!_dsShouldSeed(prev, date)) return prev;
-    var list = _dailyStockPrevList(prev, date).slice(0, 1);   // 単一選択なので先頭1件だけ引き継ぐ（過去日に2件以上ある場合の保険）2026-09-30
+    var list = _dsTrioMode(date) ? _dailyStockList(prev, date).slice(0, _DS_TRIO_MAX) : _dailyStockPrevList(prev, date).slice(0, 1);   // 3銘柄の日は直前の3銘柄をそのまま 2026-11-11   // 単一選択なので先頭1件だけ引き継ぐ（過去日に2件以上ある場合の保険）2026-09-30
     if (!list.length) return prev;
     return Object.assign({}, prev, {
       dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, list),
@@ -4128,6 +4153,28 @@ function _dailyStockSyncTotals(save, date, stock, on) {
     if (!hit) return prev;
     charts[ck] = Object.assign({}, c, { signals: ns });
     return Object.assign({}, prev, { charts: charts });
+  });
+}
+// その日の3銘柄を保存 2026-11-11: 並び＝列順。入った銘柄／外れた銘柄のその日の記録は合計算入を揃える（明示フラグが食い違う記録だけ＝_dsNeedsSync）。
+function _dsTrioSet(save, date, list) {
+  save(function(prev) {
+    var nl = [];
+    (list || []).forEach(function(x) { if (x && nl.indexOf(x) < 0) nl.push(x); });
+    nl = nl.slice(0, _DS_TRIO_MAX);
+    var old = _dailyStockList(prev, date).slice();
+    var charts = Object.assign({}, prev.charts || {}), chg = false;
+    var _sync = function(stock, on) {
+      var ck = stock + "_" + date, c = charts[ck];
+      if (!c || !Array.isArray(c.signals)) return;
+      var hit = false;
+      var ns = c.signals.map(function(s) { if (!_dsNeedsSync(s, on)) return s; hit = true; return Object.assign({}, s, { includeInTotal: !!on }); });
+      if (hit) { charts[ck] = Object.assign({}, c, { signals: ns }); chg = true; }
+    };
+    nl.forEach(function(x) { if (old.indexOf(x) < 0) _sync(x, true); });
+    old.forEach(function(x) { if (nl.indexOf(x) < 0) _sync(x, false); });
+    var upd = { dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, nl), dailyStockSeed: _dsSeedMark(prev, date) };
+    if (chg) upd.charts = charts;
+    return Object.assign({}, prev, upd);
   });
 }
 // EPナビの日替わり列の「表示銘柄」（端末ローカル・per-date 2026-07-22i）: dailyStock（合計算入の指定）とは別で、EPナビでどの候補のEPを計算・早見するかの表示選択だけ。既定は指定銘柄。Firebase同期しない＝localStorage（ユーザー決定＝▽は表示切替のみ・指定は変えない）。
@@ -5164,9 +5211,27 @@ function EpNaviPanel(_refEPN) {
   // 日替わり列（📅・右端 2026-07-22i・ユーザー要望）: custom.rotatingStocks＝候補プール（マスター実在のみ・日経＋固定表示銘柄は除外＝二重表示回避）。見出しの▽で1銘柄を選び右端の列に表示（表示のみ＝指定dailyStock/合計算入は変えない）。
   var rotStocks = (Array.isArray(custom.rotatingStocks) ? custom.rotatingStocks : []).filter(function(s) { return _epnAllStocks.indexOf(s) >= 0 && s !== "日経平均株価" && epnStocks.indexOf(s) < 0; });
   var _hasRot = rotStocks.length > 0;
+  // その日の3銘柄（2026-11-11〜・ユーザー指示「EPナビの3銘柄はすべて変更可能に」）: 3列とも見出しの▽で選ぶ＝dailyStock[日付]（日ごと・未選択日は直前の選択日を引き継ぐ）。
+  //   旧来の「固定＋📅日替わり列」はこの日より前だけ。⚙は並べ替えのみ。
+  var _trioOn = _dsTrioMode(date);
+  var _trioOpts = _epnAllStocks.filter(function(s) { return s !== "日経平均株価"; });
+  var _trioSlots = null;
+  if (_trioOn) {
+    var _tl = _dailyStockList(data, date).filter(function(s) { return _trioOpts.indexOf(s) >= 0; }).slice(0, _DS_TRIO_MAX);
+    _trioSlots = [0, 1, 2].map(function(i) { return _tl[i] || ""; });
+    epnStocks = _tl; rotStocks = []; _hasRot = false;
+  }
+  var _trioPick = function(i, v) {
+    if (!_trioSlots || !v) return;
+    var sl = _trioSlots.slice(), j = sl.indexOf(v);
+    if (j >= 0 && j !== i) sl[j] = sl[i];   // 他の列の銘柄を選んだ＝入れ替え
+    sl[i] = v;
+    _dsTrioSet(save, date, sl.filter(function(x) { return !!x; }));
+  };
   var _dayStocks = _dailyStockList(data, date);   // その日の指定銘柄（複数可 2026-08-06・合計算入）。▽の既定表示に使う（指定は変えない）
   var _rotDefault = (function() { for (var _i = 0; _i < _dayStocks.length; _i++) { if (rotStocks.indexOf(_dayStocks[_i]) >= 0) return _dayStocks[_i]; } return rotStocks[0] || ""; })();   // 指定銘柄のうち日替わり列に出せる先頭→無ければ候補先頭
   var _epnStockToggle = function(st) {
+    if (_trioOn) return;   // 3銘柄の日は外す/追加しない（▽で入れ替え）
     var cur = epnStocks.slice();
     var i = cur.indexOf(st);
     if (i >= 0) cur.splice(i, 1);
@@ -5174,6 +5239,7 @@ function EpNaviPanel(_refEPN) {
     save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { epnStocks: cur }) }); });
   };
   var _epnStockReorder = function(list) {
+    if (_trioOn) { _dsTrioSet(save, date, list); return; }
     save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { epnStocks: list.slice() }) }); });
   };
   // 計算フォームは銘柄列ごとに常設（_EpnCalcForm 2026-07-08）＝旧単一計算パネルのフォーム状態（epnOpen/nStock/nTag等）は各フォームへ移設。
@@ -5391,15 +5457,23 @@ function EpNaviPanel(_refEPN) {
   };
   // 早見（上段: 銘柄ヘッダー＋EPカード）と計算フォーム（下段: _EpnCalcForm常設）を銘柄列ごとにグリッドで2段整列（案A 2026-07-08）。
   // 「＋計算」ボタンは廃止＝フォームは常時表示。gridの自動配置で前半n個=上段・後半n個=下段となり、フォームの上端が列間で揃う。
-  var _cellsTop = epnStocks.map(function(st) {
+  var _trioHdr = function(st, i) {
+    return React.createElement("select", { value: st, onChange: function(ev) { _trioPick(i, ev.target.value); }, title: "この日の銘柄（他の列の銘柄を選ぶと入れ替え・翌日以降に引き継ぎ）",
+        style: { width: "100%", fontSize: 12, fontWeight: 800, color: "#1E3A8A", background: "#DBEAFE", border: "1px solid #BFDBFE", borderRadius: 5, padding: "3px 4px", marginBottom: 5, boxSizing: "border-box", minHeight: IS_TOUCH ? 30 : 24 } },
+      (st ? [] : [React.createElement("option", { key: "", value: "" }, "▽ 銘柄を選ぶ")]).concat(_trioOpts.map(function(s) { var _c = data.charts[s + "_" + date]; var cnt = (_c && Array.isArray(_c.signals)) ? _c.signals.length : 0; return React.createElement("option", { key: s, value: s }, s + (cnt ? "（" + cnt + "）" : "")); })));
+  };
+  var _cellsTop = (_trioSlots || epnStocks).map(function(st, _ci) {
+    if (_trioSlots && !st) return React.createElement("div", { key: "epnc_empty" + _ci, style: { minWidth: 0 } }, _trioHdr("", _ci),
+      React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", textAlign: "center", padding: "6px 0" } }, "銘柄を選択"));
     var _cards = savedByStock.map[st] || [];
     return React.createElement("div", { key: "epnc_" + st, style: { minWidth: 0 } },
-      React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", background: "#DBEAFE", borderRadius: 5, padding: "3px 7px", marginBottom: 5, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, st),
+      _trioSlots ? _trioHdr(st, _ci) : React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", background: "#DBEAFE", borderRadius: 5, padding: "3px 7px", marginBottom: 5, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, st),
       _vapWorld(date) ? null : React.createElement(_ElDayAlphaPair, { key: "epnda_" + st, data: data, save: save, date: date, stock: st, stacked: true }),   // VAP日は基本α/応用αの採用α値欄を出さない 2026-10-05
       _cards.map(function(e) { return _renderCard(st, e); }),
       _cards.length ? null : React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1", textAlign: "center", padding: "1px 0 4px" } }, "EPなし"));
   });
-  var _cellsForm = epnStocks.map(function(st) {
+  var _cellsForm = (_trioSlots || epnStocks).map(function(st, _ci) {
+    if (!st) return React.createElement("div", { key: "epnf_empty" + _ci });
     return React.createElement(_EpnCalcForm, { key: "epnf_" + st, data: data, save: save, date: date, stock: st, dayAlpha: _epnDayAlphaGet(data, st, date), daySpecialAlpha: _epnDaySpecialAlphaGet(data, st, date), signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing });
   });
   // 日替わり列（📅・右端 2026-07-22i→2列 2026-08-07）: 見出しは候補銘柄の▽（表示切替のみ・既定は指定銘柄）。選んだ銘柄で本日採用α値/早見カード/計算フォームが固定銘柄と全く同じに動く。列は固定銘柄の右端に最大2つ追加。
@@ -5443,7 +5517,7 @@ function EpNaviPanel(_refEPN) {
   // 1列だけ描く。other に "" を渡すので候補は絞られず（全銘柄が出る）、相方との入れ替え処理も走らない。
   // _rotColTop 自体は2列時代の引数のまま残してある＝2列に戻すなら slot 1 を push するだけで復帰できる。
   if (_hasRot) { _topAll.push(_rotColTop(0, _rotSel, setRotSelRaw, "", function() {})); _formAll.push(_rotColForm(0, _rotSel)); }
-  var _colN = epnStocks.length + (_hasRot ? 1 : 0);
+  var _colN = (_trioSlots ? _trioSlots.length : epnStocks.length) + (_hasRot ? 1 : 0);
   // 段組み（2026-08-07）: 列を1行に詰め込むと横スクロールになるので、枠幅に入る列数で折り返す。段ごとに独立したグリッド＝上段(早見)/下段(計算フォーム)の2行構成と「フォームの上端が揃う」性質は段の中で保たれる。
   // 段数を先に決めてから均等割り（例: 5列で4列しか入らない→4+1ではなく3+2）。列は minmax(0,1fr)＝入る幅まで縮むので、どの幅でも横スクロールにならない。
   var _EPN_COL_MIN = 140, _EPN_GAP = 8;   // 1列の下限（2026-08-07 横並び優先で200→140）: iPad縦(枠781px)でも5列が横に並ぶ値。これを上げると早く折り返す＝1列は広いが段が増える。
@@ -5464,7 +5538,7 @@ function EpNaviPanel(_refEPN) {
   var savedView = React.createElement("div", { ref: _wrapRef, style: { overflowX: "hidden", paddingBottom: 2 } },
     _colN ? _bands : React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", padding: "4px 0" } }, "「⚙表示銘柄」から銘柄を選ぶと、銘柄ごとの早見と計算フォームが並びます"));
   var _stockPicker = showStockPicker ? React.createElement("div", { style: { marginBottom: 8, padding: "6px 8px", background: "#fff", border: "1px solid #E2E8F0", borderRadius: 6 } },
-    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#64748B", marginBottom: 4 } }, "表示銘柄（最大" + _EPN_MAX_STOCKS + "・ドラッグで並び替え・タップで外す）"),
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#64748B", marginBottom: 4 } }, _trioOn ? "この日の並び（ドラッグで並び替え・銘柄の入れ替えは各列の▽）" : ("表示銘柄（最大" + _EPN_MAX_STOCKS + "・ドラッグで並び替え・タップで外す）")),
     React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", minHeight: 26 } },
       (_stkOrd || epnStocks).map(function(st) {
         var _d = _stkDragRef.current;
@@ -5496,6 +5570,7 @@ function EpNaviPanel(_refEPN) {
       }),
       epnStocks.length === 0 ? React.createElement("span", { style: { fontSize: 10, color: "#CBD5E1" } }, "↓ から銘柄を選択") : null),
     (function() {
+      if (_trioOn) return null;   // 3銘柄の日は追加なし（▽で選ぶ）
       var avail = _epnAllStocks.filter(function(s) { return epnStocks.indexOf(s) < 0; });
       if (!avail.length) return null;
       var full = epnStocks.length >= _EPN_MAX_STOCKS;
@@ -5664,11 +5739,16 @@ function DayView(_ref57) {
     try { var _sv=JSON.parse(localStorage.getItem("scalping_view_v1")||"{}"); localStorage.setItem("scalping_view_v1", JSON.stringify(Object.assign({},_sv,{tab:tab}))); } catch(e){}
   }, [tab]);
   var _regStocks = allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; });   // 通常タブに出る固定銘柄（日経・候補プールを除く）2026-07-22d
-  var activeStock = (allStocks.includes(cs) && rotStocks.indexOf(cs) < 0) ? cs : (_regStocks[0] || allStocks[0] || "");
+  // その日の3銘柄（2026-11-11〜）: 銘柄タブ＝その日の3銘柄（EPナビの列順）・📅日替わりタブは出さない。
+  var _trioDay = _dsTrioMode(date);
+  var _trioTabs = _trioDay ? _dailyStockList(data, date).filter(function(s) { return allStocks.indexOf(s) >= 0; }) : null;
+  var activeStock = _trioTabs
+    ? ((_trioTabs.indexOf(cs) >= 0) ? cs : (_trioTabs[0] || _regStocks[0] || allStocks[0] || ""))
+    : ((allStocks.includes(cs) && rotStocks.indexOf(cs) < 0) ? cs : (_regStocks[0] || allStocks[0] || ""));
   var dayStocks = _dailyStockList(data, date);   // その日の本日の取引銘柄（複数可 2026-08-06・指定・赤マーク・合計算入）
   var dayStock = dayStocks[0] || "";   // 表示の既定に使う先頭1つ（指定かどうかの判定は dayStocks.indexOf で行う）
   var _rotView = (rotViewStock && rotStocks.indexOf(rotViewStock) >= 0) ? rotViewStock : (dayStock || rotStocks[0] || "");   // タブ内の表示銘柄（指定の先頭優先→候補先頭）
-  var dispStock = rotTabActive ? _rotView : activeStock;   // フル表示に渡す銘柄（タブ時=表示中の候補／通常時=固定銘柄）
+  var dispStock = (rotTabActive && !_trioDay) ? _rotView : activeStock;   // フル表示に渡す銘柄（タブ時=表示中の候補／通常時=固定銘柄）
   // 前日の選定を引き継ぐ 2026-08-18: 今日以降の日を開いたとき、未選定なら直近の選定を既定として入れる（1日1回きり・過去日は触らない）。
   // 依存は[date]だけ＝「日を開いたとき」の1回。dataが古くても_dsSeedFromPrevがsave内で再判定するので取りこぼし/二重書きにならない。
   useEffect(function() {
@@ -6425,10 +6505,11 @@ function DayView(_ref57) {
       )
     )
   ), tab === "charts" && React.createElement("div", null, React.createElement(StockTabs, {
-    stocks: allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; }),
-    active: (fmActive || rotTabActive) ? "" : activeStock,
+    stocks: _trioTabs || allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; }),
+    active: (fmActive || (rotTabActive && !_trioDay)) ? "" : activeStock,
     onSelect: function(s) { setCs(s); setFmActive(false); setRotTabActive(false); },
     onReorder: function onReorder(reordered) {
+      if (_trioTabs) { _dsTrioSet(save, date, reordered); return; }   // 3銘柄の日＝その日の並びを変える
       // タブに出していない銘柄（日経平均・日替わり）を末尾で保持＝並べ替えでマスターから消さない 2026-07-22
       var kept = allStocks.filter(function(s) { return reordered.indexOf(s) < 0; });
       return updCustom({
@@ -6452,7 +6533,7 @@ function DayView(_ref57) {
     rotLabel: "📅 日替わり",
     rotDayStock: _dailyStockLabel(dayStocks, 2),   // 複数指定は「A・B」／3つ以上は「A・B 他N」2026-08-06
     rotDayCount: dayStocks.length,
-    onRotSelect: function() { setRotTabActive(true); setFmActive(false); },
+    onRotSelect: _trioDay ? null : function() { setRotTabActive(true); setFmActive(false); },
     rotHasData: dayStocks.length ? dayStocks.some(stockHasData) : rotStocks.some(stockHasData)
   }),
   fmActive
@@ -6467,7 +6548,7 @@ function DayView(_ref57) {
         })
       )
     : React.createElement(React.Fragment, null,
-  rotTabActive ? _rotPickerBar : null,
+  (rotTabActive && !_trioDay) ? _rotPickerBar : null,
   null,   // 2026-10-28 「本日の株価帯・固有材料」欄は画面から外した（ユーザー決定・データ/分析はそのまま）。旧: React.createElement(_PbDayBandBar, …)
   React.createElement(StockQuickRefTableWithChart, {
     data: data,
@@ -7490,7 +7571,7 @@ function DayView(_ref57) {
     //   ＝「主表の合計＝主表に見えている行」が常に成立する（ユーザー選択 2026-07-29）。
     var _pbRotPool = (data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
     var _pbDayStks = _dailyStockList(data, date);   // その日の指定銘柄（複数可 2026-08-06）
-    var _pbIsRotOut = function(stk) { return _pbRotPool.indexOf(stk) >= 0 && _pbDayStks.indexOf(stk) < 0; };
+    var _pbIsRotOut = function(stk) { return (_dsTrioMode(date) ? _dsPoolHas(data, date, stk) : _pbRotPool.indexOf(stk) >= 0) && _pbDayStks.indexOf(stk) < 0; };
     var _pbOutOf = function(r) { return _pbIsRotOut(r.stock) && !_elInclTotalAmt(data, r); };
     var _pbByStkMain = {}, _pbByStkOut = {};
     _pbStks.forEach(function(sk) {

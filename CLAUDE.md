@@ -33,11 +33,10 @@
 
 ## ▶ 次のセッションはこの続きから
 
-- 進行中の作業なし（2026-11-09 区切り）。記録カード作り直し（案A・v624/v625）は実機確認済みで完了。
-  - コード：app-05 `_ElCardChart`・`_elCardChartMarks`（EntryLogCard の直前）、`_SnLineChart` の `hl`/`mk`。
-- 同日の変更（起点の足表示・山頂サイン①非表示・見送り理由→取引外日・②③同期・本＋仮の算入）も実機確認済み。
+- 直近（v626・2026-11-11）：EPナビの3銘柄を日ごとに▽で変更可能に（11/11以降。dailyStock[日付]＝その日の3銘柄＝EPナビ3列・銘柄タブ・合計算入。未選択日は直前の選択日を引き継ぐ。📅日替わりタブは11/11以降なし）。
+  - 未確認（最初に聞く）：実データで今日の3列がフジクラ・SBG・（日替わり）になっているか、▽で入れ替え・翌日への引き継ぎ、銘柄タブの表示、合計額（3銘柄外の記録が合計から外れるか）。
+  - コード：app-04 `_DS_TRIO_SINCE`/`_dsTrioMode`/`_dsPoolHas`/`_dailyStockList`/`_dsTrioSet`（_dailyStockList 付近）、EpNaviPanel の `_trioSlots`/`_trioHdr`、DayView の `_trioTabs`、app-01 `_migTrio1111`、app-05 `_elAmtStockOk`。
 - 保留（作らない）：過去記録の lineSnap 一括取り込み。
-- 「つづき」と言われたら、次にやりたいことを選択肢で聞く。
 
 ## その他
 

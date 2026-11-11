@@ -1780,6 +1780,24 @@ function migrateData(d) {
     _epT = _epT.slice(0, 3);
     if (_epT.length !== _epT0.length || _epT.some(function(x, i) { return _epT0[i] !== x; })) d.custom.epnStocks = _epT;
   } catch(e) { console.warn("[migrateData] fixedTabs error:", e); }
+  // 【その日の3銘柄の初日 2026-11-11】この日から dailyStock[日付]＝その日の3銘柄（EPナビ3列・銘柄タブ・合計算入）。初日は 固定タブ＋その日の日替わり指定 で3つに揃える（1回きり）。
+  //   翌日以降は app-04 _dailyStockList が直前の選択日を引き継ぐ。それより前の日は触らない＝過去の合計額は不変。
+  if (!d._migTrio1111) {
+    try {
+      var _tD = "2026-11-11";
+      var _tDs = (d.dailyStock && typeof d.dailyStock === "object") ? Object.assign({}, d.dailyStock) : {};
+      var _tSd = (d.dailyStockSeed && typeof d.dailyStockSeed === "object") ? Object.assign({}, d.dailyStockSeed) : {};
+      var _tV = _tDs[_tD], _tRaw = (_tV == null || _tV === "") ? [] : (Array.isArray(_tV) ? _tV : [_tV]);
+      var _tRot = Array.isArray(d.custom.rotatingStocks) ? d.custom.rotatingStocks : [];
+      if (!_tRaw.length && !_tSd[_tD] && _tRot.indexOf("SUMCO") >= 0) _tRaw = ["SUMCO"];   // 9/1以降の既定（app-04 _DS_DEFAULT_STOCK）と同じ読み
+      var _tFx = Array.isArray(d.custom.fixedTabs) ? d.custom.fixedTabs : [];
+      var _tOut = [];
+      _tFx.concat(_tRaw).forEach(function(x) { if (x && typeof x === "string" && x !== "日経平均株価" && _tOut.indexOf(x) < 0) _tOut.push(x); });
+      _tOut = _tOut.slice(0, 3);
+      if (_tOut.length && _tRaw.length < 3) { _tDs[_tD] = _tOut.length === 1 ? _tOut[0] : _tOut; _tSd[_tD] = 1; d.dailyStock = _tDs; d.dailyStockSeed = _tSd; }
+      d._migTrio1111 = true;
+    } catch(e) { console.warn("[migrateData] trio1111 error:", e); }
+  }
   return d;
 }
 function stLoad() {
