@@ -6516,6 +6516,12 @@ function DayView(_ref57) {
     stocks: _trioTabs || allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; }),
     active: (fmActive || (rotTabActive && !_trioTabs)) ? "" : activeStock,
     picked: _tabPicked,
+    onTogglePick: _trioDay ? function(s) {   // 〇で選定銘柄に入れる/外す（11/11以降だけ・最大 _DS_TRIO_MAX）2026-11-11f
+      var cur = _tabPicked.slice(), i = cur.indexOf(s);
+      if (i >= 0) cur.splice(i, 1);
+      else { if (cur.length >= _DS_TRIO_MAX) { window._snAlert("選定銘柄は" + _DS_TRIO_MAX + "つまでです。先にどれかを外してください。"); return; } cur.push(s); }
+      _dsTrioSet(save, date, cur);
+    } : null,
     onSelect: function(s) { setCs(s); setFmActive(false); setRotTabActive(false); },
     onReorder: function onReorder(reordered) {
       if (_trioTabs) {
