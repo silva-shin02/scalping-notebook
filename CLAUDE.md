@@ -33,11 +33,12 @@
 
 ## ▶ 次のセッションはこの続きから
 
-- 直近（v626・2026-11-11）：EPナビの3銘柄を日ごとに▽で変更可能に（11/11以降。dailyStock[日付]＝その日の3銘柄＝EPナビ3列・銘柄タブ・合計算入。未選択日は直前の選択日を引き継ぐ。📅日替わりタブは11/11以降なし）。
-  - 未確認（最初に聞く）：実データで今日の3列がフジクラ・SBG・（日替わり）になっているか、▽で入れ替え・翌日への引き継ぎ、銘柄タブの表示、合計額（3銘柄外の記録が合計から外れるか）。
-  - コード：app-04 `_DS_TRIO_SINCE`/`_dsTrioMode`/`_dsPoolHas`/`_dailyStockList`/`_dsTrioSet`（_dailyStockList 付近）、EpNaviPanel の `_trioSlots`/`_trioHdr`、DayView の `_trioTabs`、app-01 `_migTrio1111`、app-05 `_elAmtStockOk`。
-- 直近（v627）：CA の銘柄を起動10秒後に SN の銘柄一覧へ自動追加（app-05 `_caStocksSync`、SN で削除した銘柄は custom.caAutoSkip で戻さない）。未確認：実データで CA の銘柄が追加されたか・二重追加が無いか。
-- 直近（v628）：銘柄タブ＝左に選定銘柄（青）＋右に全銘柄・名前の下に番号。銘柄名の表示は `_stkLbl`（app-05）で「名前（番号）」。未確認：実データの見た目、番号が出ない銘柄が無いか（無ければ設定の銘柄コードで入力）、まだ括弧が付いていない画面。
+- 2026-11-11 の一連（v626〜v629・すべて実機未確認＝最初に聞く）：
+  - その日の選定銘柄（11/11〜・最大4）＝dailyStock[日付]＝EPナビの列（▽で選択・前日を引き継ぐ）・銘柄タブの青・合計算入。app-04 `_DS_TRIO_*`/`_dailyStockList`/`_dsTrioSet`、EpNaviPanel `_trioSlots`、DayView `_tabPicked`。
+  - 銘柄タブ＝選定（青）＋全銘柄・名前の下に番号／銘柄名表示「名前（番号）」＝app-05 `_stkLbl`。
+  - CA の銘柄を起動10秒後に自動追加（app-05 `_caStocksSync`・削除は custom.caAutoSkip）。
+  - 画面の最大横幅 1280（app-01 `_SN_PAGE_MAXW`）。
+- 気になる点：今週の損益データの「算入: フジクラ・SBG・📅日替わり」表示は算入銘柄設定(amtStocks)のままだが、11/11以降の実際の算入はその日の選定銘柄。直すか聞く。
 - 保留（作らない）：過去記録の lineSnap 一括取り込み。
 
 ## その他

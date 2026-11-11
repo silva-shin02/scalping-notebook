@@ -4015,7 +4015,7 @@ function _dailyStockRaw(data, date) {
 // _DS_TRIO_SINCE 以降の日は「本日の取引銘柄」(dailyStock[日付])＝その日の3銘柄（EPナビの3列・日別ページの銘柄タブ・合計算入の正本）。
 //   全銘柄（日経平均株価を除く）が候補扱い＝3銘柄に入っていない銘柄の記録はデータのみ。未選択の日は直前の選択日の3銘柄を引き継ぐ。
 //   それより前の日は従来どおり（固定タブ＋日替わり候補プール）＝過去の合計額は変わらない。
-var _DS_TRIO_SINCE = "2026-11-11", _DS_TRIO_MAX = 3;
+var _DS_TRIO_SINCE = "2026-11-11", _DS_TRIO_MAX = 4;   // 2026-11-11d 3→4銘柄（ユーザー指示）
 function _dsTrioMode(date) { return !!date && String(date) >= _DS_TRIO_SINCE; }
 function _dsPoolHas(data, date, stock) {
   if (!stock) return false;
@@ -5218,7 +5218,8 @@ function EpNaviPanel(_refEPN) {
   var _trioSlots = null;
   if (_trioOn) {
     var _tl = _dailyStockList(data, date).filter(function(s) { return _trioOpts.indexOf(s) >= 0; }).slice(0, _DS_TRIO_MAX);
-    _trioSlots = [0, 1, 2].map(function(i) { return _tl[i] || ""; });
+    _trioSlots = [];
+    for (var _tsi = 0; _tsi < _DS_TRIO_MAX; _tsi++) _trioSlots.push(_tl[_tsi] || "");
     epnStocks = _tl; rotStocks = []; _hasRot = false;
   }
   var _trioPick = function(i, v) {
@@ -6279,7 +6280,7 @@ function DayView(_ref57) {
   return React.createElement("div", {
     style: {
       width: "100%",
-      maxWidth: 960,
+      maxWidth: _SN_PAGE_MAXW,
       margin: "0 auto"
     }
   }, React.createElement("div", {

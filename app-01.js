@@ -109,6 +109,8 @@ var EMPTY = {
     newsSubCats: {}
   }
 };
+// 画面の最大横幅（日別・カレンダー・記録帳・振り返り等で共通）2026-11-11d: 960〜1100→1280（EPナビ4列ぶん・iPad横向きで横いっぱい）。
+var _SN_PAGE_MAXW = 1280;
 var ST_KEY = "scalping_data_v6",
   CF_KEY = "scalping_cfg_v2";
 function getFC(t) {
