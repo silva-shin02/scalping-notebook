@@ -8518,17 +8518,26 @@ function _TimeDialPicker(_p) {
   var mt0 = /^(\d{1,2}):(\d{2})$/.exec(value);
   var _sH = useState(mt0 ? +mt0[1] : null), hh = _sH[0], setHh = _sH[1];
   var _sM = useState(mt0 ? +mt0[2] : null), mm = _sM[0], setMm = _sM[1];
+  var _sV = useState(null), hov = _sV[0], setHov = _sV[1];
   var svgRef = useRef(null), dragRef = useRef(false);
-  var pick = function(ev) {
-    var el = svgRef.current; if (!el) return;
+  var minAt = function(ev) {
+    var el = svgRef.current; if (!el) return null;
     var r = el.getBoundingClientRect(), dx = ev.clientX - (r.left + r.width / 2), dy = ev.clientY - (r.top + r.height / 2);
     var deg = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
-    setMm(Math.round(deg / 6) % 60);
+    return Math.round(deg / 6) % 60;
+  };
+  var pick = function(ev) {
+    var m0 = minAt(ev); if (m0 == null) return;
+    setMm(m0);
     if (hh == null) setHh(Math.min(15, Math.max(9, new Date().getHours())));
   };
   var kids = [React.createElement("circle", { key: "bg", cx: 120, cy: 120, r: 116, fill: "#f5f4f0", stroke: "#ddd" })];
   for (var i = 0; i < 60; i++) { var a = i * 6 * Math.PI / 180, r1 = i % 5 ? 106 : 99; kids.push(React.createElement("line", { key: "t" + i, x1: 120 + r1 * Math.sin(a), y1: 120 - r1 * Math.cos(a), x2: 120 + 113 * Math.sin(a), y2: 120 - 113 * Math.cos(a), stroke: i % 5 ? "#ccc" : "#888", strokeWidth: i % 5 ? 1 : 2 })); }
   for (var j = 0; j < 12; j++) { var a2 = j * 30 * Math.PI / 180; kids.push(React.createElement("text", { key: "n" + j, x: 120 + 80 * Math.sin(a2), y: 120 - 80 * Math.cos(a2) + 7, textAnchor: "middle", fontSize: 19, fill: "#333", style: { userSelect: "none", pointerEvents: "none" } }, p2(j * 5))); }
+  if (hov != null && hov !== mm) { var ah = hov * 6 * Math.PI / 180, hx = 120 + 102 * Math.sin(ah), hy = 120 - 102 * Math.cos(ah);
+    kids.push(React.createElement("line", { key: "hvl", x1: 120, y1: 120, x2: hx, y2: hy, stroke: "#93C5FD", strokeWidth: 2, strokeDasharray: "4 3" }));
+    kids.push(React.createElement("circle", { key: "hvk", cx: hx, cy: hy, r: 15, fill: "#DBEAFE", stroke: "#60A5FA" }));
+    kids.push(React.createElement("text", { key: "hvt", x: hx, y: hy + 5, textAnchor: "middle", fontSize: 14, fontWeight: 700, fill: "#1D4ED8", style: { userSelect: "none", pointerEvents: "none" } }, p2(hov))); }
   if (mm != null) { var am = mm * 6 * Math.PI / 180, x = 120 + 102 * Math.sin(am), y = 120 - 102 * Math.cos(am);
     kids.push(React.createElement("line", { key: "hand", x1: 120, y1: 120, x2: x, y2: y, stroke: "#0a6cff", strokeWidth: 3 }));
     kids.push(React.createElement("circle", { key: "knob", cx: x, cy: y, r: 11, fill: "#0a6cff" }));
@@ -8542,8 +8551,9 @@ function _TimeDialPicker(_p) {
     })),
     React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 0 } },
       React.createElement("svg", { ref: svgRef, viewBox: "0 0 240 240", style: { display: "block", width: "100%", maxWidth: 170, touchAction: "none", cursor: "pointer" },
-        onPointerDown: function(e) { dragRef.current = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e) {} pick(e); },
-        onPointerMove: function(e) { if (dragRef.current) pick(e); },
+        onPointerDown: function(e) { dragRef.current = true; setHov(null); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e) {} pick(e); },
+        onPointerMove: function(e) { if (dragRef.current) { pick(e); setHov(null); } else if (e.pointerType === "mouse") setHov(minAt(e)); },
+        onPointerLeave: function() { setHov(null); },
         onPointerUp: function() { dragRef.current = false; },
         onPointerCancel: function() { dragRef.current = false; }
       }, kids),
