@@ -8511,6 +8511,44 @@ function _snlFlowNode(o) {
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, paddingTop: 4 } }, out);
 }
 
+function _TimeDialPicker(_p) {
+  var value = _p.value || "", onChange = _p.onChange, onDone = _p.onDone;
+  var HRS = [9, 10, 11, 12, 13, 14, 15];
+  var mt = /^(\d{1,2}):(\d{2})$/.exec(value), hh = mt ? +mt[1] : null, mm = mt ? +mt[2] : null;
+  var svgRef = useRef(null), dragRef = useRef(false), valRef = useRef(value);
+  valRef.current = value;
+  var p2 = function(n) { return String(n).padStart(2, "0"); };
+  var curH = function() { var m2 = /^(\d{1,2}):/.exec(valRef.current); if (m2) return +m2[1]; var h = new Date().getHours(); return Math.min(15, Math.max(9, h)); };
+  var pick = function(ev) {
+    var el = svgRef.current; if (!el) return;
+    var r = el.getBoundingClientRect(), dx = ev.clientX - (r.left + r.width / 2), dy = ev.clientY - (r.top + r.height / 2);
+    var deg = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360, m = Math.round(deg / 6) % 60;
+    var v = p2(curH()) + ":" + p2(m); if (v === valRef.current) return; valRef.current = v; onChange(v);
+  };
+  var kids = [React.createElement("circle", { key: "bg", cx: 120, cy: 120, r: 112, fill: "#f5f4f0", stroke: "#ddd" })];
+  for (var i = 0; i < 60; i++) { var a = i * 6 * Math.PI / 180, r1 = i % 5 ? 104 : 98; kids.push(React.createElement("line", { key: "t" + i, x1: 120 + r1 * Math.sin(a), y1: 120 - r1 * Math.cos(a), x2: 120 + 110 * Math.sin(a), y2: 120 - 110 * Math.cos(a), stroke: i % 5 ? "#ccc" : "#888", strokeWidth: i % 5 ? 1 : 2 })); }
+  for (var j = 0; j < 12; j++) { var a2 = j * 30 * Math.PI / 180; kids.push(React.createElement("text", { key: "n" + j, x: 120 + 82 * Math.sin(a2), y: 120 - 82 * Math.cos(a2) + 5, textAnchor: "middle", fontSize: 13, fill: "#333", style: { userSelect: "none", pointerEvents: "none" } }, p2(j * 5))); }
+  if (mm != null) { var am = mm * 6 * Math.PI / 180, x = 120 + 100 * Math.sin(am), y = 120 - 100 * Math.cos(am);
+    kids.push(React.createElement("line", { key: "hand", x1: 120, y1: 120, x2: x, y2: y, stroke: "#0a6cff", strokeWidth: 2 }));
+    kids.push(React.createElement("circle", { key: "knob", cx: x, cy: y, r: 9, fill: "#0a6cff" }));
+    kids.push(React.createElement("circle", { key: "ctr", cx: 120, cy: 120, r: 3, fill: "#0a6cff" })); }
+  kids.push(React.createElement("text", { key: "big", x: 120, y: 150, textAnchor: "middle", fontSize: 26, fontWeight: 700, fill: "#222", style: { userSelect: "none", pointerEvents: "none" } }, mt ? p2(hh) + ":" + p2(mm) : "--:--"));
+  return React.createElement("div", { style: { border: "1px solid #ddd", borderRadius: 8, padding: 8, marginBottom: 8, background: "#fff" } },
+    React.createElement("div", { style: { display: "flex", gap: 4 } }, HRS.map(function(h) {
+      var sel = hh === h;
+      return React.createElement("button", { key: h, type: "button", onClick: function() { onChange(p2(h) + ":" + p2(mm == null ? 0 : mm)); },
+        style: { flex: 1, padding: "8px 0", fontSize: 14, borderRadius: 6, cursor: "pointer", border: "1px solid " + (sel ? "#0a6cff" : "#ddd"), background: sel ? "#0a6cff" : "#fff", color: sel ? "#fff" : "#222", fontWeight: sel ? 700 : 400 } }, h);
+    })),
+    React.createElement("svg", { ref: svgRef, viewBox: "0 0 240 240", style: { display: "block", margin: "8px auto 0", width: "100%", maxWidth: 260, touchAction: "none", cursor: "pointer" },
+      onPointerDown: function(e) { dragRef.current = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e) {} pick(e); },
+      onPointerMove: function(e) { if (dragRef.current) pick(e); },
+      onPointerUp: function() { if (!dragRef.current) return; dragRef.current = false; if (onDone) onDone(); },
+      onPointerCancel: function() { dragRef.current = false; }
+    }, kids),
+    React.createElement("div", { style: { fontSize: 10, color: "#888", textAlign: "center", marginTop: 2 } }, "時を選んで、文字盤を押したまま回すと1分ずつ動きます（離すと決定）")
+  );
+}
+
 function EntryRecordForm(_ref_erf) {
   var data = _ref_erf.data,
     save = _ref_erf.save,
@@ -8563,6 +8601,7 @@ function EntryRecordForm(_ref_erf) {
   var _useStateE5 = useState(initSig.time || ""),
     _useStateE6 = _slicedToArray(_useStateE5, 2),
     fTime = _useStateE6[0], setFTime = _useStateE6[1];
+  var _useStateTp = useState(false), _tpTmp = _slicedToArray(_useStateTp, 2), fTimeOpen = _tpTmp[0], setFTimeOpen = _tpTmp[1];
   var _useStateE7 = useState(!!initSig.isCustomTag),
     _useStateE8 = _slicedToArray(_useStateE7, 2),
     fIsCustom = _useStateE8[0], setFIsCustom = _useStateE8[1];
@@ -10509,7 +10548,7 @@ function EntryRecordForm(_ref_erf) {
         ),
         React.createElement("label", { style: L }, "時刻",
           React.createElement("div", { style: { display: "flex", gap: 4 } },
-            React.createElement("input", { type: "time", value: fTime, onChange: function(e) { setFTime(e.target.value); }, style: Object.assign({}, I, { flex: 1 }) }),
+            React.createElement("div", { role: "button", onClick: function(e) { e.preventDefault(); setFTimeOpen(!fTimeOpen); }, style: Object.assign({}, I, { flex: 1, cursor: "pointer", fontVariantNumeric: "tabular-nums", color: fTime ? "#222" : "#aaa", border: fTimeOpen ? "1px solid #0a6cff" : I.border }) }, fTime || "--:--"),
             React.createElement("button", {
               onClick: function() {
                 var n = new Date();
@@ -10520,6 +10559,7 @@ function EntryRecordForm(_ref_erf) {
           )
         )
       ),
+      fTimeOpen ? React.createElement(_TimeDialPicker, { value: fTime, onChange: setFTime, onDone: function() { setFTimeOpen(false); } }) : null,
       React.createElement("label", { style: L }, "銘柄",
         React.createElement("select", {
           value: fStock,
