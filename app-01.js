@@ -1538,7 +1538,7 @@ function migrateData(d) {
           c.signals.forEach(function(s) {
             if (!s || s.vapAdjBatch !== true || !(Number(s.vapAdj) < 0)) return;
             var v = _vapOf(s); if (v == null || !_vapAdjExemptSig(s)) return;
-            s.vapAdj = null; s.vapAdjBatch = null; s.alphaVal = v; s.baseAlphaVal = v; _vxN++;
+            s.vapAdj = null; s.vapAdjBatch = null; s.alphaVal = v + (typeof _rnAdjOf === "function" ? _rnAdjOf(s) : 0); s.baseAlphaVal = s.alphaVal; _vxN++;
           });
         });
       }
@@ -1560,8 +1560,8 @@ function migrateData(d) {
             if (!s || s.entered === true) return;
             var v = _vapOf(s); if (v == null) return;
             var a = _vapAdjOf(s), nw = _vapAdjExemptSig(s);
-            if (nw && s.vapAdjBatch === true && a < 0) { s.vapAdj = null; s.vapAdjBatch = null; s.alphaVal = v; s.baseAlphaVal = v; _lvA++; return; }
-            if (!nw && a === 0 && _lvAdj < 0 && _vapAdjExemptOldSig(s)) { s.vapAdj = _lvAdj; s.vapAdjBatch = true; s.alphaVal = v + _lvAdj; s.baseAlphaVal = v + _lvAdj; _lvB++; }
+            if (nw && s.vapAdjBatch === true && a < 0) { s.vapAdj = null; s.vapAdjBatch = null; s.alphaVal = v + (typeof _rnAdjOf === "function" ? _rnAdjOf(s) : 0); s.baseAlphaVal = s.alphaVal; _lvA++; return; }
+            if (!nw && a === 0 && _lvAdj < 0 && _vapAdjExemptOldSig(s)) { s.vapAdj = _lvAdj; s.vapAdjBatch = true; s.alphaVal = v + _lvAdj + (typeof _rnAdjOf === "function" ? _rnAdjOf(s) : 0); s.baseAlphaVal = s.alphaVal; _lvB++; }
           });
         });
       }

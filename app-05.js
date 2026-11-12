@@ -3439,6 +3439,45 @@ function _vapAdjExemptOldSig(s) {
   var tg = (Array.isArray(s.tags) && s.tags.length) ? s.tags : (s.tag ? [s.tag] : []);
   return _vapAdjExempt(tg.map(function(x) { return [x, _elSigDetailSec(s, x).b]; }), _vapOf(s));
 }
+// ===== RN補正 2026-11-12（ユーザー要望「最終的なEPが中RN・大RNになる場合に何円補正すればよいか」・仕様は選択肢で決定）=====
+// 区分＝EPの株価が ちょうど …50円（中RN）／…00円（大RN）／…000円（特大RN）。判定のEP＝水準線＋採用VAP（読み値＋VAP補正）＝RN補正を足す前。
+// 保存: signal.rnAdj＝その記録に足したRN補正（円）。採用VAP（alphaVal/baseAlphaVal）＝読み値＋VAP補正＋RN補正。設定 data.custom.rnAdj＝{mid, big, top}（新規の記録フォームが自動で足す・EPナビに表示）。
+// 分析はRN補正を外したEP（_rnPreAlpha）を起点に −5〜+5円 を試す＝二重に足さない。
+var _RN_ADJ_TIERS = [["mid", "中RN", "…50円"], ["big", "大RN", "…00円"], ["top", "特大RN", "…000円"]];
+var _RN_ADJ_KMIN = -5, _RN_ADJ_KMAX = 5;
+function _rnTierOfPrice(p) {
+  if (p == null || p === "") return null;
+  var n = Number(p); if (!isFinite(n) || n <= 0) return null;
+  var c = Math.round(n * 100);
+  if (c % 100000 === 0) return "top";
+  if (c % 10000 === 0) return "big";
+  if (c % 5000 === 0) return "mid";
+  return null;
+}
+function _rnTierLabel(t) { for (var i = 0; i < _RN_ADJ_TIERS.length; i++) if (_RN_ADJ_TIERS[i][0] === t) return _RN_ADJ_TIERS[i][1]; return ""; }
+function _rnAdjOf(s) { return (s && s.rnAdj != null && s.rnAdj !== "" && !isNaN(Number(s.rnAdj))) ? Number(s.rnAdj) : 0; }
+function _rnAdjSetting(data, tier) { var m = data && data.custom && data.custom.rnAdj, v = m ? m[tier] : null; return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : 0; }
+function _rnAdjFmt(k) { return k === 0 ? "±0" : (k > 0 ? "+" : "") + k + "円"; }
+function _rnPreAlpha(s) { var a = _epOwnAlpha(s); return (a == null || isNaN(a)) ? null : a - _rnAdjOf(s); }
+function _rnTierOfRec(s) {
+  if (!s || s.levelPrice == null || s.levelPrice === "") return null;
+  var a = _rnPreAlpha(s); if (a == null) return null;
+  return _rnTierOfPrice(Number(s.levelPrice) + a);
+}
+// 補正 −5〜+5円 の各行を再判定（_vapRowsOf と同じ作り・★＝想定損益が確定した件数10件以上の行のうち合計最大・同点は0に近い方）。
+function _rnRowsOf(pool, aiOf) {
+  var rows = [], best = null, ref = null;
+  for (var k = _RN_ADJ_KMIN; k <= _RN_ADJ_KMAX; k++) {
+    (function(kk) { rows.push({ k: kk, e: _elH2EvalByFn(pool, aiOf, function(r) { return _rnPreAlpha(r.signal) + kk; }, false) }); })(k);
+  }
+  rows.forEach(function(x) {
+    if (x.e.h2Sum == null) return;
+    var _better = function(o) { return o == null || x.e.h2Sum > o.e.h2Sum || (x.e.h2Sum === o.e.h2Sum && Math.abs(x.k) < Math.abs(o.k)); };
+    if (x.e.h2Cnt >= 10 && _better(best)) best = x;
+    if (_better(ref)) ref = x;
+  });
+  return { rows: rows, best: best, ref: ref };
+}
 function _vapAdjEff(adj, exempt) { return (exempt && adj < 0) ? 0 : adj; }   // 例外ならマイナス補正だけ0に
 function _vapAdjTargets(data) {
   var out = { tgt: [], entered: 0, manual: 0, batched: 0 };
@@ -3457,7 +3496,7 @@ function _vapAdjPreview(data, adj) {
   var T = _vapAdjTargets(data), now = 0, aft = 0, nowN = 0, aftN = 0, chg = 0;
   T.tgt.forEach(function(r) {
     var s = r.signal, c = data.charts && data.charts[r.stock + "_" + r.date], cut = (c && c.cutLine != null) ? Number(c.cutLine) : 15;
-    var a0 = _epOwnAlpha(s), a1 = _vapOf(s) + _vapAdjEff(adj, _vapAdjExemptSig(s));
+    var a0 = _epOwnAlpha(s), a1 = _vapOf(s) + _vapAdjEff(adj, _vapAdjExemptSig(s)) + _rnAdjOf(s);
     if (a0 !== a1) chg++;
     var p0 = _elHoldFinalParts(s, a0, cut), p1 = _elHoldFinalParts(s, a1, cut);
     if (p0 && p0.main != null) { now += p0.main; nowN++; }
@@ -3480,12 +3519,12 @@ function _vapAdjApply(prev, adj, undo) {
       if (undo) {
         if (s.vapAdjBatch !== true || v == null) return s;
         chg = true;
-        return Object.assign({}, s, { vapAdj: null, vapAdjBatch: null, alphaVal: v, baseAlphaVal: v });
+        return Object.assign({}, s, { vapAdj: null, vapAdjBatch: null, alphaVal: v + _rnAdjOf(s), baseAlphaVal: v + _rnAdjOf(s) });
       }
       if (!keys[ck + "|" + (s.id || "")] || v == null) return s;
       chg = true;
       var ea = _vapAdjEff(adj, _vapAdjExemptSig(s));   // 水準線値が大RN×VAP0円はマイナス補正なし（2026-10-26）
-      return Object.assign({}, s, { vapAdj: ea !== 0 ? ea : null, vapAdjBatch: ea !== 0 ? true : null, alphaVal: v + ea, baseAlphaVal: v + ea });
+      return Object.assign({}, s, { vapAdj: ea !== 0 ? ea : null, vapAdjBatch: ea !== 0 ? true : null, alphaVal: v + ea + _rnAdjOf(s), baseAlphaVal: v + ea + _rnAdjOf(s) });
     });
     if (chg) charts[ck] = Object.assign({}, c, { signals: sigs });
   });
@@ -4097,8 +4136,8 @@ function _elAlphaTypeCell(s, alpha) {
     (_EL_UI_VAP || _vapOf(s) != null) ? null : React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, _label),   // VAP枠(8/20以降)に基本/応用/浮き足の種別は無い 2026-10-05
     React.createElement("div", { style: { color: col, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, _elAlphaShown(s, alpha) + "円"),
     // VAP補正の内訳（読み値・補正）2026-10-19。採用VAP（＝alpha）を表示している行だけ＝試算で別のαを渡したときは出さない。
-    (_vapAdjOf(s) !== 0 && _vapOf(s) != null && Number(alpha) === _epOwnAlpha(s)) ? React.createElement("div", { title: "読んだVAP値 " + _vapOf(s) + "円 に補正 " + _vapAdjOf(s) + "円 を当てた採用VAP", style: { fontSize: 9, color: "#94A3B8", fontWeight: 600, whiteSpace: "nowrap" } },
-      "（読" + _vapOf(s) + "・" + (_vapAdjOf(s) > 0 ? "+" : "") + _vapAdjOf(s) + "）") : null,
+    ((_vapAdjOf(s) !== 0 || _rnAdjOf(s) !== 0) && _vapOf(s) != null && Number(alpha) === _epOwnAlpha(s)) ? React.createElement("div", { title: "読んだVAP値 " + _vapOf(s) + "円 に補正 " + _vapAdjOf(s) + "円" + (_rnAdjOf(s) ? "・RN補正 " + _rnAdjOf(s) + "円" : "") + " を当てた採用VAP", style: { fontSize: 9, color: "#94A3B8", fontWeight: 600, whiteSpace: "nowrap" } },
+      "（読" + _vapOf(s) + "・" + (_vapAdjOf(s) > 0 ? "+" : "") + _vapAdjOf(s) + (_rnAdjOf(s) ? "・RN" + (_rnAdjOf(s) > 0 ? "+" : "") + _rnAdjOf(s) : "") + "）") : null,
     hasRn ? _elAlphaBreakdownNode(s, alpha) : null,
     // 応用αの根拠が「RN補正」の記録は値（＋内訳）の下に小バッジで明示 2026-08-02。RN加算(_elRnAdd)とは別概念＝
     // 加算そのものではなく「そのαにした理由がRN補正だった」ことを示す。色はRN内訳と同じ青系で系統を揃える。
@@ -8956,6 +8995,8 @@ function EntryRecordForm(_ref_erf) {
     fVap = _useStateVAPA[0], setFVap = _useStateVAPA[1];
   // VAP補正 2026-10-19: 新規＝設定の補正値（custom.vapAdj）／編集＝その記録の補正（未反映の記録は0のまま＝開いただけで補正は付かない）。採用VAP＝読み値(fVap)＋補正。
   var _useStateVADJ = useState(isEdit ? _vapAdjOf(initSig) : _vapAdjSetting(data)), fVapAdj = _useStateVADJ[0], setFVapAdj = _useStateVADJ[1];
+  // RN補正 2026-11-12: null＝自動（新規のみ・EPがRNなら設定 custom.rnAdj の値）／数値＝手で決めた値（編集は記録の値のまま＝自動では付けない）。
+  var _useStateRNADJ = useState(isEdit ? _rnAdjOf(initSig) : null), fRnAdj = _useStateRNADJ[0], setFRnAdj = _useStateRNADJ[1];
   var _vapExAutoRef = useRef(null);   // 例外で自動的に0にしたときの元の補正（条件が外れたら戻す）
   // ライン併存ルール（〇×独立欄 2026-07-08g）: signal.lineCoexist(boolean)。〇で基本α欄へ1を自動入力（下のeffect）。新規=×（false）。旧「併存ライン/ライン併存」チップ検知はmigrateDataで本フラグへ移行。
   var _useStateLC = useState(initSig.lineCoexist === true),
@@ -9534,7 +9575,10 @@ function EntryRecordForm(_ref_erf) {
     if (_fVapEx && fVapAdj < 0) { _vapExAutoRef.current = fVapAdj; setFVapAdj(0); }
     else if (!_fVapEx && _vapExAutoRef.current != null) { if (fVapAdj === 0) setFVapAdj(_vapExAutoRef.current); _vapExAutoRef.current = null; }
   }, [_fVapEx]);
-  var _fVapA = (fVap !== "" && !isNaN(Number(fVap))) ? Number(fVap) + (fVapAdj || 0) : ((isEdit && initSig.alphaVal != null && !isNaN(Number(initSig.alphaVal))) ? Number(initSig.alphaVal) : 0);   // 未入力は0（編集で旧α記録を開いた場合は旧αを据え置き＝vapVal未設定のまま）
+  var _fRnLv = (fLevelPrice !== "" && !isNaN(Number(fLevelPrice))) ? Number(fLevelPrice) : null;
+  var _fRnTier = (_vapMode && _fRnLv != null && fVap !== "" && !isNaN(Number(fVap))) ? _rnTierOfPrice(_fRnLv + Number(fVap) + (fVapAdj || 0)) : null;   // RN補正の区分＝RN補正を足す前のEP
+  var _fRnAdjEff = (fRnAdj != null) ? fRnAdj : (_fRnTier ? _rnAdjSetting(data, _fRnTier) : 0);
+  var _fVapA = (fVap !== "" && !isNaN(Number(fVap))) ? Number(fVap) + (fVapAdj || 0) + _fRnAdjEff : ((isEdit && initSig.alphaVal != null && !isNaN(Number(initSig.alphaVal))) ? Number(initSig.alphaVal) : 0);   // 未入力は0（編集で旧α記録を開いた場合は旧αを据え置き＝vapVal未設定のまま）
   var _fUkiAdd = _vapMode ? 0 : _elUkiAddVal(_showUki && fUkiUsed === "○", fUkiVal, _effUkiPct);   // 2026-07-14 共通化
   // RN加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
   var _fRnAdd = _vapMode ? 0 : _elRnAddVal(fRnUsed === "○", fRnVal);   // 2026-07-14 共通化
@@ -10305,6 +10349,7 @@ function EntryRecordForm(_ref_erf) {
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
       baseAlphaVal: _vapMode ? _fAlpha : (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha)) ? Number(fBaseAlpha) : null),
       vapVal: (_vapMode && fVap !== "" && !isNaN(Number(fVap))) ? Number(fVap) : null,
+      rnAdj: (_vapMode && fVap !== "" && _fRnAdjEff) ? _fRnAdjEff : null,   // RN補正 2026-11-12（採用VAP＝読み値＋VAP補正＋RN補正）
       vapAdj: (_vapMode && fVap !== "" && fVapAdj) ? fVapAdj : null,   // VAP補正（採用VAP＝vapVal＋vapAdj＝alphaVal）2026-10-19
       vapAdjBatch: (_vapMode && fVapAdj && initSig.vapAdjBatch === true && fVapAdj === _vapAdjOf(initSig)) ? true : null,   // 一括反映の印は補正を変えなければ引き継ぐ   // VAP値（8/20以降）。alphaVal にも同値を書く＝下流の計算は無改修
       lineCoexist: fLineCoexist,
@@ -11045,6 +11090,15 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("button", { type: "button", onClick: function() { setFVapAdj((fVapAdj || 0) + 1); }, style: { padding: "0 6px", fontSize: 12, fontWeight: 800, border: "1px solid #FCD34D", background: "#fff", color: "#92400E", borderRadius: 4, cursor: "pointer" } }, "＋"),
             fVap !== "" ? React.createElement("span", { style: { color: "#4C1D95", fontWeight: 700, whiteSpace: "nowrap" } }, "→ 採用VAP " + _fVapA + "円") : null,
             _fVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E", whiteSpace: "nowrap" } }, "（水準線が大RN・VAP0のためマイナス補正なし）") : null),
+          // RN補正 2026-11-12: RN補正を足す前のEPがちょうどRN（…50／…00／…000円）なら表示。新規は設定値を自動で足す（外す・±・自動に戻す）。
+          (_fRnTier || _fRnAdjEff) ? React.createElement("div", { title: "EP（水準線＋採用VAP）がちょうどRNのときに足す補正（円）。新規は設定（記録帳 💰損益 → 🔢 RN補正）の値が自動で入ります", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 11 } },
+            React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 800 } }, "RN補正" + (_fRnTier ? "（" + _rnTierLabel(_fRnTier) + "）" : "")),
+            React.createElement("button", { type: "button", onClick: function() { setFRnAdj(_fRnAdjEff - 1); }, style: { padding: "0 6px", fontSize: 12, fontWeight: 800, border: "1px solid #BFDBFE", background: "#fff", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" } }, "−"),
+            React.createElement("b", { style: { minWidth: 30, textAlign: "center", color: _fRnAdjEff ? "#1D4ED8" : "#94A3B8" } }, _rnAdjFmt(_fRnAdjEff)),
+            React.createElement("button", { type: "button", onClick: function() { setFRnAdj(_fRnAdjEff + 1); }, style: { padding: "0 6px", fontSize: 12, fontWeight: 800, border: "1px solid #BFDBFE", background: "#fff", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" } }, "＋"),
+            (fRnAdj == null && _fRnTier) ? React.createElement("span", { style: { fontSize: 9.5, color: "#64748B", whiteSpace: "nowrap" } }, "自動") : null,
+            (_fRnAdjEff !== 0) ? React.createElement("button", { type: "button", onClick: function() { setFRnAdj(0); }, style: { padding: "0 6px", fontSize: 10, fontWeight: 700, border: "1px solid #CBD5E1", background: "#fff", color: "#64748B", borderRadius: 4, cursor: "pointer" } }, "外す") : null,
+            (!isEdit && fRnAdj != null && _fRnTier) ? React.createElement("button", { type: "button", onClick: function() { setFRnAdj(null); }, style: { padding: "0 6px", fontSize: 10, fontWeight: 700, border: "1px solid #CBD5E1", background: "#fff", color: "#64748B", borderRadius: 4, cursor: "pointer" } }, "自動に戻す") : null) : null,
           React.createElement("span", { title: "\u6c34\u6e96\u7dda\u5024\uff0bVAP\u5024\uff1d\u4e88\u5b9a\u30a8\u30f3\u30c8\u30ea\u30fc\u4fa1\u683c", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "\u2192 \u4e88\u5b9aEP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, _epTxt), "\u5186"));
       })(),
       React.createElement(_VapAnaPanel, { data: data, stock: fStock, tags: fTags, vap: fVap, adj: fVapAdj, onAdj: function(k) { setFVapAdj(k); }, excludeId: isEdit ? initSig.id : null })] : [
