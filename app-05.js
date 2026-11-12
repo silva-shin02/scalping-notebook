@@ -4299,6 +4299,106 @@ function _elCeInfo(s, alpha, cutLine) {
   var a = _elHoldFinalParts(s, alpha, cutLine).main, b = _elHoldFinalParts(base, alpha, cutLine).main;
   return { ce: r.ce, top: !!r.top, skipIdx: r.skipIdx, epIdx: r.epIdx, px: r.ce ? r.px : null, diff: (a || 0) - (b || 0) };
 }
+// ===== ⏳ 全部確定待ち（反実仮想）2026-11-12 =====
+// ユーザー要望「すべてエントリー足で確定待ちしたら、EPより高いところで確定した数・確率と損益比較」。仕様はユーザー決定（選択肢）:
+//   ・エントリー足＝α値に最初に届いた足（OS1〜3・確定待ちを外した判定）。その足に確定待ちを付けた仮の記録を、今の確定待ちと同じ計算（_epCeView）に通す
+//     ＝終値＞EPなら終値で約定（損切りラインも約定値に合わせて上へ）／終値≦EPならその足では入らず、次の足でα値に届けばα値で約定・OS3まで届かなければ未達。
+//   ・直上VAPは加味しない（仮の記録は ceTopPx を消す）。すでに確定待ちを付けた記録は両側とも記録のまま（差額0・直上VAP約定もそのまま）。
+//   ・終値が未入力ならCAの1分足の終値で補う（記録には書き込まない・読み込みはボタンを押したときだけ＝_allCeCaFetch）。
+// 返り値: {skip:"noep"|"x"|"noconf"|"noamt"} か {k0, c(終値・水準線比), src("rec"/"ca"), up(終値＞EP), kind("up"/"later"/"miss"), already, five(5分確定足), cur, alt, diff, gain(①入値の改善), d2(②降り方の変化)}。
+//   diff＝alt−cur。up かつ !already のとき diff＝gain＋d2。up でない記録の diff は「入らなかった分（③）」。
+var _ALLCE_LS = "sn_allce_ca_v1";
+var _allCeCaMem = null, _allCeCaNone = {};
+function _allCeCaStore() {
+  if (_allCeCaMem) return _allCeCaMem;
+  try { _allCeCaMem = JSON.parse(localStorage.getItem(_ALLCE_LS) || "{}") || {}; } catch (e) { _allCeCaMem = {}; }
+  return _allCeCaMem;
+}
+function _allCeCaSave() { try { localStorage.setItem(_ALLCE_LS, JSON.stringify(_allCeCaMem || {})); } catch (e) {} }
+// CAから読んだ終値（株価そのもの）を水準線比の整数にして返す。無ければnull。
+function _allCeCaRel(s, stock, date, k) {
+  if (!s || s.levelPrice == null || s.levelPrice === "") return null;
+  var d = _allCeCaStore()[stock + "|" + date]; if (!d) return null;
+  var t = _epCeTimeAt(s.time, k), v = t ? d[t] : null, lv = Number(s.levelPrice);
+  if (v == null || isNaN(Number(v)) || isNaN(lv)) return null;
+  return Math.round(Number(v) - lv);
+}
+function _allCeCaHas(stock, date) { return !!_allCeCaStore()[stock + "|" + date]; }
+// 1日ぶんのCA 1分足を読み、指定時刻の終値だけ端末に保存する（times＝"HH:MM"の配列）。{st:"ok"|"none"|"err", msg}
+function _allCeCaFetch(stock, date, times, custom) {
+  var cfg = (typeof cfLoad === "function") ? cfLoad() : null;
+  if (!cfg || !cfg.fbUrl) return Promise.resolve({ st: "none", msg: "Firebase未設定" });
+  var info = _caGetStockInfo(stock, custom);
+  if (!info.caTicker && !info.code) return Promise.resolve({ st: "none", msg: "CAの銘柄コード未設定" });
+  return _caFetchMeta(cfg, false).then(function(meta) {
+    var cur = _caFilterByStockDate(meta, info.caTicker, date, info.code)[0];
+    if (!cur) return { st: "none", msg: "CAチャートなし" };
+    return _caFetchDraftData(cfg, cur.id).then(function(dd) {
+      var b1 = dd && dd.analysisData && dd.analysisData.bars_1m;
+      if (!Array.isArray(b1) || !b1.length) return { st: "none", msg: "CAに足データなし" };
+      var o = {};
+      (times || []).forEach(function(t) {
+        var m = _snlTm(t); if (m == null) return;
+        for (var i = 0; i < b1.length; i++) { if (_snlTm(b1[i].t) === m) { if (b1[i].c != null) o[t] = b1[i].c; break; } }
+      });
+      var st = _allCeCaStore(), key = stock + "|" + date;
+      st[key] = Object.assign({}, st[key] || {}, o);
+      _allCeCaSave();
+      return { st: "ok" };
+    });
+  })["catch"](function(e) { return { st: "err", msg: String((e && e.message) || e) }; });
+}
+function _elAllCeRow(s, alpha, cutLine, caRel) {
+  if (!s || !_epIsV2(s) || alpha == null) return null;
+  var A = Number(alpha); if (isNaN(A)) return null;
+  var cut = cutLine != null ? cutLine : 15;
+  var already = _epCeOn(s) && s.ceOn === true;
+  var base = already ? Object.assign({}, s, { ceOn: undefined }) : s;
+  var r0 = _epResolve(base, A);
+  if (!r0 || r0.epIdx < 0) return { skip: "noep" };
+  if (r0.judge !== "ok") return { skip: "x" };
+  var k0 = r0.epIdx, lg = r0.legs[k0], c = lg.c, src = "rec";
+  if (c == null && caRel) { c = caRel(k0); src = "ca"; }
+  if (c == null || isNaN(Number(c))) return { skip: "noconf", k0: k0 };
+  c = Number(c);
+  var cp = _elHoldFinalParts(s, A, cut), cur = cp ? cp.main : null, alt, kind, up = c > A;
+  if (already) {
+    alt = cur;
+    var ra = _epResolve(s, A);
+    kind = (ra && ra.ce) ? "up" : (ra && ra.epIdx >= 0 && ra.judge === "ok") ? "later" : "miss";
+  } else {
+    var v = Object.assign({}, s, { ceOn: true, ceIdx: k0, ceTopPx: null });
+    if (src === "ca") _epCeWriteLeg(v, { h: lg.h, c: c, role: lg.role });
+    var ap = _elHoldFinalParts(v, A, cut), rr = _epResolve(v, A);
+    alt = ap ? ap.main : null;
+    kind = (rr && rr.ce) ? "up" : (rr && rr.epIdx >= 0 && rr.judge === "ok") ? "later" : "miss";
+  }
+  if (cur == null && alt == null) return { skip: "noamt", k0: k0 };
+  var diff = (alt || 0) - (cur || 0);
+  var gain = (up && !already) ? Math.round((c - A) * 100) : null;
+  return { k0: k0, a: A, c: c, src: src, up: up, kind: kind, already: already, five: _epIs5mConf(s.time, k0), cur: cur, alt: alt, diff: diff,
+    gain: gain, d2: gain != null ? diff - gain : null };
+}
+// 集計。rows＝_elAllCeRow の結果（skipでないもの）。
+function _elAllCeAgg(rows) {
+  var o = { n: 0, up: 0, down: 0, later: 0, miss: 0, already: 0, upAmt: 0, downAmt: 0, cur: 0, alt: 0, diff: 0, gain: 0, d2: 0, d3: 0, ca: 0, curWin: 0, altWin: 0, curLoss: 0, altLoss: 0 };
+  (rows || []).forEach(function(x) {
+    if (!x || x.skip) return;
+    o.n++;
+    if (x.up) { o.up++; o.upAmt += x.c - x.a; } else { o.down++; o.downAmt += x.c - x.a; }
+    if (x.kind === "later") o.later++; else if (x.kind === "miss") o.miss++;
+    if (x.already) o.already++;
+    if (x.src === "ca") o.ca++;
+    o.cur += x.cur || 0; o.alt += x.alt || 0; o.diff += x.diff;
+    if ((x.cur || 0) > 0) o.curWin++; else if ((x.cur || 0) < 0) o.curLoss++;
+    if ((x.alt || 0) > 0) o.altWin++; else if ((x.alt || 0) < 0) o.altLoss++;
+    if (!x.already) { if (x.gain != null) { o.gain += x.gain; o.d2 += x.d2; } else o.d3 += x.diff; }
+  });
+  o.upRate = o.n ? o.up / o.n : null;
+  o.upAvg = o.up ? o.upAmt / o.up : null;
+  o.downAvg = o.down ? o.downAmt / o.down : null;
+  return o;
+}
 // 「時刻が確定足」の記録か（既存記録を含む・一覧の目印/絞り込み/記録帳の一覧帯用）2026-10-17b。
 //   判定足＝このαで最初にα値を上抜けた足（OS1〜3・確定足で入らない規約は無視）。その足の時刻（OS1＋足番号分）が分の1の位4/9、またはチェック欄で付けた足なら対象。
 //   checked＝チェック済み（ceOnを持ち、その足が確定足扱い）＝計算も終値約定。未チェックは計算はα値約定のまま。
