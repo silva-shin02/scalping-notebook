@@ -5214,11 +5214,6 @@ function _EpnCalcForm(_p) {
         ? ("合計α値" + effA + "円＝" + (nUkiSpecial ? "浮応" : "浮") + ukiAddV + (rnAddV ? "＋RN" + rnAddV : "") + "（浮き足〇＝基本α/応用α無し）")
         : ("合計α値" + effA + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (ukiAddV ? "＋浮" + ukiAddV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : "")))
         : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? (_epnVap ? "VAP値を入力" : "記録が無い銘柄は基本αを手入力") : "水準線を入力")),
-    React.createElement("div", { style: { margin: "0 0 6px", padding: "6px 6px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, textAlign: "center" } },   // 予定損切りライン＝予定EP＋損切り値（逆行したら撤退する価格の目安＝引き金であって約定値ではない・触れた足の終値で撤退）2026-07-18／2026-07-29 終値撤退方式へ文言追従
-      React.createElement("span", { style: { fontSize: 10, color: "#B91C1C", fontWeight: 800 } }, "損切りライン "),
-      React.createElement("span", { style: { fontSize: 17, fontWeight: 800, color: "#991B1B", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(Math.round((epV + _epnCutLine) * 100) / 100) : "—"),
-      React.createElement("span", { style: { fontSize: 10, color: "#B91C1C" } }, "円"),
-      epV != null ? React.createElement("div", { style: { fontSize: 9, color: "#EF4444", marginTop: 1 } }, "EP" + epV + "＋損切り" + _epnCutLine) : null),
     React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
       style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? (editId ? "#B45309" : "#1D4ED8") : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, editId ? "💾 更新保存" : "💾 保存（早見に追加）"), _spModal);
 }

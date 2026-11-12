@@ -9696,7 +9696,7 @@ function EntryRecordForm(_ref_erf) {
   var _fCeActive = !isEdit || typeof initSig.ceOn === "boolean" || fCeOn;
   var _useStateCER = useState(Array.isArray(initSig.ceReasons) ? initSig.ceReasons.slice() : []),   // 確定待ちの理由（選択肢）2026-10-19
     fCeReasons = _useStateCER[0], setFCeReasons = _useStateCER[1];
-  var _useStateCETF = useState(initSig.ceTf === "1" || initSig.ceTf === "5" ? initSig.ceTf : ""), fCeTf = _useStateCETF[0], setFCeTf = _useStateCETF[1];   // 確定待ちの理由の分足（"1"/"5"・どちらか1つ）2026-10-31
+  var _useStateCETF = useState(initSig.ceTf === "1" || initSig.ceTf === "5" || initSig.ceTf === "1,5" ? initSig.ceTf : ""), fCeTf = _useStateCETF[0], setFCeTf = _useStateCETF[1];   // 確定待ちの理由の分足（"1"/"5"・どちらか1つ）2026-10-31
   var _useStateCET = useState(initSig.ceTopPx != null ? String(initSig.ceTopPx) : ""),   // 直上VAP（株価）2026-10-28
     fCeTopPxRaw = _useStateCET[0], setFCeTopPxRaw = _useStateCET[1];
   // 2026-10-28b 初期値＝水準線値（ユーザー決定）: 自分で変える（入力・▲▼）までは水準線値（＋採用VAP・下記）に追従。保存済みの値がある記録はそれを使う。
@@ -11811,16 +11811,6 @@ function EntryRecordForm(_ref_erf) {
               ),
               React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円"),
               React.createElement("span", { style: { fontSize: 9, color: "#93C5FD", fontWeight: 700 } }, "自動")
-            ),
-            React.createElement("div", {
-              style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#FEF2F2", border: "1px solid #FECACA", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
-            },
-              React.createElement("span", { style: { color: "#B91C1C", fontWeight: 700 } }, "予定損切りライン"),
-              React.createElement("span", { title: "予定EP＋損切り値＝ここまで逆行したら撤退する価格の目安（自動計算）。この価格は撤退の引き金であって約定値ではなく、触れた足の終値で撤退する（終値が損なら損切り）。", style: { fontSize: 12, fontWeight: 800, color: "#991B1B", fontVariantNumeric: "tabular-nums", minWidth: 36, textAlign: "right" } },
-                (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; var _ep = Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100; var _sl = _ep + (_fCutLine != null ? _fCutLine : 15); return String(Math.round(_sl * 100) / 100); })()
-              ),
-              React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円"),
-              React.createElement("span", { style: { fontSize: 9, color: "#FCA5A5", fontWeight: 700 } }, "損切り" + String(_fCutLine != null ? _fCutLine : 15))
             )
           ),
           // 確定待ち（旧5分足確定足 2026-10-17→2026-10-19改称・手動のみ）: α値に届いた最初の足のOS足の確定を待つ＝その足の終値でエントリーした扱い。
@@ -11839,9 +11829,6 @@ function EntryRecordForm(_ref_erf) {
                 React.createElement("span", { key: "px", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#ECFEFF", border: "1px solid #67E8F9" } },
                   React.createElement("span", { style: { color: "#0E7490", fontWeight: 700 } }, "実EP（" + _epLbl + "）"),
                   React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#155E75", fontVariantNumeric: "tabular-nums" } }, _pxTxt(_epPx))),
-                React.createElement("span", { key: "sl", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#FEF2F2", border: "1px solid #FECACA" } },
-                  React.createElement("span", { style: { color: "#B91C1C", fontWeight: 700 } }, "損切りライン（" + _epLbl + "基準）"),
-                  React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#7F1D1D", fontVariantNumeric: "tabular-nums" } }, _pxTxt(_epPx + _cl))),
                 _dv != null ? React.createElement("span", { key: "df", title: "想定損益の差（" + _epLbl + "エントリー − α値で約定した場合）", style: { fontWeight: 700, color: _dv > 0 ? "#C0392B" : _dv < 0 ? "#1E8449" : "#888" } },
                   "α約定比 " + (_dv > 0 ? "+" : _dv < 0 ? "−" : "±") + Math.abs(_dv).toLocaleString() + "円") : null
               ];
@@ -11858,8 +11845,10 @@ function EntryRecordForm(_ref_erf) {
                 React.createElement("input", { type: "checkbox", checked: !!fCeOn, onChange: function(e) { setFCeOn(e.target.checked); } }),
                 "確定待ちor直上VAP"),
               // 直上VAP（株価）2026-10-28: チェックの右。確定を待つ間にこの株価まで上がったら、その値で即エントリーした扱い。
-              fCeOn ? React.createElement("button", { type: "button", onClick: function() { setFCeTopOn(!fCeTopOn); }, title: "オン：確定を待つ間に直上VAPまで上がったら、その値でエントリーした扱い。オフ：終値エントリーだけ（直上VAPは使わない）。",
-                style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 12, cursor: "pointer", fontSize: 11, fontWeight: 700, border: "1px solid " + (fCeTopOn ? "#0E7490" : "#CBD5E1"), background: fCeTopOn ? "#0E7490" : "#fff", color: fCeTopOn ? "#fff" : "#64748B" } },
+              fCeOn ? React.createElement("span", { role: "switch", "aria-checked": !!fCeTopOn, onClick: function() { setFCeTopOn(!fCeTopOn); }, title: "オン：確定を待つ間に直上VAPまで上がったら、その値でエントリーした扱い。オフ：終値エントリーだけ（直上VAPは使わない）。",
+                style: { display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", fontSize: 11, fontWeight: 700, color: fCeTopOn ? "#0E7490" : "#94A3B8" } },
+                React.createElement("span", { style: { position: "relative", display: "inline-block", width: 34, height: 18, borderRadius: 9, background: fCeTopOn ? "#0E7490" : "#CBD5E1", transition: "background .15s", flexShrink: 0 } },
+                  React.createElement("span", { style: { position: "absolute", top: 2, left: fCeTopOn ? 18 : 2, width: 14, height: 14, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,.3)", transition: "left .15s" } })),
                 "直上VAP " + (fCeTopOn ? "オン" : "オフ")) : null,
               (fCeOn && fCeTopOn) ? React.createElement("span", { title: "確定を待つ間に株価がここまで上がったら、その値で即エントリーした扱い（届かなければ終値エントリー）。VAPより上の株価を入れる。", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#ECFEFF", border: "1px solid #67E8F9" } },
                 React.createElement("span", { style: { color: "#0E7490", fontWeight: 700 } }, "直上VAP"),
@@ -11881,9 +11870,9 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0E7490", marginBottom: 3 } }, "確定待ちの理由",
               !isEdit ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須") : null,
               React.createElement("span", { style: { color: "#6B7280", fontWeight: 600, marginLeft: 6, fontSize: 10 } }, "複数選択できます"),
-              // 分足（どちらか1つ）2026-10-31 ユーザー要望「どちらの分足か選択できるように」
+              // 分足（1分・5分とも選べる＝"1,5" 2026-11-12・旧：どちらか1つ）2026-10-31 ユーザー要望「どちらの分足か選択できるように」
               React.createElement("span", { style: { display: "inline-flex", marginLeft: 8, border: "1px solid #67E8F9", borderRadius: 6, overflow: "hidden", verticalAlign: "middle" } },
-                _EL_TFS.map(function(tf, i) { var on = fCeTf === tf; return React.createElement("button", { key: tf, type: "button", onClick: function() { setFCeTf(on ? "" : tf); },
+                _EL_TFS.map(function(tf, i) { var _cur = fCeTf ? String(fCeTf).split(",") : [], on = _cur.indexOf(tf) >= 0; return React.createElement("button", { key: tf, type: "button", onClick: function() { var nx = _EL_TFS.filter(function(x) { return x === tf ? !on : _cur.indexOf(x) >= 0; }); setFCeTf(nx.join(",")); },
                   style: { padding: "1px 8px", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap", border: "none", borderLeft: i ? "1px solid #67E8F9" : "none", cursor: "pointer", background: on ? "#0E7490" : "#fff", color: on ? "#fff" : "#0E7490" } }, tf + "分足"); }))),
             React.createElement(_SnReasonPicker, { data: data, save: save, masterKey: "ceReasons", defaults: _DEF_CE_REASONS, sigKey: "ceReasons", noun: "確定待ちの理由",
               value: fCeReasons, onChange: function(l) { setFCeReasons(l); } })) : null,
@@ -12791,7 +12780,7 @@ function EntryLogCard(_ref_elc) {
           s.reviewReasons.map(function(t) { return React.createElement("span", { key: t, style: { fontSize: 10, fontWeight: 700, color: "#9D174D", background: "#FDF2F8", border: "1px solid #FBCFE8", borderRadius: 4, padding: "0 6px", lineHeight: 1.6 } }, t); })) : null,
         // 確定待ちの理由 2026-10-19
         (s.ceOn === true && Array.isArray(s.ceReasons) && s.ceReasons.length) ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, paddingLeft: 6, borderLeft: "2px solid #67E8F9" } },
-          React.createElement("span", { style: { fontSize: 11, color: "#0E7490", fontWeight: 700, marginRight: 1 } }, "確定待ち理由" + ((s.ceTf === "1" || s.ceTf === "5") ? "（" + s.ceTf + "分足）" : "")),
+          React.createElement("span", { style: { fontSize: 11, color: "#0E7490", fontWeight: 700, marginRight: 1 } }, "確定待ち理由" + ((s.ceTf === "1" || s.ceTf === "5") ? "（" + s.ceTf + "分足）" : s.ceTf === "1,5" ? "（1・5分足）" : "")),
           s.ceReasons.map(function(t) { return React.createElement("span", { key: t, style: { fontSize: 10, fontWeight: 700, color: "#155E75", background: "#ECFEFF", border: "1px solid #A5F3FC", borderRadius: 4, padding: "0 6px", lineHeight: 1.6 } }, t); })) : null,
         s.reviewMemo ? React.createElement("div", { style: { fontSize: 11, color: "#9D174D", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } }, React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, marginRight: 3 } }, "要審議 理由詳細"), s.reviewMemo) : null,
         // 見送りの理由 2026-08-12。理由が無い見送り記録＝2026-08-12より前に付けた記録なので、赤字の「理由未記入」で拾えるようにする
