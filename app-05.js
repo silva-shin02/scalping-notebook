@@ -4387,6 +4387,54 @@ function _allCeCaFetch(stock, date, times, custom) {
     });
   })["catch"](function(e) { return { st: "err", msg: String((e && e.message) || e) }; });
 }
+// ===== 🕯 寄り足（寄り足ラインの分析用）2026-11-12 ユーザー要望「寄り足が陰線・陽線それぞれの分析」「確定待ちしたほうがいいか」 =====
+// 寄り足＝9:00 の1分足と 9:00 の5分足（両方・ユーザー決定）。陰陽は CA の足の始値・終値で判定（記録には持たない＝ボタンで読んで端末に保存）。
+// _yoriStore()[stock|date] = { o1, c1, o5, c5 }（無い値は null）。CAに無い日は _yoriNone に印（このセッションだけ）。
+var _YORI_LS = "sn_yori_ca_v1";
+var _yoriMem = null, _yoriNone = {};
+function _yoriStore() {
+  if (_yoriMem) return _yoriMem;
+  try { _yoriMem = JSON.parse(localStorage.getItem(_YORI_LS) || "{}") || {}; } catch (e) { _yoriMem = {}; }
+  return _yoriMem;
+}
+function _yoriSave() { try { localStorage.setItem(_YORI_LS, JSON.stringify(_yoriMem || {})); } catch (e) {} }
+function _yoriGet(stock, date) { return _yoriStore()[stock + "|" + date] || null; }
+// "up"＝陽線・"down"＝陰線・"doji"＝同時線（始値＝終値）・null＝不明
+function _yoriKind(y, tf) {
+  if (!y) return null;
+  var o = tf === "5" ? y.o5 : y.o1, c = tf === "5" ? y.c5 : y.c1;
+  if (o == null || c == null || isNaN(Number(o)) || isNaN(Number(c))) return null;
+  o = Number(o); c = Number(c);
+  return c > o ? "up" : c < o ? "down" : "doji";
+}
+// 1日ぶんのCAを読み、寄り足（9:00の1分足・5分足）の始値・終値を保存。times（"HH:MM"）を渡すとその1分足の終値も確定待ち用（_allCeCa）に保存。
+function _yoriCaFetch(stock, date, times, custom) {
+  var cfg = (typeof cfLoad === "function") ? cfLoad() : null;
+  if (!cfg || !cfg.fbUrl) return Promise.resolve({ st: "none", msg: "Firebase未設定" });
+  var info = _caGetStockInfo(stock, custom);
+  if (!info.caTicker && !info.code) return Promise.resolve({ st: "none", msg: "CAの銘柄コード未設定" });
+  return _caFetchMeta(cfg, false).then(function(meta) {
+    var cur = _caFilterByStockDate(meta, info.caTicker, date, info.code)[0];
+    if (!cur) return { st: "none", msg: "CAチャートなし" };
+    return _caFetchDraftData(cfg, cur.id).then(function(dd) {
+      var ad = dd && dd.analysisData, b1 = ad && ad.bars_1m, b5 = ad && ad.bars_5m;
+      if (!Array.isArray(b1) || !b1.length) return { st: "none", msg: "CAに足データなし" };
+      var at = function(bars, m) { if (!Array.isArray(bars)) return null; for (var i = 0; i < bars.length; i++) if (_snlTm(bars[i].t) === m) return bars[i]; return null; };
+      var y1 = at(b1, 540), y5 = at(b5, 540);
+      var ys = _yoriStore(), key = stock + "|" + date;
+      ys[key] = { o1: y1 ? y1.o : null, c1: y1 ? y1.c : null, o5: y5 ? y5.o : null, c5: y5 ? y5.c : null };
+      _yoriSave();
+      if (times && times.length) {
+        var o = {};
+        times.forEach(function(t) { var m = _snlTm(t); if (m == null) return; var b = at(b1, m); if (b && b.c != null) o[t] = b.c; });
+        var st = _allCeCaStore();
+        st[key] = Object.assign({}, st[key] || {}, o);
+        _allCeCaSave();
+      }
+      return { st: "ok" };
+    });
+  })["catch"](function(e) { return { st: "err", msg: String((e && e.message) || e) }; });
+}
 function _elAllCeRow(s, alpha, cutLine, caRel) {
   if (!s || !_epIsV2(s) || alpha == null) return null;
   var A = Number(alpha); if (isNaN(A)) return null;

@@ -1908,6 +1908,159 @@ function _ElAllCeSection(props) {
     listRecs.length ? props.recTable(listRecs, extra) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
   return React.createElement("div", null, head, kpi, note, table, list);
 }
+// ===== 🕯 寄り足 タブ 2026-11-12（📡シグナル総合 → 寄り足ライン の中・ユーザー要望）=====
+// ①寄り足（9:00の1分足・5分足の両方）が陽線／陰線／同時線で、件数・勝率・損切り率・合計／平均の想定損益を比べる。
+// ②確定待ちしたほうがいいか＝このシグナルの全記録を _elAllCeRow（5分確定待ちと同じ計算）で比べ、寄り足の陰陽でも分ける。
+// 母数＝寄り足ラインの記録のうち合計損益と同じ線引き（データのみ・仮シグナル・算入銘柄・時間かぶりを除く）。①はE成立（×見送り・未達を除く）の記録。
+// 陰陽と確定値の不足分は「CAから読む」ボタンで CA を読む（app-05 _yoriCaFetch・端末に保存・記録には書き込まない）。
+var _YORI_KINDS = [["up", "陽線", "#C0392B"], ["down", "陰線", "#1E8449"], ["doji", "同時線", "#78716C"], ["na", "不明（CA未読込）", "#A8A29E"]];
+function _ElYoriSection(props) {
+  var recs = props.recs || [], aiOf = props.aiOf, data = props.data || {};
+  var _uT = useState(0), setTick = _uT[1];
+  var _uL = useState(null), load = _uL[0], setLoad = _uL[1];
+  var _uC = useState("5"), ceTf = _uC[0], setCeTf = _uC[1];
+  var _uF = useState("all"), fil = _uF[0], setFil = _uF[1];
+  var rows = recs.map(function(r) {
+    var a = aiOf(r) || {}, A = a.alpha, cut = a.cutLine != null ? a.cutLine : 15, s = r.signal;
+    var r0 = (A != null) ? _epResolve(s, A) : null;
+    var entered = !!(r0 && r0.epIdx >= 0 && r0.judge === "ok");
+    var cp = entered ? _elHoldFinalParts(s, A, cut) : null, cur = cp ? cp.main : null;
+    var y = _yoriGet(r.stock, r.date);
+    var ce = (A != null) ? _elAllCeRow(s, A, cut, function(k) { return _allCeCaRel(s, r.stock, r.date, k); }) : null;
+    return { r: r, entered: entered, cur: cur, stop: entered && _elIsStopFinal(s, A, cut), k1: _yoriKind(y, "1"), k5: _yoriKind(y, "5"), ce: ce };
+  });
+  // CAで読む日（寄り足が未読込・または確定値が無い記録がある日）
+  var need = {}, needKeys = [];
+  rows.forEach(function(o) {
+    var k = o.r.stock + "|" + o.r.date;
+    if (_yoriNone[k]) return;
+    var noY = !_yoriGet(o.r.stock, o.r.date), noC = !!(o.ce && o.ce.skip === "noconf");
+    if (!noY && !noC) return;
+    if (!need[k]) { need[k] = { stock: o.r.stock, date: o.r.date, times: [] }; needKeys.push(k); }
+    if (noC) { var t = _epCeTimeAt(o.r.signal.time, o.ce.k0); if (t && need[k].times.indexOf(t) < 0) need[k].times.push(t); }
+  });
+  var runLoad = function() {
+    if (load && load.busy) return;
+    var list = needKeys.map(function(k) { return need[k]; }), st = { busy: true, done: 0, total: list.length, none: 0, err: 0 };
+    setLoad(Object.assign({}, st));
+    var step = function(i) {
+      if (i >= list.length) { st.busy = false; setLoad(Object.assign({}, st)); setTick(function(n) { return n + 1; }); return; }
+      var it = list[i];
+      _yoriCaFetch(it.stock, it.date, it.times, data.custom).then(function(res) {
+        st.done++;
+        if (!res || res.st !== "ok") { _yoriNone[it.stock + "|" + it.date] = 1; if (res && res.st === "err") st.err++; else st.none++; }
+        setLoad(Object.assign({}, st));
+        step(i + 1);
+      });
+    };
+    step(0);
+  };
+  var _pct = function(v) { return v == null ? "—" : Math.round(v * 1000) / 10 + "%"; };
+  var _amt = function(v) { return React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(v), fontVariantNumeric: "tabular-nums" } }, _elPnlFmt(v == null ? null : Math.round(v))); };
+  var _pill = function(on, label, onClick, key) {
+    return React.createElement("button", { key: key, type: "button", onClick: onClick, style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#0E7490" : "#D6D3D1"), background: on ? "#ECFEFF" : "#fff", color: on ? "#0E7490" : "#57534E" } }, label);
+  };
+  var _th = function(t, k) { return React.createElement("th", { key: k, style: { padding: "4px 6px", fontSize: 10, color: "#9A9186", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap" } }, t); };
+  var _td = function(c, ex, k) { return React.createElement("td", { key: k, style: Object.assign({ padding: "4px 6px", fontSize: 11, textAlign: "right", whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
+  var _kOf = function(o, tf) { return (tf === "5" ? o.k5 : o.k1) || "na"; };
+  var _lbl = function(kk) { for (var i = 0; i < _YORI_KINDS.length; i++) if (_YORI_KINDS[i][0] === kk) return _YORI_KINDS[i]; return _YORI_KINDS[3]; };
+  // ① 陰陽別の成績
+  var ent = rows.filter(function(o) { return o.entered && o.cur != null; });
+  var _stat = function(list) {
+    var n = list.length, w = 0, l = 0, st = 0, sum = 0;
+    list.forEach(function(o) { if (o.cur > 0) w++; else if (o.cur < 0) l++; if (o.stop) st++; sum += o.cur; });
+    return { n: n, w: w, l: l, st: st, sum: sum, win: n ? w / n : null, stR: n ? st / n : null, avg: n ? sum / n : null };
+  };
+  var _perfTable = function(tf) {
+    var by = {}; ent.forEach(function(o) { var k = _kOf(o, tf); (by[k] = by[k] || []).push(o); });
+    var tot = _stat(ent);
+    var trs = _YORI_KINDS.filter(function(K) { return by[K[0]]; }).map(function(K) {
+      var a = _stat(by[K[0]]);
+      return React.createElement("tr", { key: K[0], style: a.n < 3 ? { opacity: 0.55 } : null },
+        _td(K[1], { textAlign: "left", fontWeight: 800, color: K[2] }, "a"), _td(a.n + "件", null, "b"),
+        _td(a.w + "勝" + a.l + "敗", null, "c"), _td(_pct(a.win), { fontWeight: 800, color: "#0E7490" }, "d"),
+        _td(a.st + "件（" + _pct(a.stR) + "）", { color: a.st ? "#B45309" : null }, "e"),
+        _td(_amt(a.sum), null, "f"), _td(_amt(a.avg), null, "g"));
+    });
+    trs.push(React.createElement("tr", { key: "tot", style: { background: "#F5F5F4", fontWeight: 800 } },
+      _td("合計", { textAlign: "left" }, "a"), _td(tot.n + "件", null, "b"), _td(tot.w + "勝" + tot.l + "敗", null, "c"), _td(_pct(tot.win), null, "d"),
+      _td(tot.st + "件（" + _pct(tot.stR) + "）", null, "e"), _td(_amt(tot.sum), null, "f"), _td(_amt(tot.avg), null, "g")));
+    // ひとこと（陽線と陰線が3件以上ずつあるとき）
+    var u = by.up ? _stat(by.up) : null, d = by.down ? _stat(by.down) : null, msg = null;
+    if (u && d && u.n >= 3 && d.n >= 3) {
+      var dw = Math.round((d.win - u.win) * 1000) / 10;
+      msg = "陰線の日は勝率 " + _pct(d.win) + "（陽線 " + _pct(u.win) + "）＝" + (dw < 0 ? "陽線より " + Math.abs(dw) + "ポイント低い" : dw > 0 ? "陽線より " + dw + "ポイント高い" : "陽線と同じ") +
+        "。損切り率は陰線 " + _pct(d.stR) + "・陽線 " + _pct(u.stR) + "、1件平均は陰線 " + _elPnlFmt(Math.round(d.avg)) + "・陽線 " + _elPnlFmt(Math.round(u.avg)) + "。";
+    } else msg = "陽線・陰線のどちらかが3件未満のため、比較の文は出していません。";
+    return React.createElement("div", { key: "pt" + tf, style: { flex: "1 1 360px", minWidth: 0 } },
+      React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#1A1714", marginBottom: 4 } }, "寄り足＝9:00 の" + tf + "分足"),
+      React.createElement("div", { style: { overflowX: "auto" } },
+        React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+          React.createElement("thead", null, React.createElement("tr", null, _th("", 1), _th("件数", 2), _th("勝ち負け", 3), _th("勝率", 4), _th("損切り（率）", 5), _th("合計", 6), _th("1件平均", 7))),
+          React.createElement("tbody", null, trs))),
+      React.createElement("div", { style: { fontSize: 10.5, color: "#44403C", marginTop: 5, lineHeight: 1.6, background: "#FAFAF9", borderRadius: 6, padding: "4px 8px" } }, msg));
+  };
+  // ② 確定待ち×陰陽
+  var ceOk = rows.filter(function(o) { return o.ce && !o.ce.skip; });
+  var ceSkipN = rows.filter(function(o) { return !o.ce || o.ce.skip; }).length;
+  var _ceTr = function(k, lbl, color, a, tot) {
+    return React.createElement("tr", { key: "c_" + k, style: tot ? { background: "#F5F5F4", fontWeight: 800 } : (a.n < 3 ? { opacity: 0.55 } : null) },
+      _td(lbl, { textAlign: "left", fontWeight: 800, color: color }, "a"), _td(a.n + "件", null, "b"),
+      _td(a.up + "件（" + _pct(a.upRate) + "）", { color: "#0E7490", fontWeight: 700 }, "c"),
+      _td(_amt(a.cur), null, "d"), _td(_amt(a.alt), null, "e"), _td(_amt(a.diff), { fontWeight: 800 }, "f"),
+      _td(a.n ? _elPnlFmt(Math.round(a.diff / a.n)) : "—", { color: _elPnlColor(a.n ? a.diff : null) }, "g"),
+      _td(a.diff > 0 ? "待つ" : a.diff < 0 ? "待たない" : "差なし", { fontWeight: 800, color: a.diff > 0 ? "#0E7490" : a.diff < 0 ? "#B45309" : "#78716C" }, "h"));
+  };
+  var ceBy = {}; ceOk.forEach(function(o) { var k = _kOf(o, ceTf); (ceBy[k] = ceBy[k] || []).push(o.ce); });
+  var ceAll = _elAllCeAgg(ceOk.map(function(o) { return o.ce; }));
+  var ceTable = React.createElement("div", { key: "ce" },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⏳ 確定待ちしたほうがいいか"),
+      React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "陰陽の分け方："),
+      _pill(ceTf === "1", "寄り足1分足", function() { setCeTf("1"); }, "t1"), _pill(ceTf === "5", "寄り足5分足", function() { setCeTf("5"); }, "t5")),
+    React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginBottom: 6, lineHeight: 1.6 } },
+      "寄り足ラインの全記録で、エントリー足（α値に最初に届いた足・OS1〜3）の確定を待った場合と今の記録を比べます。計算は「⏳ 5分確定待ち」と同じ＝確定値（終値）がEPより高ければ終値で約定、EP以下ならその足では入らず次の足から。直上VAPは加味しません。確定待ちを付けてある記録は差額0。"),
+    React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+        React.createElement("thead", null, React.createElement("tr", null, _th("寄り足", 1), _th("件数", 2), _th("確定値＞EP", 3), _th("今の想定損益", 4), _th("確定待ちなら", 5), _th("差額", 6), _th("1件平均の差", 7), _th("判定", 8))),
+        React.createElement("tbody", null, _YORI_KINDS.filter(function(K) { return ceBy[K[0]]; }).map(function(K) { return _ceTr(K[0], K[1], K[2], _elAllCeAgg(ceBy[K[0]]), false); })
+          .concat([_ceTr("tot", "合計", null, ceAll, true)])))),
+    React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginTop: 3 } }, "※3件未満の行は薄く表示。判定＝差額がプラスなら「待つ」。対象外（E不成立・×見送り・確定値なし など）" + ceSkipN + "件。"));
+  // 読み込みボタン・状況
+  var knownN = rows.filter(function(o) { return _yoriGet(o.r.stock, o.r.date); }).length;
+  var bar = React.createElement("div", { key: "bar", style: { fontSize: 10.5, color: "#78716C", marginBottom: 10, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
+    React.createElement("span", null, "寄り足を読めた記録 " + knownN + " / " + rows.length + "件"),
+    needKeys.length ? React.createElement("button", { type: "button", onClick: runLoad, disabled: !!(load && load.busy), title: "CAのチャートから、寄り足（9:00の1分足・5分足）の始値・終値と、確定値が未入力の記録の終値を読みます（記録には書き込みません・この端末に保存）",
+      style: { padding: "3px 10px", fontSize: 11, fontWeight: 800, borderRadius: 6, cursor: "pointer", border: "1px solid #0E7490", background: "#ECFEFF", color: "#0E7490" } },
+      (load && load.busy) ? ("CAを読み込み中… " + load.done + "/" + load.total + "日") : ("CAから寄り足を読む（" + needKeys.length + "日分）")) : null,
+    (load && !load.busy && (load.none || load.err)) ? React.createElement("span", { style: { color: "#B45309" } }, "CAに無かった日 " + load.none + "日" + (load.err ? "・読み込み失敗 " + load.err + "日" : "")) : null);
+  var head = React.createElement("div", { key: "h", style: { marginBottom: 8 } },
+    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "🕯 寄り足の陰線・陽線で比べる"),
+    React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
+      "寄り足＝9:00 の1分足と5分足。始値より終値が高ければ陽線・低ければ陰線・同じなら同時線（CAの足で判定）。成績はE成立した記録の想定損益（100株換算・手じまいまで）。勝率＝想定損益がプラスの割合。損切り率＝損で撤退した割合。"));
+  // 記録一覧
+  var xOf = function(r) { for (var i = 0; i < rows.length; i++) if (rows[i].r === r) return rows[i]; return null; };
+  var listRows = ent.filter(function(o) { return fil === "all" ? true : _kOf(o, ceTf) === fil; });
+  var _xth = function(t) { return React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", width: "1%", fontSize: 10, color: "#0E7490", background: "#F0FDFF" } }, t); };
+  var _xtd = function(c) { return React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums", background: "#F8FEFF" } }, c); };
+  var _kTxt = function(kk) { var L = _lbl(kk || "na"); return React.createElement("span", { style: { fontWeight: 800, color: L[2] } }, kk ? L[1] : "—"); };
+  var extra = { at: 10, head: [_xth("寄り1分"), _xth("寄り5分"), _xth("確定待ちの差額")], cells: function(r) {
+    var o = xOf(r); if (!o) return [_xtd("—"), _xtd("—"), _xtd("—")];
+    return [_xtd(_kTxt(o.k1)), _xtd(_kTxt(o.k5)), _xtd(o.ce && !o.ce.skip ? (o.ce.already ? React.createElement("span", { style: { color: "#A8A29E" } }, "±0") : _amt(o.ce.diff)) : "—")];
+  } };
+  var list = React.createElement("div", { key: "l" },
+    React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#1A1714", marginRight: 4 } }, "📋 記録ごと（寄り足" + ceTf + "分足で絞る）"),
+      [["all", "全て"]].concat(_YORI_KINDS.map(function(K) { return [K[0], K[1]]; })).map(function(o) {
+        var n = o[0] === "all" ? ent.length : ent.filter(function(x) { return _kOf(x, ceTf) === o[0]; }).length;
+        return n || o[0] === "all" ? _pill(fil === o[0], o[1] + " " + n, function() { setFil(o[0]); }, "f_" + o[0]) : null;
+      })),
+    listRows.length ? props.recTable(listRows.map(function(o) { return o.r; }), extra) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
+  if (!rows.length) return React.createElement("div", null, head, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "記録がありません"));
+  return React.createElement("div", null, head, bar,
+    React.createElement("div", { key: "pf", style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 } }, _perfTable("1"), _perfTable("5")),
+    React.createElement("div", { style: { marginBottom: 14 } }, ceTable), list);
+}
 function _ElPeriodPicker(props) {
   var sel = props.value || _elPSelAll(), onSet = props.onChange, recs = props.recs || [];
   var _uo = useState(false), open = _uo[0], setOpen = _uo[1];
@@ -8783,9 +8936,13 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       // 2026-10-04 シグナルタブ内を「💴株価帯別／📐VAP値」の2枚に（8/20以降の枠のみ）。VAP値＝このシグナルの記録を銘柄別に比較（_VapSigBoardのaxis="銘柄"）。
       var _stVap = (!legacy && _stGrp) ? _stGrp.recs.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, null); }) : [];
       var _stBandBody = _stGrp ? _bandAxisBody(_stGrp.recs, true, { withAll: true, noBand: !legacy, sigLabel: _stGrp.label, bSigKey: _stKey }) : null;
+      var _stIsYori = !legacy && _stGrp && _stGrp.label === "寄り足ライン";   // 🕯 寄り足タブは寄り足ラインだけ 2026-11-12
+      var _stYori = _stIsYori ? _stGrp.recs.filter(function(r) { return r && r.signal && !_isDataOnly(data, r) && !_elIsProvisional(r.signal) && _elAmtRecOk(r) && !_elCollExcluded(data, r, _collScope); }) : [];
       _tabBody = _stGrp
         ? (legacy ? _stBandBody : React.createElement(React.Fragment, null,
-            _sigInnerBar([["band", "📊 分析", _stGrp.recs.length], ["vap", "📐 VAP値", _stVap.length]], sigInner, setSigInner),   // 2026-10-28 VAP枠は株価帯なし＝「分析」（中身は帯で分けない全体）
+            _sigInnerBar([["band", "📊 分析", _stGrp.recs.length], ["vap", "📐 VAP値", _stVap.length]].concat(_stIsYori ? [["yori", "🕯 寄り足", _stYori.length]] : []), sigInner, setSigInner),
+            (sigInner === "yori" && _stIsYori)
+              ? _cardify([_elCard(React.createElement(_ElYoriSection, { key: "yori" + _stKey, recs: _stYori, aiOf: _ai, data: data, recTable: function(rs, ex) { return _recTable(rs, "full", "yori_", null, null, ex); } }))]) :   // 2026-10-28 VAP枠は株価帯なし＝「分析」（中身は帯で分けない全体）
             sigInner === "vap"
               ? _cardify([
                   _secH("📐 VAP値の分析（" + _stGrp.label + "・銘柄／時間帯別）", "8/20以降・このシグナルの記録。「分け方」で銘柄・時間帯ごとにVAPからの追加円数を比較。同値（OS最大＝EP）は未約定"),
