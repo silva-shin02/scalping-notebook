@@ -3282,3 +3282,4 @@ HomeEventFormModal, App
 - 【2026-11-12e・sw v642】EntryRecordForm：直上VAPを記録ごとにオンオフ（ユーザー要望・デフォはオフ）。「確定待ちor直上VAP」の右に「直上VAP オン/オフ」ボタン（state `fCeTopOn`＝初期値は initSig.ceTopPx != null＝過去に直上VAPを保存した記録はオンのまま・新規はオフ）。オフのとき：直上VAP欄を出さない・`_fCeTopRel`＝null（終値エントリーだけで計算）・保存の ceTopPx＝null・直上VAPの必須とVAP以下チェックをしない（確定待ちの水準線値の必須は残す）。
 - 【2026-11-12f・sw v643】`_TimeDialPicker` 作り直し（ユーザー要望）：クリックでも分が決まる・なぞっても指を離しただけでは確定しない＝下の「確定」で初めて `fTime` に入る（「取消」で閉じて変更なし）。中は下書き state（hh/mm）。配置を小さく＝左に時ボタン（9時〜15時の縦一列）・右に文字盤（最大170px）・最大幅330px。props は value/onCommit/onCancel（key に fTime を付けて開くたびに下書きを作り直す）。
 - 【2026-11-12g・sw v644】EntryRecordForm「基本情報」：銘柄・日付・時刻を横一列に（左から銘柄・日付・時刻・grid 1.3fr/1.2fr/1fr・各 minWidth 0）。銘柄のセレクトを独立行からグリッドの先頭へ移動。時計（`_TimeDialPicker`）は行の下に右寄せで開く。スマホ幅では日付欄が狭くなる。
+- 【2026-11-12h・sw v645】`_TimeDialPicker`：マウスを乗せると押す前に分を予告（state `hov`・薄い点線の針＋丸の中に分・`minAt` で角度→分）。ユーザー報告「クリックした所と判定時刻が微妙に違う」→計算は正しい（Playwright で 0/7/15/22/30/38/45/53 分を検証）・原因は文字盤が小さく1分≒6px。タッチでは出さない（pointerType mouse のみ）。
