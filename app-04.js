@@ -2173,7 +2173,8 @@ function _snVapCheck(d) {
         if (sg.vapAdjBatch === true) { o = Object.assign({}, o, { vapAdj: null, vapAdjBatch: null }); a = 0; r.exempt++; }
         else r.manualExempt++;
       }
-      if (Number(o.alphaVal) !== v + a || (o.baseAlphaVal != null && Number(o.baseAlphaVal) !== v + a)) { o = Object.assign({}, o, { alphaVal: v + a, baseAlphaVal: v + a }); r.alpha++; }
+      var _ra = (typeof _rnAdjOf === "function") ? _rnAdjOf(o) : 0;   // RN補正 2026-11-12（採用VAP＝読み値＋VAP補正＋RN補正）
+      if (Number(o.alphaVal) !== v + a + _ra || (o.baseAlphaVal != null && Number(o.baseAlphaVal) !== v + a + _ra)) { o = Object.assign({}, o, { alphaVal: v + a + _ra, baseAlphaVal: v + a + _ra }); r.alpha++; }
       if (o !== sg) chg = true;
       return o;
     });
@@ -5478,6 +5479,9 @@ function EpNaviPanel(_refEPN) {
         React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: epColor, fontVariantNumeric: "tabular-nums" } }, "EP " + e.ep + "円"),
         e.b ? React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "#475569" } }, e.b) : null),   // ③底抜けをEP価格の右に同サイズで表示（プレーン・底抜けライン欄のみ復活 2026-07-24）
       // VAP日(8/20以降)は「起点＋VAP n（読m・補正）」2026-10-20（α・基本/応用の内訳は無い）
+      // RN補正 2026-11-12: EPがちょうどRNで、設定（記録帳 💰損益 → 🔢 RN補正）に補正があれば、補正後のEPを表示（保存EPは変えない）。
+      (function() { if (!_vapWorld(date) || typeof _rnTierOfPrice !== "function") return null; var _t = _rnTierOfPrice(e.ep), _k = _t ? _rnAdjSetting({ custom: custom }, _t) : 0; if (!_k) return null;
+        return React.createElement("div", { title: "EPが" + _rnTierLabel(_t) + "のときのRN補正（記録の新規フォームでも自動で足されます）", style: { fontSize: 11, fontWeight: 800, color: "#1D4ED8" } }, "RN補正" + _rnAdjFmt(_k) + "（" + _rnTierLabel(_t) + "）→ EP " + (Math.round((Number(e.ep) + _k) * 100) / 100) + "円"); })(),
       _vapWorld(date) ? React.createElement("div", { style: { fontSize: 9, color: subColor } }, "起点" + e.level + "＋VAP" + ((Number(e.base) || 0) + (Number(e.vapAdj) || 0)) + ((Number(e.vapAdj) || 0) ? "（読" + (Number(e.base) || 0) + "・補正" + (e.vapAdj > 0 ? "+" : "") + e.vapAdj + "）" : ""))
         : React.createElement("div", { style: { fontSize: 9, color: subColor } }, _isUkiCard ? ("起点" + e.level + "＋α" + alphaSum + "（" + bk + "）") : ("起点" + e.level + (e.uki ? "＋浮" + e.uki : "") + "＋α" + (alphaSum - (Number(e.uki) || 0)) + "（" + bk + "）")),
       // 基本αの出所行「（本日の採用α値）」「（銘柄全体）」等はユーザー指示で非表示 2026-08-07。保存データ側の e.src は従来どおり記録している（表示だけの撤去＝出したくなればここを戻すだけ）。

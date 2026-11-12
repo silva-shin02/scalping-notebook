@@ -1698,6 +1698,85 @@ function _elPSelSummary(sel, opts) {
   return _head + " ▸ " + _lb(opts.months, sel.m, "全月") + " ▸ " + _lb(opts.weeks, sel.w, "全週") + " ▸ " + _lb(opts.days, sel.d, "全日");
 }
 // UI本体（案B: 折りたたみサマリー＋変更▾で4段チップ展開）。props: value(sel) / onChange(sel) / recs(件数表示の母数) / label
+// ===== 🔢 RN補正タブ 2026-11-12（💰損益タブ・全銘柄・📐VAP値の右）=====
+// EP（水準線＋採用VAP・RN補正を足す前）がちょうど …50円（中RN）／…00円（大RN）／…000円（特大RN）の記録に、さらに −5〜+5円 足したら合計損益がどう変わるか。
+// 計算の正本は app-05 _rnTierOfRec／_rnPreAlpha／_rnRowsOf。設定 custom.rnAdj＝{mid,big,top} を保存（新規の記録フォームが自動で足す・EPナビに表示）。
+// props: recs（VAP値タブと同じ母数）・aiOf・data・save・recTable(recs, extra)。
+function _ElRnAdjBoard(props) {
+  var recs = props.recs || [], aiOf = props.aiOf, data = props.data || {}, save = props.save;
+  var groups = {};
+  _RN_ADJ_TIERS.forEach(function(t) { groups[t[0]] = []; });
+  recs.forEach(function(r) { var t = _rnTierOfRec(r.signal); if (t) groups[t].push(r); });
+  var firstTier = null; _RN_ADJ_TIERS.forEach(function(t) { if (!firstTier && groups[t[0]].length) firstTier = t[0]; });
+  var _uS = useState(null), selRaw = _uS[0], setSel = _uS[1];
+  var sel = selRaw || firstTier || "mid";
+  var setAdj = function(tier, v) {
+    save(function(prev) { var cu = Object.assign({}, prev.custom || {}); var m = Object.assign({}, cu.rnAdj || {}); m[tier] = v; cu.rnAdj = m; return Object.assign({}, prev, { custom: cu }); });
+  };
+  var pct = function(v) { return v == null ? "—" : Math.round(v * 100) + "%"; };
+  var pnl = function(v, w) { return v == null ? "—" : React.createElement("span", { style: { fontWeight: w || 800, color: _elPnlColor(v) } }, _elPnlFmt(Math.round(v))); };
+  var th = function(t, left) { return React.createElement("th", { style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", fontSize: 10, textAlign: left ? "left" : "right", whiteSpace: "nowrap", color: "#555" } }, t); };
+  var td = function(n, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "right", fontSize: 11, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", borderBottom: "1px solid #eee" }, ex || {}) }, n); };
+  var btn = function(label, onClick, on, title) { return React.createElement("button", { type: "button", onClick: onClick, title: title, style: { padding: "1px 7px", fontSize: 11, fontWeight: 800, borderRadius: 5, cursor: "pointer", border: "1px solid " + (on ? "#1D4ED8" : "#BFDBFE"), background: on ? "#1D4ED8" : "#fff", color: on ? "#fff" : "#1D4ED8", whiteSpace: "nowrap" } }, label); };
+  var head = React.createElement("div", { style: { marginBottom: 8 } },
+    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "🔢 RN補正 ― EPがちょうどRNのとき、何円足すとよいか"),
+    React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
+      "EP＝水準線＋採用VAP（読み値＋VAP補正。RN補正は足す前）が、ちょうど …50円＝中RN／…00円＝大RN／…000円＝特大RN の記録を区分ごとに集め、EPを −5〜+5円 動かして判定し直した成績です。" +
+      "★＝合計損益が最大の補正（想定損益が確定した件数が10件以上の行のみ・10件未満は「参考」）。保存した値は、新規の記録フォームでEPがRNのとき自動で足され、EPナビにも補正後のEPが出ます（過去の記録は変わりません）。母数＝VAP値タブと同じ（期間は上の選択どおり）。"));
+  var rowsOf = {};
+  var sumRows = _RN_ADJ_TIERS.map(function(t) {
+    var key = t[0], g = groups[key], cur = _rnAdjSetting(data, key);
+    var rr = g.length ? _rnRowsOf(g, aiOf) : null; rowsOf[key] = rr;
+    var z = rr ? rr.rows.filter(function(x) { return x.k === 0; })[0].e : null;
+    var pick = rr ? (rr.best || rr.ref) : null, isRef = rr && !rr.best;
+    var on = sel === key;
+    return React.createElement("tr", { key: "s_" + key, onClick: function() { setSel(key); }, style: { cursor: "pointer", background: on ? "#EFF6FF" : "transparent" } },
+      td(React.createElement("span", null, React.createElement("b", null, t[1]), React.createElement("span", { style: { fontSize: 9.5, color: "#94A3B8", marginLeft: 4 } }, t[2])), { textAlign: "left" }),
+      td(g.length + "件"),
+      td(z ? z.entered + "/" + z.n + "（" + pct(z.eRate) + "）" : "—"),
+      td(z ? pnl(z.h2Sum) : "—"),
+      td(pick ? React.createElement("span", { style: { fontWeight: 800, color: isRef ? "#94A3B8" : "#CA8A04" } }, _rnAdjFmt(pick.k) + (isRef ? " 参考" : " ★")) : "—"),
+      td(pick ? pnl(pick.e.h2Sum) : "—"),
+      td(pick && z && pick.e.h2Sum != null ? pnl((pick.e.h2Sum || 0) - (z.h2Sum || 0)) : "—"),
+      td(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 }, onClick: function(ev) { ev.stopPropagation(); } },
+        btn("−", function() { setAdj(key, cur - 1); }, false, "設定を1円下げる"),
+        React.createElement("b", { style: { minWidth: 34, textAlign: "center", color: cur ? "#1D4ED8" : "#94A3B8" } }, _rnAdjFmt(cur)),
+        btn("＋", function() { setAdj(key, cur + 1); }, false, "設定を1円上げる"),
+        (pick && pick.k !== cur) ? btn((isRef ? "参考" : "★") + "にする", function() { setAdj(key, pick.k); }, false, "RN補正を " + _rnAdjFmt(pick.k) + " にする") : null)));
+  });
+  var summary = React.createElement("div", { style: { overflowX: "auto", marginBottom: 10 } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+      React.createElement("thead", null, React.createElement("tr", null, th("区分", true), th("件数"), th("補正なし 約定率"), th("補正なし 合計"), th("損益最大の補正"), th("その合計"), th("差"), th("保存中のRN補正"))),
+      React.createElement("tbody", null, sumRows)),
+    React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginTop: 3 } }, "※行を押すと、その区分の補正ごとの表と記録一覧に切り替わります。保存中のRN補正は全端末で共通です。"));
+  var rr = rowsOf[sel], g = groups[sel] || [];
+  var detail = rr ? React.createElement("div", { style: { overflowX: "auto", marginBottom: 10 } },
+    React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#1D4ED8", margin: "4px 0 4px" } }, _rnTierLabel(sel) + "（" + g.length + "件）の補正ごとの成績"),
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+      React.createElement("thead", null, React.createElement("tr", null, th("補正", true), th("件数"), th("約定率"), th("合計損益"), th("平均"), th("中央値"), th("利確率"), th("損切り率"), th(""))),
+      React.createElement("tbody", null, rr.rows.map(function(x) {
+        var e = x.e, isBest = rr.best && rr.best.k === x.k, cur = _rnAdjSetting(data, sel) === x.k;
+        return React.createElement("tr", { key: "k" + x.k, style: { background: isBest ? "#FEF9C3" : (x.k === 0 ? "#F8FAFC" : "transparent") } },
+          td(React.createElement("span", null, React.createElement("b", null, _rnAdjFmt(x.k)), cur ? React.createElement("span", { style: { fontSize: 9, color: "#1D4ED8", marginLeft: 4, fontWeight: 800 } }, "保存中") : null), { textAlign: "left" }),
+          td(e.n + "件"), td(e.entered + "/" + e.n + "（" + pct(e.eRate) + "）"), td(pnl(e.h2Sum)),
+          td(e.avgH2 == null ? "—" : pnl(e.avgH2, 400)), td(e.medH2 == null ? "—" : pnl(e.medH2, 400)),
+          td(pct(e.takeRate)), td(pct(e.stopRate)),
+          td(isBest ? React.createElement("span", { style: { color: "#CA8A04", fontWeight: 800 } }, "★推奨") : ""));
+      })))) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, _rnTierLabel(sel) + "の記録がありません");
+  var xth = React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", width: "1%", fontSize: 10, color: "#1D4ED8", background: "#EFF6FF" } }, "EP（RN補正前）");
+  var extra = { at: 5, head: [xth], cells: function(r) {
+    var s = r.signal, a = _rnPreAlpha(s), lv = Number(s.levelPrice), ep = (a == null || isNaN(lv)) ? null : Math.round((lv + a) * 100) / 100, k = _rnAdjOf(s);
+    return [React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", background: "#F8FBFF" } },
+      React.createElement("div", { style: { fontWeight: 800, color: "#1D4ED8" } }, ep == null ? "—" : ep + "円"),
+      k ? React.createElement("div", { style: { fontSize: 9.5, color: "#64748B" } }, "RN補正" + _rnAdjFmt(k) + "済") : null)];
+  } };
+  var list = g.length ? React.createElement("div", null,
+    React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#1A1714", margin: "4px 0 6px" } }, "📋 " + _rnTierLabel(sel) + "の記録"),
+    props.recTable(g, extra)) : null;
+  var total = groups.mid.length + groups.big.length + groups.top.length;
+  if (!total) return React.createElement("div", null, head, summary, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, "EPがちょうどRNの記録がありません（水準線値とVAP値が入った記録が対象です）"));
+  return React.createElement("div", null, head, summary, detail, list);
+}
 // ===== ⏳ 全部確定待ち タブ 2026-11-12（💰損益タブ・全銘柄）=====
 // 計算の正本は app-05 _elAllCeRow／_elAllCeAgg。ここは画面だけ。props: recs（合計損益と同じ除外を済ませた記録）・aiOf・data・recTable(recs, extra)・onEdit。
 var _ALLCE_SKIP = [["noep", "E不成立（未達・指値同値）"], ["x", "×見送り"], ["noconf", "確定値なし"], ["noamt", "損益が確定しない"]];
@@ -7029,7 +7108,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   // 未達タブのバッジ件数は、選択中シグナルの母数で数える（シグナル軸の下で _missCnt を定義 2026-07-01）。
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
-    ? [["sum", "📊 集計"], ["ce", "⏳ 全部確定待ち"]].concat(legacy ? [] : [["alpha", "📐 VAP値"]]).concat([["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]])   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
+    ? [["sum", "📊 集計"], ["ce", "⏳ 全部確定待ち"]].concat(legacy ? [] : [["alpha", "📐 VAP値"], ["rn", "🔢 RN補正"]]).concat([["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]])   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
     : [["sum", "📊 集計"], ["alpha", legacy ? "📐 α値" : "📐 VAP値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
   // 2026-09-02 「🩹 補正要否」タブを撤去＝対象シグナル（既定「底つきライン」・_SPN_DEFAULT_SIGNALS）のタブ内へ移設（ユーザー指示「この補正は底つきラインでしか使わない」）。
   var _SIG_TABS = (legacy ? [] : [["vap", "📐 VAP値"]]).concat((legacy ? [["band", "💴 株価帯別"]] : []).concat([["stop", "🛑 損切り"]]).concat(legacy ? [["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]] : []));   // 2026-10-05 VAP枠に浮き足・RN加算は無い＝タブごと出さない。 2026-10-04 📐VAP値（シグナル別比較）を先頭に追加（8/20以降の枠のみ）。 2026-08-20b 「📥 確定待ち」はここに一度置いたが、ユーザー決定で💰損益タブ（_tabsの全銘柄側）へ移設した。   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
@@ -9581,7 +9660,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         var ce = { n: 0, skip: 0, diff: 0 };
         rs.forEach(function(r) { if (_elCollExcluded(data, r, _collScope)) return; var a = _ai(r), ci = _elCeInfo(r.signal, a.alpha, a.cutLine); if (!ci) return; ce.n++; if (!ci.ce) ce.skip++; ce.diff += ci.diff; });
         var va = { n: 0, diff: 0 };
-        rs.forEach(function(r) { var s = r.signal; if (_vapAdjOf(s) === 0 || _vapOf(s) == null || _elCollExcluded(data, r, _collScope)) return; var c = _ai(r).cutLine; var p1 = _elHoldFinalParts(s, _epOwnAlpha(s), c), p0 = _elHoldFinalParts(s, _vapOf(s), c); va.n++; va.diff += ((p1 && p1.main) || 0) - ((p0 && p0.main) || 0); });
+        rs.forEach(function(r) { var s = r.signal; if (_vapAdjOf(s) === 0 || _vapOf(s) == null || _elCollExcluded(data, r, _collScope)) return; var c = _ai(r).cutLine; var p1 = _elHoldFinalParts(s, _vapOf(s) + _vapAdjOf(s), c), p0 = _elHoldFinalParts(s, _vapOf(s), c); va.n++; va.diff += ((p1 && p1.main) || 0) - ((p0 && p0.main) || 0); });
         var vstar = null;
         if (!legacy) { var _vpool = rs.filter(function(r) { return _vapAnalysisOk(r) && _vapPoolOk(r.signal) && !_elCollExcluded(data, r, _collScope); }); if (_vpool.length) { var _vr = _vapRowsOf(_vpool, _ai); var _vb = _vr.best || _vr.ref; if (_vb) vstar = { k: _vb.k, ref: !_vr.best, sum: _vb.e.h2Sum, n: _vpool.length }; } }
         var ops = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
@@ -9664,6 +9743,12 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           React.createElement("span", { style: { color: "#B45309" } }, "※銘柄別タブのシミュとは母数が違うので合計は一致しません＝あちらは選択中シグナルのみが母数、時間かぶり除外も同一銘柄内だけ。こちらは全シグナル・銘柄をまたいだ被りも除外します。"))),   // 2026-07-20h 「銘柄別タブのシミュを合算した値と一致します」は誤りだったので訂正（母数の定義が3点で異なる）
       _elCard(React.createElement(_elKabuLadderSimV2, { recs: _simAllRecs, baseRecs: _simAllBase, aiOf: _ai, data: data, scopeStock: null, allStock: true, vap: !legacy }))])
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
+  } else if (view === "rn" && _isAllStock && !legacy) {
+    // 🔢 RN補正 2026-11-12（ユーザー要望）。母数＝📐VAP値タブと同じ（VAP入力済み・時間かぶり除外・期間選択）。本体は _ElRnAdjBoard。
+    var _rnRecs = _v2recsAll.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, _collScope); });
+    _tabBody = _cardify([
+      _elCard(React.createElement(_ElRnAdjBoard, { recs: _rnRecs, aiOf: _ai, data: data, save: save, recTable: function(rs, ex) { return _recTable(rs, "full", "rnadj_", null, null, ex); } }))
+    ]);
   } else if (view === "ce" && _isAllStock) {
     // ⏳ 全部確定待ち 2026-11-12（ユーザー要望）。母数＝📊集計の合計損益と同じ線引き（期間選択・算入・データのみ・仮シグナル・算入銘柄・時間かぶり除外）。計算は app-05 _elAllCeRow。
     var _ceRecs = v2recs.filter(function(r) { return r && r.signal && !_isDataOnly(data, r) && !_elIsProvisional(r.signal) && _elAmtRecOk(r) && !_elCollExcluded(data, r, _collScope); });
@@ -9780,11 +9865,11 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       sinceOnly ? React.createElement("div", { style: { fontSize: 9, color: "#0F6E56", marginTop: 4, lineHeight: 1.45 } },
         "※ 分析の母数だけを" + _EL_SINCE_LBL + "に絞っています（シグナルの件数・推奨α・シミュも追随）。上の銘柄ピルの件数と💰損益の集計表は全期間のままなので数が食い違って見えます。期間の指定と併用すると両方の条件で絞られます。") : null) : null,
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", marginBottom: 6 } },
-      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view !== "sum" && view !== "mw" && view !== "sim" && view !== "proj" && view !== "ce") setView("sum"); },   // 2026-07-20h "sim"を追加＝全銘柄タブに🧮シミュを新設(07-20f)した際にこのガードを更新し忘れ、銘柄タブでシミュを開いてから💰損益を押すと集計へ飛ばされて新タブに入れなかった。2026-08-06B "proj"（📈損益推移シミュレーター 2026-08-05）で**まったく同じ更新漏れを再発**させていたので追加。⚠️_tabs(5997)の全銘柄タブに項目を足したら必ずこの許可リストも足すこと
+      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view !== "sum" && view !== "mw" && view !== "sim" && view !== "proj" && view !== "ce" && view !== "rn") setView("sum"); },   // 2026-07-20h "sim"を追加＝全銘柄タブに🧮シミュを新設(07-20f)した際にこのガードを更新し忘れ、銘柄タブでシミュを開いてから💰損益を押すと集計へ飛ばされて新タブに入れなかった。2026-08-06B "proj"（📈損益推移シミュレーター 2026-08-05）で**まったく同じ更新漏れを再発**させていたので追加。⚠️_tabs(5997)の全銘柄タブに項目を足したら必ずこの許可リストも足すこと
         style: { flexShrink: 0, padding: "6px 15px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1A1714" : "#E0DAD1"), background: _isAllStock ? "#1A1714" : "#fff", color: _isAllStock ? "#fff" : "#6B6459" } },
         "💰 損益 (" + _periodRecs.length + ")"),
-      React.createElement("button", { key: "__sigtotalbtn__", onClick: function() { setStockFil(_SIG_TOTAL); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view === "proj" || view === "ce") setView("sum"); },   // 2026-08-06B 銘柄ピルと同じ理由で proj から抜ける（2026-08-20b ce＝📥確定待ちも全銘柄タブ専用なので同じ扱い）（📡シグナル総合でも _isAllStock は false）
+      React.createElement("button", { key: "__sigtotalbtn__", onClick: function() { setStockFil(_SIG_TOTAL); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view === "proj" || view === "ce" || view === "rn") setView("sum"); },   // 2026-08-06B 銘柄ピルと同じ理由で proj から抜ける（2026-08-20b ce＝📥確定待ちも全銘柄タブ専用なので同じ扱い）（📡シグナル総合でも _isAllStock は false）
         style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isSigTotal ? "#0F766E" : "#E0DAD1"), background: _isSigTotal ? "#0F766E" : "#fff", color: _isSigTotal ? "#fff" : "#6B6459" } },
         "📡 シグナル総合"),
@@ -9793,7 +9878,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         // 2026-08-06B ⚠️`proj`（📈損益推移シミュレーター）は全銘柄タブ専用（本文の分岐は `view==="proj" && _isAllStock` だけ）。
         //   銘柄を選ぶと _isAllStock が false になり、if/elseチェーンに最終elseが無いので _tabBody が undefined ＝
         //   **本文が丸ごと真っ白**になっていた（タブ行にも proj が出ないのでどこも選択されていない状態）。集計へ戻す。
-        return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setDetTagMode("sig"); setSelDetTag(null); if (view === "proj" || view === "ce") setView("sum"); },
+        return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setDetTagMode("sig"); setSelDetTag(null); if (view === "proj" || view === "ce" || view === "rn") setView("sum"); },
           style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
             border: "1px solid " + (on ? "#9A3412" : "#E0DAD1"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#6B6459" } },
           _stkLbl(s) + " (" + (_cntByStock[s] || 0) + ")");
