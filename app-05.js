@@ -9685,6 +9685,7 @@ function EntryRecordForm(_ref_erf) {
   var _useStateCET = useState(initSig.ceTopPx != null ? String(initSig.ceTopPx) : ""),   // 直上VAP（株価）2026-10-28
     fCeTopPxRaw = _useStateCET[0], setFCeTopPxRaw = _useStateCET[1];
   // 2026-10-28b 初期値＝水準線値（ユーザー決定）: 自分で変える（入力・▲▼）までは水準線値（＋採用VAP・下記）に追従。保存済みの値がある記録はそれを使う。
+  var _useStateCETO = useState(initSig.ceTopPx != null), fCeTopOn = _useStateCETO[0], setFCeTopOn = _useStateCETO[1];   // 直上VAPでエントリーするか（記録ごと・新規はオフ・保存済みの記録はオン）2026-11-12
   var _useStateCETT = useState(initSig.ceTopPx != null), fCeTopTouched = _useStateCETT[0], setFCeTopTouched = _useStateCETT[1];
   // 2026-10-28c 採用VAP（補正後＝_fAlpha）が1円以上なら、その分も込み＝水準線＋採用VAP（ユーザー決定）。2026-10-29 そこから+10円。
   var _ceTopDef = (function() {
@@ -9703,7 +9704,7 @@ function EntryRecordForm(_ref_erf) {
   };
   // 直上VAPの水準線比（計算用）。株価・水準線値のどちらかが無ければ null。
   var _fCeTopRel = (function() {
-    if (fCeTopPx === "" || fLevelPrice === "" || fLevelPrice == null) return null;
+    if (!fCeTopOn || fCeTopPx === "" || fLevelPrice === "" || fLevelPrice == null) return null;
     var p = Number(fCeTopPx), lv = Number(fLevelPrice);
     return (isNaN(p) || isNaN(lv)) ? null : Math.round((p - lv) * 100) / 100;
   })();
@@ -9791,7 +9792,7 @@ function EntryRecordForm(_ref_erf) {
   var _fVSig = {
     stopHold: _fStopHoldOn ? true : undefined,   // 損切り接触でも次足期待度○なら持ち続ける（保存後の表と同じ判定に揃える）
     ceOn: _fCeActive ? !!fCeOn : undefined, ceIdx: (_fCeActive && _fK0 >= 0) ? _fK0 : null, time: fTime || "",   // 5分足確定足エントリー（保存値と同じ）
-    ceTopPx: (fCeOn && fCeTopPx !== "" && !isNaN(Number(fCeTopPx))) ? Number(fCeTopPx) : null,   // 直上VAP（保存値と同じ）2026-10-28
+    ceTopPx: (fCeOn && fCeTopOn && fCeTopPx !== "" && !isNaN(Number(fCeTopPx))) ? Number(fCeTopPx) : null,   // 直上VAP（保存値と同じ）2026-10-28
     levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
     scheme: 3, alphaVal: _fAlpha, difficulty: fDifficulty || null,
     osVal: (fOsVal !== "" && !isNaN(Number(fOsVal))) ? Number(fOsVal) : null,
@@ -10286,8 +10287,8 @@ function EntryRecordForm(_ref_erf) {
       if (!isEdit && fCeOn && (fCeReasons || []).filter(Boolean).length === 0) _vm.push("確定待ちの理由（選択肢）");
       if (!isEdit && fCeOn && !fCeTf) _vm.push("確定待ちの理由の分足");   // 新規のみ必須（理由と同じ・ユーザー決定）2026-10-31
       // 直上VAP 2026-10-28（ユーザー決定）: 確定待ちを付けたら新規・編集とも必須／計算に水準線値が要る／VAPより上の株価であること。
-      if (fCeOn && (fCeTopPx === "" || isNaN(Number(fCeTopPx)))) _vm.push("直上VAP（株価）");
-      else if (fCeOn && (fLevelPrice === "" || isNaN(Number(fLevelPrice)))) _vm.push("水準線値（直上VAPの計算に使います）");   // 新規の確定待ちは必須 2026-10-19（2026-10-21 未達でもチェックしたら必須＝ユーザー決定）
+      if (fCeOn && fCeTopOn && (fCeTopPx === "" || isNaN(Number(fCeTopPx)))) _vm.push("直上VAP（株価）");
+      else if (fCeOn && (fLevelPrice === "" || isNaN(Number(fLevelPrice)))) _vm.push(fCeTopOn ? "水準線値（直上VAPの計算に使います）" : "水準線値");   // 新規の確定待ちは必須 2026-10-19（2026-10-21 未達でもチェックしたら必須＝ユーザー決定）
       if (!isEdit && fReview === true && (fReviewReasons || []).filter(Boolean).length === 0) _vm.push("要審議の理由（選択肢）");   // 新規の要審議も必須 2026-10-17
       // ①EP基準ライン・②起点は必須 2026-10-29（新規・編集とも・ユーザー決定）。選んだシグナルごとに1つ以上。②の名前はシグナルごとの表示名。
       // 2026-10-29h 1分足・5分足の両方の段で必須（ユーザー決定）。
@@ -10299,7 +10300,7 @@ function EntryRecordForm(_ref_erf) {
         });
         _elSigSecs(data, _t).forEach(function(_sc) { if (!_sc.req) return; ((_sc.key === "b" && _elBShared(custom, _t)) ? [""] : _EL_TFS).forEach(function(tf) { var _a = _sb && _sb[_sc.key + tf]; if (!(Array.isArray(_a) && _a.length)) _vm.push(_sc.num + _sc.name + "（" + (tf ? tf + "分・" : "") + _t + "）"); }); }); });
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
-      if (fCeOn && _fCeTopRel != null && _fAlpha != null && !(_fCeTopRel > _fAlpha)) {
+      if (fCeOn && fCeTopOn && _fCeTopRel != null && _fAlpha != null && !(_fCeTopRel > _fAlpha)) {
         window._snAlert("直上VAPは、VAPの株価（水準線＋VAP値＝" + (Math.round((Number(fLevelPrice) + _fAlpha) * 100) / 100) + "円）より上の株価を入れてください。");
         return;
       }
@@ -10370,7 +10371,7 @@ function EntryRecordForm(_ref_erf) {
       ceIdx: (_fCeActive && _fK0 >= 0) ? _fK0 : null,   // チェック欄が指していた足（α値に届いた最初の足・0=OS1）
       ceReasons: (fCeOn && (fCeReasons || []).filter(Boolean).length) ? (fCeReasons || []).filter(Boolean) : null,   // 確定待ちの理由（選択肢）2026-10-19
       ceTf: (fCeOn && fCeTf) ? fCeTf : null,   // 確定待ちの理由の分足 2026-10-31
-      ceTopPx: (fCeOn && fCeTopPx !== "" && !isNaN(Number(fCeTopPx))) ? Number(fCeTopPx) : null,   // 直上VAP（株価）2026-10-28
+      ceTopPx: (fCeOn && fCeTopOn && fCeTopPx !== "" && !isNaN(Number(fCeTopPx))) ? Number(fCeTopPx) : null,   // 直上VAP（株価）2026-10-28
       isCustomTag: fIsCustom,
       customTagText: fIsCustom ? _ntf(fCustomText) : "",
       rationale: fRationale,
@@ -11835,7 +11836,7 @@ function EntryRecordForm(_ref_erf) {
             } else if (_ef.skipIdx != null && _ef.skipIdx >= 0) {
               var _ci2 = _elCeInfo(_fVSig, _fAlpha, _fCutLine);
               _ciNode = [
-                React.createElement("span", { key: "sk", style: { color: "#B45309", fontWeight: 700 } }, "OS" + (_ef.skipIdx + 1) + (fCeTopPx !== "" ? "で直上VAPに届かず、終値もα以下" : "の終値がα以下") + " → この足では入らず（次の足からα値で約定）"),
+                React.createElement("span", { key: "sk", style: { color: "#B45309", fontWeight: 700 } }, "OS" + (_ef.skipIdx + 1) + ((fCeTopOn && fCeTopPx !== "") ? "で直上VAPに届かず、終値もα以下" : "の終値がα以下") + " → この足では入らず（次の足からα値で約定）"),
                 (_ci2 && _ci2.diff != null) ? React.createElement("span", { key: "df", style: { fontWeight: 700, color: _ci2.diff > 0 ? "#C0392B" : _ci2.diff < 0 ? "#1E8449" : "#888" } },
                   "α約定比 " + (_ci2.diff > 0 ? "+" : _ci2.diff < 0 ? "−" : "±") + Math.abs(_ci2.diff).toLocaleString() + "円") : null
               ];
@@ -11845,7 +11846,10 @@ function EntryRecordForm(_ref_erf) {
                 React.createElement("input", { type: "checkbox", checked: !!fCeOn, onChange: function(e) { setFCeOn(e.target.checked); } }),
                 "確定待ちor直上VAP"),
               // 直上VAP（株価）2026-10-28: チェックの右。確定を待つ間にこの株価まで上がったら、その値で即エントリーした扱い。
-              fCeOn ? React.createElement("span", { title: "確定を待つ間に株価がここまで上がったら、その値で即エントリーした扱い（届かなければ終値エントリー）。VAPより上の株価を入れる。", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#ECFEFF", border: "1px solid #67E8F9" } },
+              fCeOn ? React.createElement("button", { type: "button", onClick: function() { setFCeTopOn(!fCeTopOn); }, title: "オン：確定を待つ間に直上VAPまで上がったら、その値でエントリーした扱い。オフ：終値エントリーだけ（直上VAPは使わない）。",
+                style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 12, cursor: "pointer", fontSize: 11, fontWeight: 700, border: "1px solid " + (fCeTopOn ? "#0E7490" : "#CBD5E1"), background: fCeTopOn ? "#0E7490" : "#fff", color: fCeTopOn ? "#fff" : "#64748B" } },
+                "直上VAP " + (fCeTopOn ? "オン" : "オフ")) : null,
+              (fCeOn && fCeTopOn) ? React.createElement("span", { title: "確定を待つ間に株価がここまで上がったら、その値で即エントリーした扱い（届かなければ終値エントリー）。VAPより上の株価を入れる。", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#ECFEFF", border: "1px solid #67E8F9" } },
                 React.createElement("span", { style: { color: "#0E7490", fontWeight: 700 } }, "直上VAP"),
                 React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #67E8F9", borderRadius: 4, overflow: "hidden" } },
                   React.createElement("input", { type: "text", inputMode: "decimal", value: fCeTopPx, placeholder: "株価",
