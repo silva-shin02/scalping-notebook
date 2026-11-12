@@ -10542,19 +10542,23 @@ function EntryRecordForm(_ref_erf) {
       ),
       
       React.createElement("div", { style: SH_ }, "基本情報"),
-      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
-        React.createElement("label", { style: L }, "日付",
+      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1.2fr) minmax(0,1fr)", gap: 8, marginBottom: 8 } },
+        React.createElement("label", { style: Object.assign({}, L, { minWidth: 0 }) }, "銘柄",
+          React.createElement("select", { value: fStock, onChange: function(e) { setFStock(e.target.value); setFItemId(null); }, style: Object.assign({}, I, { width: "100%", minWidth: 0 }) },
+            allStocks.map(function(s) { return React.createElement("option", { key: s, value: s }, _stkLbl(s)); }))
+        ),
+        React.createElement("label", { style: Object.assign({}, L, { minWidth: 0 }) }, "日付",
           React.createElement("div", { style: { display: "flex", gap: 4 } },
-            React.createElement("input", { type: "date", value: fDate, onChange: function(e) { setFDate(e.target.value); }, style: Object.assign({}, I, { flex: 1 }) }),
+            React.createElement("input", { type: "date", value: fDate, onChange: function(e) { setFDate(e.target.value); }, style: Object.assign({}, I, { flex: 1, minWidth: 0 }) }),
             React.createElement("button", {
               onClick: function() { setFDate(todayStr()); },
               style: { padding: "0 10px", fontSize: 11, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 5, cursor: "pointer" }
             }, "今日")
           )
         ),
-        React.createElement("label", { style: L }, "時刻",
+        React.createElement("label", { style: Object.assign({}, L, { minWidth: 0 }) }, "時刻",
           React.createElement("div", { style: { display: "flex", gap: 4 } },
-            React.createElement("div", { role: "button", onClick: function(e) { e.preventDefault(); setFTimeOpen(!fTimeOpen); }, style: Object.assign({}, I, { flex: 1, cursor: "pointer", fontVariantNumeric: "tabular-nums", color: fTime ? "#222" : "#aaa", border: fTimeOpen ? "1px solid #0a6cff" : I.border }) }, fTime || "--:--"),
+            React.createElement("div", { role: "button", onClick: function(e) { e.preventDefault(); setFTimeOpen(!fTimeOpen); }, style: Object.assign({}, I, { flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", paddingLeft: 6, paddingRight: 6, cursor: "pointer", fontVariantNumeric: "tabular-nums", color: fTime ? "#222" : "#aaa", border: fTimeOpen ? "1px solid #0a6cff" : I.border }) }, fTime || "--:--"),
             React.createElement("button", {
               onClick: function() {
                 var n = new Date();
@@ -10565,14 +10569,7 @@ function EntryRecordForm(_ref_erf) {
           )
         )
       ),
-      fTimeOpen ? React.createElement(_TimeDialPicker, { key: "tp" + fTime, value: fTime, onCommit: function(v) { setFTime(v); setFTimeOpen(false); }, onCancel: function() { setFTimeOpen(false); } }) : null,
-      React.createElement("label", { style: L }, "銘柄",
-        React.createElement("select", {
-          value: fStock,
-          onChange: function(e) { setFStock(e.target.value); setFItemId(null); },
-          style: I
-        }, allStocks.map(function(s) { return React.createElement("option", { key: s, value: s }, _stkLbl(s)); }))
-      ),
+      fTimeOpen ? React.createElement("div", { style: { display: "flex", justifyContent: "flex-end" } }, React.createElement(_TimeDialPicker, { key: "tp" + fTime, value: fTime, onCommit: function(v) { setFTime(v); setFTimeOpen(false); }, onCancel: function() { setFTimeOpen(false); } })) : null,
       
       React.createElement("div", { style: SH_ }, "売/買"),
       React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
