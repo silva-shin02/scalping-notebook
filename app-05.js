@@ -4338,7 +4338,7 @@ function _elCeInfo(s, alpha, cutLine) {
   var a = _elHoldFinalParts(s, alpha, cutLine).main, b = _elHoldFinalParts(base, alpha, cutLine).main;
   return { ce: r.ce, top: !!r.top, skipIdx: r.skipIdx, epIdx: r.epIdx, px: r.ce ? r.px : null, diff: (a || 0) - (b || 0) };
 }
-// ===== ⏳ 全部確定待ち（反実仮想）2026-11-12 =====
+// ===== ⏳ 確定待ち（反実仮想）2026-11-12（2026-11-12b 画面は「5分確定待ち」＝エントリー足が5分確定足の記録だけ・絞りは app-06 _ElAllCeSection）=====
 // ユーザー要望「すべてエントリー足で確定待ちしたら、EPより高いところで確定した数・確率と損益比較」。仕様はユーザー決定（選択肢）:
 //   ・エントリー足＝α値に最初に届いた足（OS1〜3・確定待ちを外した判定）。その足に確定待ちを付けた仮の記録を、今の確定待ちと同じ計算（_epCeView）に通す
 //     ＝終値＞EPなら終値で約定（損切りラインも約定値に合わせて上へ）／終値≦EPならその足では入らず、次の足でα値に届けばα値で約定・OS3まで届かなければ未達。
@@ -4395,7 +4395,7 @@ function _elAllCeRow(s, alpha, cutLine, caRel) {
   var base = already ? Object.assign({}, s, { ceOn: undefined }) : s;
   var r0 = _epResolve(base, A);
   if (!r0 || r0.epIdx < 0) return { skip: "noep" };
-  if (r0.judge !== "ok") return { skip: "x" };
+  if (r0.judge !== "ok") return { skip: "x", k0: r0.epIdx };
   var k0 = r0.epIdx, lg = r0.legs[k0], c = lg.c, src = "rec";
   if (c == null && caRel) { c = caRel(k0); src = "ca"; }
   if (c == null || isNaN(Number(c))) return { skip: "noconf", k0: k0 };

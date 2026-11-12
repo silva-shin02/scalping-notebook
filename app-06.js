@@ -1777,13 +1777,13 @@ function _ElRnAdjBoard(props) {
   if (!total) return React.createElement("div", null, head, summary, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, "EPがちょうどRNの記録がありません（水準線値とVAP値が入った記録が対象です）"));
   return React.createElement("div", null, head, summary, detail, list);
 }
-// ===== ⏳ 全部確定待ち タブ 2026-11-12（💰損益タブ・全銘柄）=====
+// ===== ⏳ 5分確定待ち タブ 2026-11-12（💰損益タブ・全銘柄）2026-11-12b 「全部確定待ち」から作り替え＝エントリー足が5分確定足の記録だけ =====
 // 計算の正本は app-05 _elAllCeRow／_elAllCeAgg。ここは画面だけ。props: recs（合計損益と同じ除外を済ませた記録）・aiOf・data・recTable(recs, extra)・onEdit。
 var _ALLCE_SKIP = [["noep", "E不成立（未達・指値同値）"], ["x", "×見送り"], ["noconf", "確定値なし"], ["noamt", "損益が確定しない"]];
-var _ALLCE_AXES = [["sig", "シグナル別"], ["stock", "銘柄別"], ["five", "5分確定足か"], ["hour", "時間帯別"]];
+var _ALLCE_AXES = [["sig", "シグナル別"], ["stock", "銘柄別"], ["os", "OS番号別"], ["hour", "時間帯別"]];
 function _allCeAxisKey(axis, r, x) {
   if (axis === "stock") return r.stock || "(銘柄なし)";
-  if (axis === "five") return x.five ? "5分確定足" : "それ以外の1分足";
+  if (axis === "os") return "OS" + (x.k0 + 1);
   if (axis === "hour") { var t = _epCeTimeAt(r.signal.time, x.k0), m = /^(\d{1,2})/.exec(t || ""); return m ? (Number(m[1]) + "時台") : "(時刻なし)"; }
   return _elTagLabel(r.signal);
 }
@@ -1797,7 +1797,7 @@ function _ElAllCeSection(props) {
   recs.forEach(function(r) {
     var a = aiOf(r);
     var x = _elAllCeRow(r.signal, a.alpha, a.cutLine, function(k) { return _allCeCaRel(r.signal, r.stock, r.date, k); });
-    if (x) rows.push({ r: r, x: x });
+    if (x && x.k0 != null && _epIs5mConf(r.signal.time, x.k0)) rows.push({ r: r, x: x });   // 2026-11-12b エントリー足が5分確定足の記録だけ（ユーザー決定）
   });
   var ok = rows.filter(function(o) { return !o.x.skip; });
   var skipN = {}; rows.forEach(function(o) { if (o.x.skip) skipN[o.x.skip] = (skipN[o.x.skip] || 0) + 1; });
@@ -1840,19 +1840,19 @@ function _ElAllCeSection(props) {
     return React.createElement("button", { key: key, type: "button", onClick: onClick, style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#0E7490" : "#D6D3D1"), background: on ? "#ECFEFF" : "#fff", color: on ? "#0E7490" : "#57534E" } }, label);
   };
   var head = React.createElement("div", { key: "h", style: { marginBottom: 8 } },
-    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⏳ 全部確定待ち ― エントリー足の確定を必ず待っていたら"),
+    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⏳ 5分確定待ち ― エントリー足が5分足の確定足のとき、確定を待つべきか"),
     React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
-      "エントリー足＝α値に最初に届いた足（OS1〜3）。その足の確定値（終値）がEPより高ければ終値で約定（損切りラインも約定値に合わせて上へ）、EP以下ならその足では入らず次の足でα値に届けばα値で約定・OS3まで届かなければ未達。記録フォームの「確定待ち」と同じ計算です。" +
+      "対象＝エントリー足（α値に最初に届いた足・OS1〜3）が5分足の確定足（1分足の時刻の分の1の位が4か9＝10:14・10:19など）の記録。その足の確定値（終値）がEPより高ければ終値で約定（損切りラインも約定値に合わせて上へ）、EP以下ならその足では入らず次の足でα値に届けばα値で約定・OS3まで届かなければ未達。記録フォームの「確定待ち」と同じ計算です。" +
       "直上VAPは加味しません。確定待ちを付けてある記録は両側とも記録のまま（差額0）。対象＝E成立して合計損益に入る記録（期間は上の選択どおり）。"));
-  if (!rows.length) return React.createElement("div", null, head, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "対象の記録がありません"));
+  if (!rows.length) return React.createElement("div", null, head, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "エントリー足が5分確定足の記録がありません"));
   var kpi = React.createElement("div", { key: "k", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
     _card("確定値がEPより高かった", [React.createElement("span", { key: "a" }, agg.up + "件 / " + agg.n + "件"), React.createElement("span", { key: "b", style: { color: "#0E7490" } }, _pct(agg.upRate))],
       "平均 EP" + _yen(agg.upAvg) + " で約定", "k1"),
     _card("確定値がEP以下だった", React.createElement("span", null, agg.down + "件"),
       "平均 EP" + _yen(agg.downAvg) + "／その後α値で約定 " + agg.later + "件・未達 " + agg.miss + "件", "k2"),
-    _card("想定損益（100株換算）", [React.createElement("span", { key: "a", style: { fontSize: 11, color: "#78716C" } }, "今"), _amt(agg.cur), React.createElement("span", { key: "c", style: { fontSize: 11, color: "#78716C" } }, "→ 全部確定待ち"), _amt(agg.alt)],
+    _card("想定損益（100株換算）", [React.createElement("span", { key: "a", style: { fontSize: 11, color: "#78716C" } }, "今"), _amt(agg.cur), React.createElement("span", { key: "c", style: { fontSize: 11, color: "#78716C" } }, "→ 確定待ち"), _amt(agg.alt)],
       "勝ち/負け 今 " + agg.curWin + "/" + agg.curLoss + "件 → " + agg.altWin + "/" + agg.altLoss + "件", "k3"),
-    _card("差額（全部確定待ち − 今）", [_amt(agg.diff, true), React.createElement("span", { key: "b", style: { fontSize: 10, color: "#78716C" } }, agg.n ? "1件平均 " + _elPnlFmt(Math.round(agg.diff / agg.n)) : "")],
+    _card("差額（確定待ち − 今）", [_amt(agg.diff, true), React.createElement("span", { key: "b", style: { fontSize: 10, color: "#78716C" } }, agg.n ? "1件平均 " + _elPnlFmt(Math.round(agg.diff / agg.n)) : "")],
       React.createElement("span", null, "①入値の改善 ", _amt(agg.gain), "　②降り方の変化 ", _amt(agg.d2), "　③EP以下で入らなかった分 ", _amt(agg.d3)), "k4"));
   var noteParts = _ALLCE_SKIP.filter(function(o) { return skipN[o[0]]; }).map(function(o) { return o[1] + " " + skipN[o[0]] + "件"; });
   var note = React.createElement("div", { key: "n", style: { fontSize: 10, color: "#78716C", marginBottom: 8, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
@@ -1880,7 +1880,7 @@ function _ElAllCeSection(props) {
     React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 6 } }, _ALLCE_AXES.map(function(o) { return _pill(axis === o[0], o[1], function() { setAxis(o[0]); }, "ax_" + o[0]); })),
     React.createElement("div", { style: { overflowX: "auto" } },
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
-        React.createElement("thead", null, React.createElement("tr", null, _th(""), _th("件数"), _th("確定値＞EP"), _th("平均上乗せ"), _th("今の想定損益"), _th("全部確定待ち"), _th("差額"))),
+        React.createElement("thead", null, React.createElement("tr", null, _th(""), _th("件数"), _th("確定値＞EP"), _th("平均上乗せ"), _th("今の想定損益"), _th("確定待ち"), _th("差額"))),
         React.createElement("tbody", null, gRows.map(function(g) { return _gTr(g.k, g.a, false); }).concat([_gTr("合計", agg, true)])))),
     React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginTop: 3 } }, "※3件未満の行は薄く表示。平均上乗せ＝確定値がEPより高かった記録の（確定値−EP）の平均。"));
   // 記録一覧（標準の損益テーブル＋比較4列）
@@ -7108,7 +7108,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   // 未達タブのバッジ件数は、選択中シグナルの母数で数える（シグナル軸の下で _missCnt を定義 2026-07-01）。
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
-    ? [["sum", "📊 集計"], ["ce", "⏳ 全部確定待ち"]].concat(legacy ? [] : [["alpha", "📐 VAP値"], ["rn", "🔢 RN補正"]]).concat([["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]])   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
+    ? [["sum", "📊 集計"], ["ce", "⏳ 5分確定待ち"]].concat(legacy ? [] : [["alpha", "📐 VAP値"], ["rn", "🔢 RN補正"]]).concat([["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]])   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
     : [["sum", "📊 集計"], ["alpha", legacy ? "📐 α値" : "📐 VAP値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
   // 2026-09-02 「🩹 補正要否」タブを撤去＝対象シグナル（既定「底つきライン」・_SPN_DEFAULT_SIGNALS）のタブ内へ移設（ユーザー指示「この補正は底つきラインでしか使わない」）。
   var _SIG_TABS = (legacy ? [] : [["vap", "📐 VAP値"]]).concat((legacy ? [["band", "💴 株価帯別"]] : []).concat([["stop", "🛑 損切り"]]).concat(legacy ? [["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]] : []));   // 2026-10-05 VAP枠に浮き足・RN加算は無い＝タブごと出さない。 2026-10-04 📐VAP値（シグナル別比較）を先頭に追加（8/20以降の枠のみ）。 2026-08-20b 「📥 確定待ち」はここに一度置いたが、ユーザー決定で💰損益タブ（_tabsの全銘柄側）へ移設した。   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
@@ -9750,7 +9750,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       _elCard(React.createElement(_ElRnAdjBoard, { recs: _rnRecs, aiOf: _ai, data: data, save: save, recTable: function(rs, ex) { return _recTable(rs, "full", "rnadj_", null, null, ex); } }))
     ]);
   } else if (view === "ce" && _isAllStock) {
-    // ⏳ 全部確定待ち 2026-11-12（ユーザー要望）。母数＝📊集計の合計損益と同じ線引き（期間選択・算入・データのみ・仮シグナル・算入銘柄・時間かぶり除外）。計算は app-05 _elAllCeRow。
+    // ⏳ 5分確定待ち 2026-11-12b（旧「全部確定待ち」を作り替え・ユーザー要望）。母数＝📊集計の合計損益と同じ線引き（期間選択・算入・データのみ・仮シグナル・算入銘柄・時間かぶり除外）。計算は app-05 _elAllCeRow。
     var _ceRecs = v2recs.filter(function(r) { return r && r.signal && !_isDataOnly(data, r) && !_elIsProvisional(r.signal) && _elAmtRecOk(r) && !_elCollExcluded(data, r, _collScope); });
     _tabBody = _cardify([
       _elCard(React.createElement(_ElAllCeSection, { recs: _ceRecs, aiOf: _ai, data: data, recTable: function(rs, ex) { return _recTable(rs, "full", "allce_", null, null, ex); } }))

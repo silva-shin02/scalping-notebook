@@ -37,7 +37,7 @@
 - 2026-11-12 🔢 RN補正（v639・実機未確認＝最初に聞く）：記録帳 💰損益 → 📐VAP値の右。EP（RN補正前）がちょうど中RN/大RN/特大RNの記録に−5〜+5円足した成績・★・設定の保存（custom.rnAdj）。
   - 新規の記録フォームでEPがRNなら自動で足す（signal.rnAdj・採用VAPに含む）・EPナビに補正後EP。app-05 `_rnRowsOf`/`_rnTierOfRec`/`_rnPreAlpha`、app-06 `_ElRnAdjBoard`、フォーム `fRnAdj`。
   - 確認したいこと：区分の件数が実感と合うか・★の値・フォームの自動入力とEPナビの表示。
-- 2026-11-12 ⏳ 全部確定待ち（v638・実機未確認）：💰損益 → 📊集計の右。app-05 `_elAllCeRow`/`_elAllCeAgg`、app-06 `_ElAllCeSection`、CA補完 `_allCeCaFetch`。
+- 2026-11-12 ⏳ 5分確定待ち（v640・旧「全部確定待ち」を作り替え・実機未確認）：💰損益 → 📊集計の右。エントリー足が5分確定足の記録だけで、確定待ちした場合と比べる。app-05 `_elAllCeRow`/`_elAllCeAgg`、app-06 `_ElAllCeSection`、CA補完 `_allCeCaFetch`。
 - 11/11 の一連（v626〜v637）も実機未確認：選定銘柄・銘柄タブ・CA銘柄自動追加・長期EMA-OS①・分足欄削除・起点「無し」・通過ラインの自動計算。
 - 保留（作らない）：過去記録の lineSnap 一括取り込み。
 
