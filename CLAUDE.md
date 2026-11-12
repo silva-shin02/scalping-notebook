@@ -35,7 +35,7 @@
 
 ## ▶ 次のセッションはこの続きから
 
-- 2026-11-12 時点で未確認の項目なし（v644 横一列・v645 時計型時刻・v646 直上VAPスイッチ・v647 🕯 寄り足タブはすべて実機確認済み）。次は新しい依頼を聞く。
+- 2026-11-12 📅 予定タブで終わった予定をグレー表示（v648・実機未確認＝聞かれたら確認）：日付（複数日なら終了日）が今日より前なら薄いグレー。「今週の予定」と日別の予定カードの両方。app-03 `EventsTab` 内 `_evIsPast`。v644〜v647 は確認済み。
 - 直近の場所：🕘 時計型時刻 app-05 `_TimeDialPicker`・`fTimeOpen`／直上VAP app-05 `fCeTopOn`・`fCeTf`／🕯 寄り足 app-05 `_yoriCaFetch`・app-06 `_ElYoriSection`／🔢 RN補正 app-05 `_rnRowsOf`/`_rnTierOfRec`/`_rnPreAlpha`・app-06 `_ElRnAdjBoard`／⏳ 5分確定待ち app-05 `_elAllCeRow`/`_elAllCeAgg`・app-06 `_ElAllCeSection`。
 - 母数の線引き：見送り・要審議は算入・スルーは除外（合計損益と同じ）。
 - 保留（作らない）：過去記録の lineSnap 一括取り込み。時計型時刻をほかの時刻欄へ広げる件は希望なし。

@@ -2132,6 +2132,8 @@ function EventsTab(_ref_evt) {
     if (ev.startTime) return ev.startTime + " ~";
     return "";
   };
+  var _evTodayS = todayStr();
+  var _evIsPast = function(ev, d) { var last = (ev && ev.endDate && ev.endDate > d) ? ev.endDate : d; return last < _evTodayS; };
   var weekLabel = weekDates[0].slice(5).replace("-", "/") + " 〜 " + weekDates[6].slice(5).replace("-", "/");
   return React.createElement("div", null,
     
@@ -2163,6 +2165,7 @@ function EventsTab(_ref_evt) {
               var tr = fmtTimeRange(ev);
               var dateLabel = d.slice(5).replace("-", "/") + "（" + DAYS_JP[new Date(d + "T00:00:00").getDay()] + "）";
               var evColor = getEventColor(ev, eventCategories);
+              var isPast = _evIsPast(ev, d);
               return React.createElement("div", {
                 key: d + "_" + ev.id,
                 onClick: function() { openEdit(ev, d); },
@@ -2172,7 +2175,8 @@ function EventsTab(_ref_evt) {
                   padding: "8px 10px",
                   background: isToday ? "#F0FDF4" : (ev._auto ? "#FAFAF9" : "#fff"),
                   borderTop: idx > 0 ? "1px solid #F0F0F0" : "none",
-                  cursor: ev._auto ? "default" : "pointer"   // 2026-08-12h 自動ぶんは編集不可
+                  cursor: ev._auto ? "default" : "pointer",   // 2026-08-12h 自動ぶんは編集不可
+                  opacity: isPast ? 0.45 : 1, filter: isPast ? "grayscale(1)" : "none"
                 }
               },
                 React.createElement("div", {
@@ -2219,6 +2223,7 @@ function EventsTab(_ref_evt) {
       events.map(function(ev) {
         var tr = fmtTimeRange(ev);
         var hasEnd = ev.endDate && ev.endDate !== date;
+        var isPast = _evIsPast(ev, date);
         return React.createElement("div", {
           key: ev.id,
           onClick: function(){ openEdit(ev); },
@@ -2227,7 +2232,8 @@ function EventsTab(_ref_evt) {
             display: "flex", alignItems: "stretch", gap: 10,
             padding: "10px 12px", background: ev._auto ? "#FAFAF9" : "#fff",
             border: "1px solid " + (ev._auto ? "#e7e5e4" : "#e0ddd6"), borderRadius: 8,
-            cursor: ev._auto ? "default" : "pointer"   // 2026-08-12h 自動ぶんは編集不可なので手のひらカーソルにしない
+            cursor: ev._auto ? "default" : "pointer",   // 2026-08-12h 自動ぶんは編集不可なので手のひらカーソルにしない
+            opacity: isPast ? 0.45 : 1, filter: isPast ? "grayscale(1)" : "none"
           }
         },
           React.createElement("div", {
