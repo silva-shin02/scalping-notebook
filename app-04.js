@@ -6790,8 +6790,6 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", whiteSpace: "nowrap" } }, _elSigCell(s, "flex-start")),
             React.createElement("td", { style: { padding: "4px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
               _elAlphaTypeCell(s, _aiTr.alpha)),
-            React.createElement("td", { style: { padding: "4px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-              _elCutValNode(_aiTr.cutLine)),
             _elLineCell(s, _aiTr.alpha, _aiTr.cutLine, "1px solid #f0ede6"),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               _epECell(s, _aiTr.alpha, _aiTr.cutLine)),
@@ -6828,7 +6826,6 @@ function DayView(_ref57) {
                 _trTh("銘柄"),
                 _trTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
                 _trTh(_elAW() + "値", { width: "1%" }),
-                _trTh("損切", { width: "1%" }),
                 _trTh("ライン", { width: "1%" }),
                 _trTh("E", { width: "1%" }),
                 _trTh("取引", { width: 1, padding: "4px 2px" }),
@@ -6911,7 +6908,7 @@ function DayView(_ref57) {
         var _parts = [React.createElement("span", { key: "w" }, "利確 ", _num(_cW, "#C0392B"))];
         if (_cE > 0) _parts.push(React.createElement("span", { key: "e" }, " / 同値 ", _num(_cE, "#D97706")));
         _parts.push(React.createElement("span", { key: "l" }, " / 損失 ", _num(_cL, "#1E8449"),
-          _cS > 0 ? React.createElement("span", { style: { fontSize: 11, color: "#777" } }, "（うち損切り " + _cS + "件）") : null));
+          null));
         return React.createElement("div", { style: { fontSize: 13, color: "#555", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2 } }, _parts);
       })()
     )
@@ -6936,6 +6933,7 @@ function DayView(_ref57) {
       return _pbAlphaActualOf(r);
     };
     var _pbCutActualOf = function(r) {
+      return Infinity;   // 2026-11-16 損切り撤去
       var _c = _pbCharts[r.stock + "_" + date];
       return _c && _c.cutLine != null ? _c.cutLine : 15;
     };
@@ -7175,8 +7173,6 @@ function DayView(_ref57) {
             _elSigCell(s, "center")),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%", background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
             _elAlphaTypeCell(s, _alphaRec)),
-          React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
-            _elCutValNode(_cutLrec)),
           _elLineCell(s, _alphaRec, _cutLrec, bb),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             _epECell(s, _alphaRec)),
@@ -7273,8 +7269,8 @@ function DayView(_ref57) {
         })(),
         (simCtx || cutCtx) ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", whiteSpace: "nowrap", flexWrap: "wrap" } },
           _simActiveCnt > 0
-            ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "シミュ中: α " + _simAlphaCnt + "件 / 損切り " + _simCutCnt + "件")
-            : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値・損切り値シミュ：行の数値を変えると再計算（非保存）"),
+            ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "シミュ中: α " + _simAlphaCnt + "件")
+            : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値シミュ：行の数値を変えると再計算（非保存）"),
           (showBulk && simCtx) ? _bulkIdealCtrl(records, simCtx.val, simCtx.set, simCtx.keyOf, cutOf) : null,
           React.createElement("button", { onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); if (simCtx) simCtx.set({}); if (cutCtx) cutCtx.set({}); },
             style: { fontSize: 10, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", fontWeight: 700, visibility: _simActiveCnt > 0 ? "visible" : "hidden" } }, "↺ 全シミュ解除")
@@ -7287,7 +7283,6 @@ function DayView(_ref57) {
               _rTh("時間", { width: 44 }),
               _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
               _rTh(_elAW() + "値", { width: 32 }),
-              _rTh("損切", { width: 34 }),
               _rTh("ライン", { width: 1 }),
               _rTh("E", { width: 26 }),
               _rTh("取引", { width: 26 }),
@@ -7377,6 +7372,7 @@ function DayView(_ref57) {
       return _wkAlphaActualOf(r);
     };
     var _wkCutActualOf = function(r) {
+      return Infinity;   // 2026-11-16 損切り撤去
       var _c = _pbCharts[r.stock + "_" + r.date];
       return _c && _c.cutLine != null ? _c.cutLine : 15;
     };
@@ -7485,7 +7481,6 @@ function DayView(_ref57) {
           _td(((st.win || 0) + (st.tri || 0)) || "0", { color: "#1E8449", fontWeight: ((st.win || 0) + (st.tri || 0)) ? 700 : 400 }),
           _td(st.even || "0", { color: "#D97706", fontWeight: (st.even || 0) > 0 ? 700 : 400 }),
           _td(st.loss || "0", { color: "#DC2626", fontWeight: st.loss ? 700 : 400 }),
-          _td(st.stop || "0", { color: "#7F1D1D", fontWeight: st.stop ? 700 : 400 }),
           _td(st.miss || "0", { color: "#6B7280" }),
           _td(_exclN || "0", { color: "#0284C7", fontWeight: (_exclN || 0) > 0 ? 700 : 400 }),
           _td((function() {
@@ -7543,7 +7538,7 @@ function DayView(_ref57) {
       var _wkGroups = _wkStks.map(function(sk) { return { label: sk, recs: _wkByStk[sk].filter(function(r) { return _elInclData(r.signal); }) }; });   // 今週の推奨α表＝分析母数（データ算入）2026-07-22f
       var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
         React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円・週間）"),
-        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の各銘柄の全記録に同じαを当てて、到達率" + _EL_ANA_REACH_DEF + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαの中でΣ想定損益（手じまい・累計）が最大のα（該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考・薄い高α/約定しにくい高α/赤字αは除外・データ不足時は参考表示）。応用α目安＝応用〇局面で採用する独立α値（応用〇の記録から算出）。"),
+        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の各銘柄の全記録に同じαを当てて、到達率" + _EL_ANA_REACH_DEF + "%以上・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαの中でΣ想定損益（手じまい・累計）が最大のα（該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考・薄い高α/約定しにくい高α/赤字αは除外・データ不足時は参考表示）。応用α目安＝応用〇局面で採用する独立α値（応用〇の記録から算出）。"),
         _elBaseAlphaTableV2(_wkGroups, _wkCutOf));
       var _wkExpRow = function(recs, rowKey) {
         var _isTotal = rowKey === "wk__total__";
@@ -7571,8 +7566,8 @@ function DayView(_ref57) {
             React.createElement("thead", null,
               React.createElement("tr", { style: { background: "#f5f4f0" } },
                 _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
-                _wkTh(React.createElement("span", { style: { color: "#374151" }, title: "EPに到達した件数＝利確＋△＋確損＋損切の合計。件＝到達＋未達＋除外" }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "想定損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" }, title: "確定損" }, "確損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" }, title: "損切り" }, "損切")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
-                _wkTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "想定損益")), _wkTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／想定損益を縦積み。最終＝○が続く限り手じまい足まで保有した損益＝想定損益列と同値" }, "詳細損益")), _wkTh("実現損益")
+                _wkTh(React.createElement("span", { style: { color: "#374151" }, title: "EPに到達した件数＝利確＋△＋確損の合計。件＝到達＋未達＋除外" }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "想定損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" }, title: "確定損" }, "確損")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
+                _wkTh(React.createElement("span", { title: "○が途切れた所（×/△）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "想定損益")), _wkTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／想定損益を縦積み。最終＝○が続く限り手じまい足まで保有した損益＝想定損益列と同値" }, "詳細損益")), _wkTh("実現損益")
               )
             ),
             React.createElement("tbody", null,
@@ -7732,7 +7727,6 @@ function DayView(_ref57) {
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#1E8449", fontWeight: ((st.win || 0) + (st.tri || 0)) ? 700 : 400 } }, ((st.win || 0) + (st.tri || 0)) || "0"),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#D97706", fontWeight: (st.even || 0) > 0 ? 700 : 400 } }, st.even || "0"),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#DC2626", fontWeight: st.loss ? 700 : 400 } }, st.loss || "0"),
-        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#7F1D1D", fontWeight: st.stop ? 700 : 400 } }, st.stop || "0"),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#6B7280", fontWeight: (st.miss || 0) > 0 ? 700 : 400 } }, st.miss || "0"),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#0284C7", fontWeight: (exclN || 0) > 0 ? 700 : 400 } }, exclN || "0"),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
@@ -7806,32 +7800,6 @@ function DayView(_ref57) {
           _isTotKey ? null : React.createElement("div", {
             style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" }
           },
-            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "損切りライン"),
-            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
-              React.createElement("input", {
-                type: "text", inputMode: "numeric", step: "1",   // type=number だと全角入力がブラウザ側で""に潰れて_toHankakuまで届かない 2026-08-05x
-                value: (function() { var _avc2 = _pbCharts[_stkOfKey + "_" + date]; return _avc2 && _avc2.cutLine != null ? String(_avc2.cutLine) : "15"; })(),
-                onChange: function(e) {
-                  var v = _toHankaku(e.target.value).trim();
-                  var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
-                  var _ck2 = _stkOfKey + "_" + date;
-                  save(function(prev) {
-                    var pCharts = Object.assign({}, (prev && prev.charts) || {});
-                    var _ce2 = Object.assign({}, pCharts[_ck2] || {});
-                    if (n != null) _ce2.cutLine = n; else delete _ce2.cutLine;
-                    pCharts[_ck2] = _ce2;
-                    return Object.assign({}, prev, { charts: pCharts });
-                  });
-                },
-                placeholder: "10",
-                style: { width: 48, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
-              }),
-              _stepBtn(
-                function() { var _ckRef2 = _stkOfKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce2 = Object.assign({}, pCharts[_ckRef2] || {}); var _n2 = _ce2.cutLine != null ? _ce2.cutLine : 15; _ce2.cutLine = _n2 + 1; pCharts[_ckRef2] = _ce2; return Object.assign({}, prev, { charts: pCharts }); }); },
-                function() { var _ckRef2 = _stkOfKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce2 = Object.assign({}, pCharts[_ckRef2] || {}); var _n2 = _ce2.cutLine != null ? _ce2.cutLine : 15; if (_n2 <= 1) return prev; _ce2.cutLine = _n2 - 1; pCharts[_ckRef2] = _ce2; return Object.assign({}, prev, { charts: pCharts }); }); }
-              )
-            ),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             (function() {
               // 監査所見1（2026-07-12）: 旧=EP損益合計/結果損益合計(H1)・不算入/被り込み → 想定損益合計（手じまい・_elHoldFinalParts.main）＋_elInclTotal＋被り除外に統一＝折り畳み行/明細表と同一基準。
               var _recs = (expRecs || []).filter(function(r) { return r && (_isOutKey ? !_elIsThru(r.signal) : (rowKey === "__total__" ? _elInclTotalAmt(data, r) : _elInclTotal(r.signal))) && !_elCollExcluded(data, r); });   // 2026-07-29 選外表は算入フラグを見ない（選外は既定で算入OFFが入るため・スルーだけ外す）   // 2026-07-18g 要審議も想定損益合計バッジに算入（見送りと同じ・姉妹の_inclTpb:5627と統一）。グランド展開(__total__)は②データのみも除外 2026-07-22e
@@ -7896,10 +7864,9 @@ function DayView(_ref57) {
         _pbTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確"), { width: 36 }),
         _pbTh(React.createElement("span", { style: { color: "#D97706" }, title: "想定損益が±0（トントン）" }, "△"), { width: 28 }),
         _pbTh(React.createElement("span", { style: { color: "#DC2626" }, title: "確定損" }, "確損"), { width: 42 }),
-        _pbTh(React.createElement("span", { style: { color: "#7F1D1D" }, title: "損切り" }, "損切"), { width: 42 }),
         _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達"), { width: 40 }),
         _pbTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）。選外銘柄表ではスルーのみ" }, "除外"), { width: 40 }),
-        _pbTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２損益と同一基準（100株換算）" }, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block", whiteSpace: "normal", maxWidth: 76, margin: "0 auto", lineHeight: 1.2 } }, "○途切れで手じまい ()=△")), { width: 100 }),
+        _pbTh(React.createElement("span", { title: "○が途切れた所（×/△）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２損益と同一基準（100株換算）" }, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block", whiteSpace: "normal", maxWidth: 76, margin: "0 auto", lineHeight: 1.2 } }, "○途切れで手じまい ()=△")), { width: 100 }),
         _pbTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／想定損益を縦積み。（）内=△も保有し続けた場合。最終＝○が続く限り手じまい足まで保有した損益＝想定損益列と同値（100株換算）" }, "詳細損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "EP / H1 / H2")), { width: 150 }),
         _pbTh("実現損益", { width: 80 }),
         _pbTh("タグ", { width: 120, textAlign: "left" })

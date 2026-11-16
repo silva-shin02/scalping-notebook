@@ -4051,7 +4051,7 @@ function EntrySignalSection(_ref_es) {
       _esSimCut = _useStateESSC1A[0], setEsSimCut = _useStateESSC1A[1];
   useEffect(function() { setEsSimAlpha({}); setEsSimCut({}); }, [ck]);
   var _esActualAlpha = function(s) { return (s && s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
-  var _esActualCut = function(s) { return c.cutLine != null ? c.cutLine : 15; };
+  var _esActualCut = function(s) { return Infinity; };   // 2026-11-16 損切り撤去
   var _esAlpha = function(s) { var _k = (s && s.id) || ""; var _sv = _esSimAlpha[_k]; return (_sv != null && _sv !== "") ? Number(_sv) : _esActualAlpha(s); };
   var _esCut = function(s) { var _k = (s && s.id) || ""; var _cv = _esSimCut[_k]; return (_cv != null && _cv !== "") ? Number(_cv) : _esActualCut(s); };
 
@@ -4383,7 +4383,7 @@ function EntrySignalSection(_ref_es) {
       var _avS = _esAlpha(s);
       if (_epIsV2(s)) return _elDynPlanned(s, _avS, _esCut(s));  // EP起算: EP足で計算
       if (s.osVal != null) {
-        var _cutLSum = _esCut(s);
+        var _cutLSum = Infinity;   // 2026-11-16 損切り撤去
         var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
         var _diff = Number(s.osVal) - _avS;
         if (_avS > Number(s.osVal)) return 0;
@@ -4710,7 +4710,7 @@ function EntrySignalSection(_ref_es) {
             } else if (s.osVal != null) {
               var _avDyn = _esAlpha(s);
               var _osVDyn = Number(s.osVal);
-              var _cutLDyn = _esCut(s);
+              var _cutLDyn = Infinity;   // 2026-11-16 損切り撤去
               var _confDyn = s.osConfVal != null
                 ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal))
                 : null;
@@ -4801,8 +4801,6 @@ function EntrySignalSection(_ref_es) {
                   _elSigCell(s, "flex-start")),
                 React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
                   _elAlphaTypeCell(s, _avH)),
-                React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-                  _elCutValNode(_cutLH)),
                 _elLineCell(s, _avH, _cutLH, "1px solid #f0ede6"),
                 React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   _epECell(s, _avH)),
@@ -4858,7 +4856,6 @@ function EntrySignalSection(_ref_es) {
                   _esTh("時間", { textAlign: "left", width: 50 }),
                   _esTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
                   _esTh(_vapWorld(date) ? "VAP値" : "α値", { width: 36 }),
-                  _esTh("損切", { width: 34 }),
                   _esTh("ライン", { width: 1 }),
                   _esTh("E", { width: 28 }),
                   _esTh("取引", { width: 28 }),
@@ -5078,7 +5075,7 @@ function WeeklyPnlPanel(_wpp) {
   });
   var _key = function(r) { return r.stock + "_" + r.date + "_" + (r.signal.id || r.signal.time || ""); };
   var _alphaActual = function(r) { var s = r.signal; return s && s.alphaVal != null && s.alphaVal !== "" ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
-  var _cutActual = function(r) { var c = _charts[r.stock + "_" + r.date]; return c && c.cutLine != null ? c.cutLine : 15; };
+  var _cutActual = function(r) { return Infinity; };   // 2026-11-16 損切り撤去
   var _alphaOf = function(r) { var o = simAlpha[_key(r)]; return (o != null && o !== "" && !isNaN(Number(o))) ? Number(o) : _alphaActual(r); };
   var _cutOf = function(r) { var o = simCut[_key(r)]; return (o != null && o !== "" && !isNaN(Number(o))) ? Number(o) : _cutActual(r); };
   var _navBtn = function(lbl, fn) { return React.createElement("button", { onClick: fn, style: { padding: "2px 9px", fontSize: 13, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", color: "#555", lineHeight: 1.2 } }, lbl); };
@@ -5137,8 +5134,6 @@ function WeeklyPnlPanel(_wpp) {
         _elSigCell(s, "center")),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%", background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
         _elAlphaTypeCell(s, a)),
-      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%" } },
-        _elCutValNode(c)),
       _elLineCell(s, a, c, _bb),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%" } }, _epECell(s, a)),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", width: "1%" } },
@@ -5194,7 +5189,7 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
           _rTh("", { width: 20 }), _rTh("日付", { width: 52 }), _rTh("時間", { width: 44 }), _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-          _rTh((_list && _list.length && _list.every(function(_lr) { return _vapWorld(_lr.date); })) ? "VAP値" : "α値", { width: 32 }), _rTh("損切", { width: 34 }), _rTh("ライン", { width: 1 }), _rTh("E", { width: 26 }), _rTh("取引", { width: 26 }),
+          _rTh((_list && _list.length && _list.every(function(_lr) { return _vapWorld(_lr.date); })) ? "VAP値" : "α値", { width: 32 }), _rTh("ライン", { width: 1 }), _rTh("E", { width: 26 }), _rTh("取引", { width: 26 }),
           _rTh("想定損益・詳細", { width: 84 }),
           React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "OS・損益詳細"),
           _rTh(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有"), { width: 30 }),
@@ -5265,7 +5260,6 @@ function WeeklyPnlPanel(_wpp) {
       _td(((st.win || 0) + (st.tri || 0)) || "0", { color: "#1E8449", fontWeight: ((st.win || 0) + (st.tri || 0)) ? 700 : 400 }),
       _td(st.even || "0", { color: "#D97706", fontWeight: (st.even || 0) > 0 ? 700 : 400 }),
       _td(st.loss || "0", { color: "#DC2626", fontWeight: st.loss ? 700 : 400 }),
-      _td(st.stop || "0", { color: "#7F1D1D", fontWeight: st.stop ? 700 : 400 }),
       _td(st.miss || "0", { color: "#6B7280" }),
       _td(_exclN || "0", { color: "#0284C7", fontWeight: (_exclN || 0) > 0 ? 700 : 400 }),
       _td((function() {
@@ -5296,7 +5290,7 @@ function WeeklyPnlPanel(_wpp) {
   var _simCutCnt = Object.keys(simCut).filter(function(k) { return simCut[k] != null && simCut[k] !== ""; }).length;
   var _simActive = _simAlphaCnt + _simCutCnt;
   var _simControlsBar = null && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "2px 2px 6px", flexWrap: "wrap" } },
-    _simActive > 0 ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "シミュ中: α " + _simAlphaCnt + "件 / 損切り " + _simCutCnt + "件") : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値・損切り値シミュ：行の数値を変えると再計算（非保存）"),
+    _simActive > 0 ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "シミュ中: α " + _simAlphaCnt + "件") : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値シミュ：行の数値を変えると再計算（非保存）"),
     React.createElement("button", { onClick: function() { var ba = _elBaseAlphaPick(_recs, function(r) { return { cutLine: _cutOf(r) }; }); if (!ba || ba.alpha == null) return; var v = String(ba.alpha); var m = {}; _recs.forEach(function(r) { m[_key(r)] = v; }); setSimAlpha(m); }, style: { fontSize: 10, fontWeight: 700, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", whiteSpace: "nowrap" } }, "一括 推奨基本α"),
     _simActive > 0 ? React.createElement("button", { onClick: function() { setSimAlpha({}); setSimCut({}); }, style: { fontSize: 10, padding: "2px 8px", border: "1px solid #ddd", borderRadius: 4, background: "#f5f4f0", color: "#555", cursor: "pointer", fontWeight: 600 } }, "↺ 全解除") : null);
   // サマリー行を展開したときに出る明細（週合計は理想α＋シミュ操作＋週全体の明細、日別はその日の明細）
@@ -5321,8 +5315,8 @@ function WeeklyPnlPanel(_wpp) {
         React.createElement("thead", null,
           React.createElement("tr", { style: { background: "#f5f4f0" } },
             _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
-            _wkTh(React.createElement("span", { style: { color: "#374151" } }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "想定損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" }, title: "確定損" }, "確損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" }, title: "損切り" }, "損切")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
-            _wkTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "想定損益")), _wkTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／想定損益を縦積み。最終＝○が続く限り手じまい足まで保有した損益＝想定損益列と同値" }, "詳細損益")), _wkTh("実現損益"))),
+            _wkTh(React.createElement("span", { style: { color: "#374151" } }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "想定損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" }, title: "確定損" }, "確損")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
+            _wkTh(React.createElement("span", { title: "○が途切れた所（×/△）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "想定損益")), _wkTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／想定損益を縦積み。最終＝○が続く限り手じまい足まで保有した損益＝想定損益列と同値" }, "詳細損益")), _wkTh("実現損益"))),
         React.createElement("tbody", null,
           [
             _sumRow("週合計", "#555", _recs, true, "wk__total__"),

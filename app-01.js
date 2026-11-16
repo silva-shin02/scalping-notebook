@@ -1507,6 +1507,21 @@ function migrateData(d) {
       });
     }
   } catch(e) { console.warn("[migrateData] stop-hold-default error:", e); }
+  // 損切りの概念を撤去（2026-11-16 ユーザー指示）: 期待度欄の「損切り済」は△として読む。元の値は signal._stopExpOrig{欄名:"損切り済"} に残す（戻せるように）。冪等。
+  try {
+    if (d.charts && typeof d.charts === "object") {
+      var _seF = ["holdExp", "hold2Exp", "nextExp1", "nextExp2", "nextExp3", "nextExp4", "os1Exp", "os2Exp", "os3Exp"];
+      Object.keys(d.charts).forEach(function(ck) {
+        var c = d.charts[ck]; if (!c || !Array.isArray(c.signals)) return;
+        c.signals.forEach(function(s) {
+          if (!s) return;
+          _seF.forEach(function(f) {
+            if (s[f] === "\u640D\u5207\u308A\u6E08") { if (!s._stopExpOrig) s._stopExpOrig = {}; s._stopExpOrig[f] = s[f]; s[f] = "\u25B3"; }
+          });
+        });
+      });
+    }
+  } catch(e) { console.warn("[migrateData] stop-exp-to-tri error:", e); }
   // RN加算の自動判定を既存記録にも有効化（_migRnAutoOn 2026-07-29・ユーザー指示「自動になっていないものは自動に」）: 全記録 charts[*].signals の signal.rnAuto を true にする。
   // 2026-07-20b の当初決定「既存記録は自動を止める（開いてもRNが書き換わらない）」の撤回。以後は過去記録を編集フォーム/EPナビで開くと自動判定が効き、保存時にRN〇×と加算額が現行ルール（下二桁41-49→…50／91-99→…00）へ揃う。
   // rn/rnUsed/rnVal/alphaVal/ep は移行では一切書き換えない＝開いて保存し直すまで過去の損益・分析は不変。
