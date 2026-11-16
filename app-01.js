@@ -1323,6 +1323,23 @@ function migrateData(d) {
       d._migSignalRename6 = true;
     } catch(e) { console.warn("[migrateData] sigRename6 error:", e); }
   }
+  // 【一回性 _migSignalRename7・2026-11-16】ユーザー指示「大RN底抜けは底つきラインに統合」：記録のシグナル名・詳細（①②③はそのまま引き継ぐ＝既存の底つきライン側の値が優先・欠けだけ補完）・
+  //   詳細の選択肢・マスター（signalTags）などを _elSignalRenameData で底つきラインへ移す＝シグナル一覧から「大RN底抜け」が消える。全角ＲＮの表記ゆれも同じ扱い。
+  //   フラグなしで毎回（冪等＝旧名が無ければ何も変わらない）＝別端末から旧名の記録が後から同期されても底つきラインへ寄る。
+  if (typeof _elSignalRenameData === "function") {
+    try {
+      var _o7 = (d.custom && Array.isArray(d.custom.signalTags)) ? d.custom.signalTags.slice() : null, _old7 = ["大RN底抜け", "大ＲＮ底抜け"];
+      if (_o7 && _o7.some(function(t) { return _old7.indexOf(t) >= 0; })) {
+        _old7.forEach(function(nm) { var _r = _elSignalRenameData(d, nm, "底つきライン"); if (_r) d = _r; });
+        // 並び順は元のまま（底つきラインを大RN底抜けの位置へ動かさない）。元に底つきラインが無ければ大RN底抜けの位置に置く。
+        var _n7 = []; _o7.forEach(function(t) { var v = (_old7.indexOf(t) >= 0) ? (_o7.indexOf("底つきライン") >= 0 ? null : "底つきライン") : t; if (v && _n7.indexOf(v) < 0) _n7.push(v); });
+        (d.custom.signalTags || []).forEach(function(t) { if (_n7.indexOf(t) < 0) _n7.push(t); });
+        d.custom = Object.assign({}, d.custom, { signalTags: _n7 });
+      } else {
+        _old7.forEach(function(nm) { var _r = _elSignalRenameData(d, nm, "底つきライン"); if (_r) d = _r; });   // マスターに無くても記録に残る旧名を拾う
+      }
+    } catch(e) { console.warn("[migrateData] sigRename7 error:", e); }
+  }
   // 応用α（独立α値）への移行（_migSpecialAlpha 2026-07-13）: 旧「基本α＋追加α増分」を廃止し、追加α〇(addAlphaUsed===true)だった記録を独立α値 specialAlpha へ作り替える。
   //  各記録の原本を _almig にbackup → specialAlpha＝各銘柄の推奨応用α(銘柄全体母数・_elSpecialAlphaPick＝旧_elTotalAlphaPick／浮き足〇・RN〇は母数除外)、不足時は推奨基本α(_elBaseAlphaPick)、
   //  それも無ければ旧 baseAlphaVal+addAlphaVal（＝旧採用αを厳密維持）→ base-levelα=specialAlpha として alphaVal を再計算(=specialAlpha+浮き足+RN)＝過去の応用記録のEP/損益が変わる（ユーザー承認）。EPは非保存で alphaVal から都度導出(_epResolve)。
