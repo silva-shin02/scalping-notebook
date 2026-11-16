@@ -4435,6 +4435,54 @@ function _yoriCaFetch(stock, date, times, custom) {
     });
   })["catch"](function(e) { return { st: "err", msg: String((e && e.message) || e) }; });
 }
+// ===== 🔍 確定待ちが効く場面 2026-11-16（ユーザー要望「確定待ちしたほうがいいシチュエーションを分析して・OSの前足・OS足の形など」）=====
+// 場面の判定に使う1分足（エントリー足と、その前の3本・OS1の前足）の始値/高値/安値/終値を CA から読み、端末に保存する（記録には書き込まない）。
+// _ceSitStore()[stock|date] = { "HH:MM": [o, h, l, c] }。ついでにエントリー足の終値(_allCeCa)と寄り足(_yori)も埋める。
+var _CESIT_LS = "sn_cesit_ca_v1";
+var _ceSitMem = null, _ceSitNone = {};
+function _ceSitStore() {
+  if (_ceSitMem) return _ceSitMem;
+  try { _ceSitMem = JSON.parse(localStorage.getItem(_CESIT_LS) || "{}") || {}; } catch (e) { _ceSitMem = {}; }
+  return _ceSitMem;
+}
+function _ceSitSave() { try { localStorage.setItem(_CESIT_LS, JSON.stringify(_ceSitMem || {})); } catch (e) {} }
+function _ceSitGet(stock, date) { return _ceSitStore()[stock + "|" + date] || null; }
+// 1本の足 {o,h,l,c}（無ければnull）
+function _ceSitBar(stock, date, t) {
+  var d = _ceSitGet(stock, date), v = (d && t) ? d[t] : null;
+  if (!v || v.length < 4) return null;
+  var o = { o: Number(v[0]), h: Number(v[1]), l: Number(v[2]), c: Number(v[3]) };
+  return (isNaN(o.o) || isNaN(o.h) || isNaN(o.l) || isNaN(o.c)) ? null : o;
+}
+function _ceSitCaFetch(stock, date, times, closeTimes, custom) {
+  var cfg = (typeof cfLoad === "function") ? cfLoad() : null;
+  if (!cfg || !cfg.fbUrl) return Promise.resolve({ st: "none", msg: "Firebase未設定" });
+  var info = _caGetStockInfo(stock, custom);
+  if (!info.caTicker && !info.code) return Promise.resolve({ st: "none", msg: "CAの銘柄コード未設定" });
+  return _caFetchMeta(cfg, false).then(function(meta) {
+    var cur = _caFilterByStockDate(meta, info.caTicker, date, info.code)[0];
+    if (!cur) return { st: "none", msg: "CAチャートなし" };
+    return _caFetchDraftData(cfg, cur.id).then(function(dd) {
+      var ad = dd && dd.analysisData, b1 = ad && ad.bars_1m, b5 = ad && ad.bars_5m;
+      if (!Array.isArray(b1) || !b1.length) return { st: "none", msg: "CAに足データなし" };
+      var at = function(bars, m) { if (!Array.isArray(bars)) return null; for (var i = 0; i < bars.length; i++) if (_snlTm(bars[i].t) === m) return bars[i]; return null; };
+      var key = stock + "|" + date, st = _ceSitStore(), o = Object.assign({}, st[key] || {});
+      (times || []).forEach(function(t) { var m = _snlTm(t); if (m == null) return; var b = at(b1, m); if (b && b.o != null && b.h != null && b.l != null && b.c != null) o[t] = [b.o, b.h, b.l, b.c]; });
+      o._ok = 1;
+      st[key] = o; _ceSitSave();
+      if (closeTimes && closeTimes.length) {
+        var cc = {};
+        closeTimes.forEach(function(t) { var m = _snlTm(t); if (m == null) return; var b = at(b1, m); if (b && b.c != null) cc[t] = b.c; });
+        var cs = _allCeCaStore(); cs[key] = Object.assign({}, cs[key] || {}, cc); _allCeCaSave();
+      }
+      if (!_yoriGet(stock, date)) {
+        var y1 = at(b1, 540), y5 = at(b5, 540), ys = _yoriStore();
+        ys[key] = { o1: y1 ? y1.o : null, c1: y1 ? y1.c : null, o5: y5 ? y5.o : null, c5: y5 ? y5.c : null }; _yoriSave();
+      }
+      return { st: "ok" };
+    });
+  })["catch"](function(e) { return { st: "err", msg: String((e && e.message) || e) }; });
+}
 function _elAllCeRow(s, alpha, cutLine, caRel) {
   if (!s || !_epIsV2(s) || alpha == null) return null;
   var A = Number(alpha); if (isNaN(A)) return null;

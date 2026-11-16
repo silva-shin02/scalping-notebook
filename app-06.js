@@ -1910,6 +1910,216 @@ function _ElAllCeSection(props) {
     listRecs.length ? props.recTable(listRecs, extra) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
   return React.createElement("div", null, head, kpi, note, table, list);
 }
+// ===== 🔍 確定待ちが効く場面 2026-11-16（ユーザー要望「確定待ちしたほうがいいシチュエーションを分析して。OSの前足がこう・OS足がこうな時など、あらゆる場面」）=====
+// 母数＝⏳タブと同じ（合計損益と同じ線引き）。エントリー足の種類は問わない（5分確定足かどうかも場面の1つ）。
+// 各記録で「確定待ちにしていたら（エントリー足の終値がEPより高ければ終値で約定・EP以下なら後の足でα約定）」と「今（α値で約定）」の想定損益を出し、
+//   差額（確定待ち − 今・100株換算）を場面ごとに集計する。確定待ちを付けた記録も、外した場合と比べる（直上VAPは加味しない）。
+// 前足・エントリー足の形は CA の1分足（app-05 _ceSitCaFetch・端末に保存）。結果でしか分からない条件（エントリー足自身の形）は「参考」として組み合わせから外す。
+var _CESIT_FEATS = [
+  ["prevKind", "前足の陰陽", 1], ["prevBody", "前足の実体", 1], ["prevUp", "前足の上ヒゲ", 1], ["prevLo", "前足の下ヒゲ", 1],
+  ["prevHigh", "前足の高値→EPまで", 1], ["prevClose", "前足の終値→EPまで", 1], ["run3", "直前3本の陽線", 1], ["mom3", "直前3本の値動き", 1],
+  ["eOpen", "エントリー足の始値→EPまで", 1], ["os1Prev", "OS1の前足の陰陽", 1], ["pos", "エントリー足の位置", 1], ["five", "5分確定足か", 1],
+  ["tz", "時間帯", 1], ["sig", "シグナル", 1], ["alpha", "α（VAP）の大きさ", 1], ["rn", "RN加算", 1], ["yori", "寄り足（1分）", 1], ["dow", "曜日", 1],
+  ["eKind", "参考：エントリー足の陰陽（結果）", 0], ["eUpw", "参考：エントリー足の上ヒゲ（結果）", 0]
+];
+function _ceSitKind(b) { return !b ? null : b.c > b.o ? "陽線" : b.c < b.o ? "陰線" : "同時線"; }
+function _ceSitBk(v, edges, labels) { if (v == null || isNaN(v)) return null; for (var i = 0; i < edges.length; i++) if (v <= edges[i]) return labels[i]; return labels[labels.length - 1]; }
+function _ceSitDist(d, pre) { return _ceSitBk(d == null ? null : Math.round(d * 10) / 10, [0, 2, 5, 10], [pre + "EP以上", pre + "あと1〜2円", pre + "あと3〜5円", pre + "あと6〜10円", pre + "あと11円以上"]); }
+function _ceSitFeat(r, x) {
+  var s = r.signal, f = {}, lv = Number(s.levelPrice), P = isNaN(lv) ? null : lv + x.a;
+  var tE = _epCeTimeAt(s.time, x.k0), t0 = _epCeTimeAt(s.time, 0);
+  var B = function(t, d) { return t ? _ceSitBar(r.stock, r.date, _epCeTimeAt(t, d)) : null; };
+  var p1 = B(tE, -1), p2 = B(tE, -2), p3 = B(tE, -3), eb = B(tE, 0), o1p = B(t0, -1);
+  f.pos = "OS" + (x.k0 + 1);
+  f.five = _epIs5mConf(s.time, x.k0) ? "5分確定足" : "5分確定足ではない";
+  var m = _snlTm(tE);
+  f.tz = m == null ? null : m < 555 ? "9:00〜9:14" : m < 570 ? "9:15〜9:29" : m < 600 ? "9:30〜9:59" : m < 690 ? "10:00〜11:29" : m < 780 ? "12:30〜12:59" : m < 870 ? "13:00〜14:29" : "14:30〜";
+  var dw = new Date(r.date + "T00:00:00").getDay(); f.dow = isNaN(dw) ? null : "日月火水木金土".charAt(dw) + "曜";
+  f.sig = _elTagLabel(s) || null;
+  f.alpha = _ceSitBk(x.a, [3, 7, 12], ["〜3円", "4〜7円", "8〜12円", "13円〜"]);
+  f.rn = _elRnYes(s) ? "RN〇" : "RN×";
+  var yk = _yoriKind(_yoriGet(r.stock, r.date), "1"); f.yori = yk === "up" ? "陽線" : yk === "down" ? "陰線" : yk === "doji" ? "同時線" : null;
+  if (p1) {
+    f.prevKind = _ceSitKind(p1);
+    f.prevBody = _ceSitBk(Math.abs(p1.c - p1.o), [1, 4, 9], ["1円以下", "2〜4円", "5〜9円", "10円以上"]);
+    f.prevUp = _ceSitBk(p1.h - Math.max(p1.o, p1.c), [1, 4], ["1円以下", "2〜4円", "5円以上"]);
+    f.prevLo = _ceSitBk(Math.min(p1.o, p1.c) - p1.l, [1, 4], ["1円以下", "2〜4円", "5円以上"]);
+    if (P != null) { f.prevHigh = _ceSitDist(P - p1.h, "高値が"); f.prevClose = _ceSitDist(P - p1.c, "終値が"); }
+  }
+  if (p1 && p2 && p3) {
+    var nUp = [p1, p2, p3].filter(function(b) { return b.c > b.o; }).length; f.run3 = nUp + "本";
+    f.mom3 = _ceSitBk(p1.c - p3.o, [-5, -0.01, 0, 4], ["下げ（−5円以下）", "やや下げ", "横ばい", "やや上げ", "上げ（5円以上）"]);
+  }
+  if (eb && P != null) f.eOpen = _ceSitDist(P - eb.o, "始値が");
+  if (o1p) f.os1Prev = _ceSitKind(o1p);
+  if (eb) { f.eKind = _ceSitKind(eb); f.eUpw = _ceSitBk(eb.h - Math.max(eb.o, eb.c), [1, 4], ["1円以下", "2〜4円", "5円以上"]); }
+  return f;
+}
+function _ceSitAgg(list) {
+  var o = { n: 0, better: 0, worse: 0, same: 0, sum: 0, cur: 0, alt: 0 };
+  list.forEach(function(x) { o.n++; o.sum += x.diff; o.cur += (x.cur || 0); o.alt += (x.alt || 0); if (x.diff > 0) o.better++; else if (x.diff < 0) o.worse++; else o.same++; });
+  o.avg = o.n ? o.sum / o.n : null;
+  return o;
+}
+function _ElCeSitSection(props) {
+  var recs = props.recs || [], aiOf = props.aiOf, data = props.data || {};
+  var _uT = useState(0), setTick = _uT[1];
+  var _uL = useState(null), load = _uL[0], setLoad = _uL[1];
+  var _uN = useState(5), minN = _uN[0], setMinN = _uN[1];
+  var _uF = useState("prevKind"), feat = _uF[0], setFeat = _uF[1];
+  var _uS = useState(null), sel = _uS[0], setSel = _uS[1];
+  var rows = [], skipN = {};
+  recs.forEach(function(r) {
+    var s = r.signal, a = aiOf(r); if (!s || !a) return;
+    var lv = Number(s.levelPrice);
+    var base = Object.assign({}, s, { ceOn: undefined });
+    var caRel = function(k) {
+      var v = _allCeCaRel(s, r.stock, r.date, k); if (v != null) return v;
+      var b = _ceSitBar(r.stock, r.date, _epCeTimeAt(s.time, k));
+      return (b && !isNaN(lv)) ? Math.round(b.c - lv) : null;
+    };
+    var x = _elAllCeRow(base, a.alpha, a.cutLine, caRel);
+    if (!x) return;
+    if (x.skip) { skipN[x.skip] = (skipN[x.skip] || 0) + 1; rows.push({ r: r, x: x, f: null }); return; }
+    rows.push({ r: r, x: x, f: _ceSitFeat(r, x) });
+  });
+  var ok = rows.filter(function(o) { return o.f; });
+  var all = _ceSitAgg(ok.map(function(o) { return o.x; }));
+  var noBar = ok.filter(function(o) { return !o.f.prevKind; }).length;
+  // CAで補う日（足を読んでいない日）
+  var need = {}, needKeys = [];
+  rows.forEach(function(o) {
+    var s = o.r.signal, k = o.r.stock + "|" + o.r.date;
+    if (o.x.skip && o.x.skip !== "noconf") return;
+    if (o.x.k0 == null || !s.time) return;
+    var have = _ceSitGet(o.r.stock, o.r.date);
+    if ((have && have._ok) || _ceSitNone[k]) return;
+    if (!need[k]) { need[k] = { stock: o.r.stock, date: o.r.date, times: [], close: [] }; needKeys.push(k); }
+    var tE = _epCeTimeAt(s.time, o.x.k0);
+    [-3, -2, -1, 0].forEach(function(d) { var t = _epCeTimeAt(tE, d); if (t && need[k].times.indexOf(t) < 0) need[k].times.push(t); });
+    var tp = _epCeTimeAt(s.time, -1); if (tp && need[k].times.indexOf(tp) < 0) need[k].times.push(tp);
+    if (need[k].close.indexOf(tE) < 0) need[k].close.push(tE);
+  });
+  var runLoad = function() {
+    if (load && load.busy) return;
+    var list = needKeys.map(function(k) { return need[k]; }), st = { busy: true, done: 0, total: list.length, none: 0, err: 0 };
+    setLoad(Object.assign({}, st));
+    var step = function(i) {
+      if (i >= list.length) { st.busy = false; setLoad(Object.assign({}, st)); setTick(function(n) { return n + 1; }); return; }
+      var it = list[i];
+      _ceSitCaFetch(it.stock, it.date, it.times, it.close, data.custom).then(function(res) {
+        st.done++;
+        if (!res || res.st !== "ok") { _ceSitNone[it.stock + "|" + it.date] = 1; if (res && res.st === "err") st.err++; else st.none++; }
+        setLoad(Object.assign({}, st));
+        if (st.done % 5 === 0) setTick(function(n) { return n + 1; });
+        step(i + 1);
+      });
+    };
+    step(0);
+  };
+  var nameOf = {}; _CESIT_FEATS.forEach(function(d) { nameOf[d[0]] = d[1]; });
+  var act = _CESIT_FEATS.filter(function(d) { return d[2]; }).map(function(d) { return d[0]; });
+  // 単独
+  var single = {};
+  ok.forEach(function(o) { _CESIT_FEATS.forEach(function(d) { var c = o.f[d[0]]; if (c == null) return; var k = d[0] + "=" + c; (single[k] = single[k] || { conds: [[d[0], c]], xs: [] }).xs.push(o.x); }); });
+  // 2条件
+  var combo = {};
+  ok.forEach(function(o) {
+    for (var i = 0; i < act.length; i++) {
+      var ci = o.f[act[i]]; if (ci == null) continue;
+      for (var j = i + 1; j < act.length; j++) {
+        var cj = o.f[act[j]]; if (cj == null) continue;
+        var k = act[i] + "=" + ci + "|" + act[j] + "=" + cj;
+        (combo[k] = combo[k] || { conds: [[act[i], ci], [act[j], cj]], xs: [] }).xs.push(o.x);
+      }
+    }
+  });
+  var toList = function(m, onlyAct) {
+    return Object.keys(m).map(function(k) { var g = m[k]; return { k: k, conds: g.conds, a: _ceSitAgg(g.xs) }; })
+      .filter(function(e) { return e.a.n >= minN && (!onlyAct || act.indexOf(e.conds[0][0]) >= 0); });
+  };
+  var sList = toList(single, true), cList = toList(combo, false);
+  var top = function(list, good, n) {
+    return list.filter(function(e) { return good ? e.a.avg > 0 : e.a.avg < 0; })
+      .sort(function(p, q) { return good ? (q.a.avg - p.a.avg) || (q.a.n - p.a.n) : (p.a.avg - q.a.avg) || (q.a.n - p.a.n); }).slice(0, n);
+  };
+  // 表示部品
+  var _yen = function(v) { return React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(v), fontVariantNumeric: "tabular-nums" } }, _elPnlFmt(v == null ? null : Math.round(v))); };
+  var _pill = function(on, label, onClick, key) {
+    return React.createElement("button", { key: key, type: "button", onClick: onClick, style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#0E7490" : "#D6D3D1"), background: on ? "#ECFEFF" : "#fff", color: on ? "#0E7490" : "#57534E" } }, label);
+  };
+  var _th = function(t, left) { return React.createElement("th", { style: { padding: "4px 6px", fontSize: 10, color: "#9A9186", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: left ? "left" : "right" } }, t); };
+  var _td = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", fontSize: 11, textAlign: "right", whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
+  var condTxt = function(conds) { return conds.map(function(c) { return nameOf[c[0]] + "：" + c[1]; }).join(" × "); };
+  var _row = function(e, label, key) {
+    var on = sel === e.k, faint = e.a.n < minN;
+    return React.createElement("tr", { key: key, onClick: function() { setSel(on ? null : e.k); }, style: { cursor: "pointer", background: on ? "#ECFEFF" : null, opacity: faint ? 0.5 : 1 } },
+      _td(label, { textAlign: "left", fontWeight: 700, whiteSpace: "normal", minWidth: 140 }), _td(e.a.n + "件"),
+      _td(React.createElement("span", null, React.createElement("span", { style: { color: "#0E7490", fontWeight: 700 } }, e.a.better), " / ", React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, e.a.worse), " / ", React.createElement("span", { style: { color: "#A8A29E" } }, e.a.same))),
+      _td(_yen(e.a.avg)), _td(_yen(e.a.sum)));
+  };
+  var _tbl = function(list, labelFn, emptyTxt, keyPre) {
+    if (!list.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 11, padding: "6px 0" } }, emptyTxt);
+    return React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+        React.createElement("thead", null, React.createElement("tr", null, _th("場面", true), _th("件数"), _th("良 / 悪 / 同"), _th("平均差額"), _th("合計差額"))),
+        React.createElement("tbody", null, list.map(function(e, i) { return _row(e, labelFn(e), keyPre + i); }))));
+  };
+  var _h = function(t, sub) { return React.createElement("div", { style: { margin: "12px 0 4px" } }, React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#1A1714" } }, t), sub ? React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 2, lineHeight: 1.5 } }, sub) : null); };
+  var head = React.createElement("div", { style: { marginBottom: 8 } },
+    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "🔍 確定待ちが効く場面 ― どんな場面なら確定を待った方がいいか"),
+    React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
+      "全ての記録（エントリー足の種類を問わない）で「確定待ちにしていたら」と「今（α値で約定）」の想定損益（100株換算）を比べ、差額（確定待ち − 今）を場面ごとに集計。プラス＝確定を待った方が良かった。",
+      "良／悪／同＝確定待ちの方が良かった／悪かった／同じだった件数。確定待ちを付けた記録も外した場合と比べる（直上VAPは加味しない）。前足＝エントリー足の1本前の1分足。行を押すとその記録の一覧。"));
+  var kpi = React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", fontSize: 11, marginBottom: 6 } },
+    React.createElement("span", null, "対象 ", React.createElement("b", null, all.n + "件")),
+    React.createElement("span", null, "確定待ちの方が 良 ", React.createElement("b", { style: { color: "#0E7490" } }, all.better), "・悪 ", React.createElement("b", { style: { color: "#B45309" } }, all.worse), "・同 ", React.createElement("b", null, all.same)),
+    React.createElement("span", null, "合計差額 ", _yen(all.sum), "（1件平均 ", _yen(all.avg), "）"),
+    noBar ? React.createElement("span", { style: { color: "#B45309" } }, "足の形が分からない記録 " + noBar + "件（前足の条件から外れる）") : null,
+    needKeys.length ? React.createElement("button", { type: "button", onClick: runLoad, disabled: !!(load && load.busy), title: "CAの1分足から、エントリー足とその前の足の始値・高値・安値・終値を読みます（記録には書き込まず、この端末に保存）",
+      style: { padding: "2px 10px", fontSize: 10.5, fontWeight: 800, borderRadius: 6, cursor: "pointer", border: "1px solid #0E7490", background: "#ECFEFF", color: "#0E7490" } },
+      (load && load.busy) ? ("CAを読み込み中… " + load.done + "/" + load.total + "日") : ("CAから足を読む（" + needKeys.length + "日分）")) : null,
+    (load && !load.busy && (load.none || load.err)) ? React.createElement("span", { style: { color: "#B45309" } }, "CAに無かった日 " + load.none + "日" + (load.err ? "・読み込み失敗 " + load.err + "日" : "")) : null);
+  var nSel = React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", marginBottom: 4 } },
+    React.createElement("span", { style: { fontSize: 10.5, color: "#78716C", fontWeight: 700 } }, "件数が少ない場面を除く："),
+    [3, 5, 10, 20].map(function(n) { return _pill(minN === n, n + "件以上", function() { setMinN(n); }, "n" + n); }));
+  if (!ok.length) return React.createElement("div", null, head, kpi, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "比べられる記録がありません"));
+  var lbl1 = function(e) { return condTxt(e.conds); };
+  var fRows = Object.keys(single).filter(function(k) { return single[k].conds[0][0] === feat; }).map(function(k) { return { k: k, conds: single[k].conds, a: _ceSitAgg(single[k].xs) }; })
+    .sort(function(p, q) { return String(p.conds[0][1]).localeCompare(String(q.conds[0][1]), "ja"); });
+  var fMiss = ok.filter(function(o) { return o.f[feat] == null; }).length;
+  var detail = React.createElement("div", null,
+    React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 } }, _CESIT_FEATS.map(function(d) { return _pill(feat === d[0], d[1], function() { setFeat(d[0]); }, "f_" + d[0]); })),
+    _tbl(fRows, function(e) { return e.conds[0][1]; }, "この条件で分けられる記録がありません", "d_"),
+    fMiss ? React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginTop: 3 } }, "この条件が分からない記録 " + fMiss + "件は除外（CA未読込・時刻なしなど）。薄い行＝件数が「" + minN + "件以上」に満たない。") : null);
+  // 選んだ場面の記録
+  var selConds = null;
+  if (sel) { var g = single[sel] || combo[sel]; if (g) selConds = g.conds; }
+  var selList = null;
+  if (selConds) {
+    var hit = ok.filter(function(o) { return selConds.every(function(c) { return o.f[c[0]] === c[1]; }); });
+    var xOf = function(r) { for (var i = 0; i < hit.length; i++) if (hit[i].r === r) return hit[i].x; return null; };
+    var _xth = function(t) { return React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", width: "1%", fontSize: 10, color: "#0E7490", background: "#F0FDFF" } }, t); };
+    var _xtd = function(c) { return React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums", background: "#F8FEFF" } }, c); };
+    var extra = { at: 10, head: [_xth("確定値"), _xth("確定待ちなら"), _xth("想定損益(確定待ち)"), _xth("差額")], cells: function(r) {
+      var x = xOf(r); if (!x) return [_xtd("—"), _xtd("—"), _xtd("—"), _xtd("—")];
+      var d = x.c - x.a;
+      return [_xtd("OS" + (x.k0 + 1) + " EP" + (d > 0 ? "+" : "") + (Math.round(d * 10) / 10)),
+        _xtd(x.kind === "up" ? "終値で約定" : x.kind === "later" ? "後の足でα約定" : "入らず（未達）"), _xtd(_yen(x.alt)), _xtd(_yen(x.diff))];
+    } };
+    selList = React.createElement("div", { style: { marginTop: 10 } },
+      React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+        React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#0E7490" } }, "📋 " + condTxt(selConds) + "（" + hit.length + "件）"),
+        React.createElement("button", { type: "button", onClick: function() { setSel(null); }, style: { padding: "1px 8px", fontSize: 10, borderRadius: 5, border: "1px solid #ddd", background: "#fff", cursor: "pointer", color: "#888" } }, "閉じる")),
+      hit.length ? props.recTable(hit.map(function(o) { return o.r; }), extra) : null);
+  }
+  return React.createElement("div", null, head, kpi, nSel,
+    _h("✅ 確定を待った方がいい場面（条件1つ）", "平均差額が大きい順（上位10）。"), _tbl(top(sList, true, 10), lbl1, "該当なし（件数の条件を下げると出ることがあります）", "g1_"),
+    _h("⛔ 待たずに入った方がいい場面（条件1つ）", "平均差額が小さい順（上位10）。"), _tbl(top(sList, false, 10), lbl1, "該当なし", "b1_"),
+    _h("✅ 確定を待った方がいい場面（条件2つの組み合わせ）", "参考（結果でしか分からない条件）は含めない。"), _tbl(top(cList, true, 15), lbl1, "該当なし", "g2_"),
+    _h("⛔ 待たずに入った方がいい場面（条件2つの組み合わせ）"), _tbl(top(cList, false, 15), lbl1, "該当なし", "b2_"),
+    _h("📊 条件ごとの内訳"), detail, selList);
+}
 // ===== 🕯 寄り足 タブ 2026-11-12（📡シグナル総合 → 寄り足ライン の中・ユーザー要望）=====
 // ①寄り足（9:00の1分足・5分足の両方）が陽線／陰線／同時線で、件数・勝率・損切り率・合計／平均の想定損益を比べる。
 // ②確定待ちしたほうがいいか＝このシグナルの全記録を _elAllCeRow（5分確定待ちと同じ計算）で比べ、寄り足の陰陽でも分ける。
@@ -9961,7 +10171,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     // ⏳ 5分確定待ち 2026-11-12b（旧「全部確定待ち」を作り替え・ユーザー要望）。母数＝📊集計の合計損益と同じ線引き（期間選択・算入・データのみ・仮シグナル・算入銘柄・時間かぶり除外）。計算は app-05 _elAllCeRow。
     var _ceRecs = v2recs.filter(function(r) { return r && r.signal && !_isDataOnly(data, r) && !_elIsProvisional(r.signal) && _elAmtRecOk(r) && !_elCollExcluded(data, r, _collScope); });
     _tabBody = _cardify([
-      _elCard(React.createElement(_ElAllCeSection, { recs: _ceRecs, aiOf: _ai, data: data, recTable: function(rs, ex) { return _recTable(rs, "full", "allce_", null, null, ex); } }))
+      _elCard(React.createElement(_ElAllCeSection, { recs: _ceRecs, aiOf: _ai, data: data, recTable: function(rs, ex) { return _recTable(rs, "full", "allce_", null, null, ex); } })),
+      _elCard(React.createElement(_ElCeSitSection, { recs: _ceRecs, aiOf: _ai, data: data, recTable: function(rs, ex) { return _recTable(rs, "full", "cesit_", null, null, ex); } }))
     ]);
   } else if (view === "proj" && _isAllStock) {
     // 📈 損益推移シミュレーター 2026-08-05（💰損益タブ・🧮シミュの右）: 本体は app-09.js の DaytradeProjection。
