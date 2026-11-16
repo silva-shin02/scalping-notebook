@@ -35,7 +35,9 @@
 
 ## ▶ 次のセッションはこの続きから
 
-- 2026-11-12 📅 予定タブで終わった予定をグレー表示（v648・実機未確認＝聞かれたら確認）：日付（複数日なら終了日）が今日より前なら薄いグレー。「今週の予定」と日別の予定カードの両方。app-03 `EventsTab` 内 `_evIsPast`。v644〜v647 は確認済み。
+- 2026-11-16 🛑 損切りの概念を撤去（v649・実機未確認＝聞かれたら確認）：損益計算はラインに触れても撤退しない（手じまいは期待度だけ）＝過去の損益・合計も変わる。期待度「損切り済」は△に読み替え（移行で書き換え・元値は `signal._stopExpOrig`）。保存済みの損切り値(cutLine)は消さずに無視。フォームの損切り欄・本日/今週の損切り列・分析の🛑損切りタブ/前提損切り値/推奨損切り・推奨αの損切り率条件を撤去。
+  - 計算の要：app-05 `_elStopHold`（常に true＝全判定が不成立）・主要関数の先頭で `cutLine = Infinity`・`_elStopBarIdx` は -1。表の「損切」列は app-06 `_snStripStopTable`（React.createElement の table を差し替えて見出しに「損切」を含む列を落とす）・カード/読み取り文は `_snIsStopLbl` で除外。
+  - 注意：2026-10-14 の移行（`_migStopHoldDefault`）で損切り足の次足期待度を○→×にした記録は×のまま＝その足で手じまい。気になる記録はフォームで○に戻す。v648（予定のグレー表示）も未確認。
 - 直近の場所：🕘 時計型時刻 app-05 `_TimeDialPicker`・`fTimeOpen`／直上VAP app-05 `fCeTopOn`・`fCeTf`／🕯 寄り足 app-05 `_yoriCaFetch`・app-06 `_ElYoriSection`／🔢 RN補正 app-05 `_rnRowsOf`/`_rnTierOfRec`/`_rnPreAlpha`・app-06 `_ElRnAdjBoard`／⏳ 5分確定待ち app-05 `_elAllCeRow`/`_elAllCeAgg`・app-06 `_ElAllCeSection`。
 - 母数の線引き：見送り・要審議は算入・スルーは除外（合計損益と同じ）。
 - 保留（作らない）：過去記録の lineSnap 一括取り込み。時計型時刻をほかの時刻欄へ広げる件は希望なし。

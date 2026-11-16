@@ -4649,10 +4649,12 @@ function _elOsMaxCapped(s, alpha) {
 //   absIdx＝足の絶対index（0=OS1）。次足期待度(_epNextExpAt)が有効なのは0〜3（OS5には次足が無い＝触れたらそこで撤退）。○のみ継続扱い（△は従来どおり撤退）。
 //   損切りの判定を持つ全リーフ（_epHoldLadder/_elDynResult/_elWinBucket/_elDynHold/_elPlanIsStop/_elHoldIsStop/_elHoldIsStop2/_elHoldIsStopAt/_elHoldFinalParts/_elRideVals/明細スタック）が
 //   「(高値−α)≧損切り値」にこれを足す＝どこで撤退するかの正本(_elRideVals・_elHoldFinalParts)が同じ結果になる。継続したあとの撤退足は従来どおり期待度(×/損切り済/未設定)か次の損切り足で決まる。
-function _elStopHold(s, absIdx) { return !!(s && s.stopHold === true && absIdx != null && absIdx >= 0 && absIdx <= 3 && _epNextExpAt(s, absIdx) === "○"); }
+// 2026-11-16 損切りの概念を撤去（ユーザー指示）＝ラインに触れても常に持ち続ける＝この関数を見る全ての損切り判定が成立しない。手じまいは期待度だけで決まる。
+function _elStopHold(s, absIdx) { return true; }
 // 損切りラインに最初に触れる足（絶対レグindex 0..3）。採用α=記録自身のα。EP未達/×見送り/v2以外は-1。
 // 既存記録の「損切り足の次足期待度」を×に寄せる既定値（フォーム編集ロード・migrateData _migStopHoldDefault）の判定源。
 function _elStopBarIdx(s, cut) {
+  return -1;   // 2026-11-16 損切り撤去
   if (!s || !_epIsV2(s)) return -1;
   var a = _epOwnAlpha(s); if (a == null || isNaN(a)) return -1;
   var r = _epResolve(s, a); if (!r || r.epIdx < 0 || r.judge !== "ok") return -1;
@@ -4711,6 +4713,7 @@ function _elRuleHoldPnl(s, alpha) {
   return last;
 }
 function _elDynResult(s, alpha, cutLine) {
+  cutLine = Infinity;   // 2026-11-16 損切り撤去（旧記録の経路も含めライン判定を無効化）
   s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s) && alpha != null) {
     var _rv2 = _epResolve(s, alpha);
@@ -4741,6 +4744,7 @@ function _elDynResult(s, alpha, cutLine) {
 // 〇△×の「×の前まで乗る」で各記録の勝敗内訳を返す。返り値: "miss"|"stop"|"loss"|"even"|"win"|"tri"(△が絡む勝ち)。
 // ×/損切り済の足の手前まで乗り(○/△/未設定は乗る)、到達点の確定値損益と△有無で振り分ける。EP前の到達△も「△が絡む」に含める。
 function _elWinBucket(s, alpha, cutLine) {
+  cutLine = Infinity;   // 2026-11-16 損切り撤去（旧記録の経路も含めライン判定を無効化）
   s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   var base = _elDynResult(s, alpha, cutLine);
   if (base === "miss") return "miss";
@@ -4785,6 +4789,7 @@ function _elWinBucket(s, alpha, cutLine) {
   return hasTri ? "tri" : "win";
 }
 function _elDynPlanned(s, alpha, cutLine) {
+  cutLine = Infinity;   // 2026-11-16 損切り撤去（旧記録の経路も含めライン判定を無効化）
   s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s) && alpha != null) {
     var _rp2 = _epResolve(s, alpha);
@@ -4805,6 +4810,7 @@ function _elDynPlanned(s, alpha, cutLine) {
   return pp;
 }
 function _elDynHold(s, alpha, cutLine) {
+  cutLine = Infinity;   // 2026-11-16 損切り撤去
   s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s) && alpha != null) {
     var _rh2 = _epResolve(s, alpha);
@@ -4853,6 +4859,7 @@ function _elDynHoldNoStop(s, alpha) {
 }
 
 function _elPlanIsStop(s, alpha, cutLine) {
+  cutLine = Infinity;   // 2026-11-16 損切り撤去（旧記録の経路も含めライン判定を無効化）
   s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s)) {
     if (alpha == null) return false;
@@ -4862,6 +4869,7 @@ function _elPlanIsStop(s, alpha, cutLine) {
   return alpha != null && s.osVal != null && (Number(s.osVal) - alpha) >= (cutLine != null ? cutLine : 15);
 }
 function _elHoldIsStop(s, alpha, cutLine) {
+  cutLine = Infinity;   // 2026-11-16 損切り撤去（旧記録の経路も含めライン判定を無効化）
   s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (alpha == null) return false;
   var _cl = cutLine != null ? cutLine : 15;
@@ -6765,6 +6773,7 @@ function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
 // E成立(judge ok)のv2記録のみ・それ以外はnull（行を出さない）。
 // 決済サマリーの素の値（最高値mx・手仕舞い足の確定値exitC・損切りstopped・足ラベルlbl）を返す共通ヘルパー。_elRideSummaryNode（詳細表示）と_elRideMiniNode（簡易表示）が共用。
 function _elRideVals(s, alpha, cutLine) {
+  cutLine = Infinity;   // 2026-11-16 損切り撤去（旧記録の経路も含めライン判定を無効化）
   if (!s || !_epIsV2(s) || alpha == null) return null;
   var r = _epResolve(s, alpha);
   if (!r || r.epIdx < 0 || r.judge !== "ok") return null;
@@ -6867,8 +6876,6 @@ function _elLineInner(s, alpha, cutLine) {
     _fmt(lv, "#64748B"),
     React.createElement("span", { style: _epLbl }, _elRnYes(s) ? "EP（RN）〇" : "EP"),   // RN加算〇＝EPがRN(キリ番)に乗っている記録は「EP（RN）〇」表記（紫）2026-07-18h
     _fmt(epPrice, "#334155"),
-    React.createElement("span", { style: Object.assign({}, _lbl, { marginTop: 1 }) }, "損切"),
-    _fmt(stopPrice, "#B45309"),
     React.createElement("span", { style: Object.assign({}, _lbl, { marginTop: 1, whiteSpace: "nowrap" }) }, "実現到達"),   // 手じまいまでに到達した最高値＝水準線値＋mx（実価格）2026-07-24
     _fmt(reachPrice, "#475569"));
 }
@@ -8187,7 +8194,7 @@ function VirtualAlphaCalc(_ref_vac) {
     var alpha = Number(_toHankaku(aStr));
     if (aStr === "" || isNaN(alpha)) return null;
     var sigs = sigsByStock[stock] || [];
-    var cutLine = cutLineByStock[stock] != null ? cutLineByStock[stock] : 15;
+    var cutLine = Infinity;   // 2026-11-16 損切り撤去
     var planTotal = 0, resultTotal = 0, hasPlan = false, hasResult = false;
     sigs.forEach(function(d) {
       if (d.osVal == null) return;
@@ -9436,6 +9443,7 @@ function EntryRecordForm(_ref_erf) {
   var _refAddAlpha = (_defBaseWin && _defBaseWin.add) ? _defBaseWin.add : null;
   // 推奨損切り値（実現H1損益をほぼ維持できる範囲で最小=タイトな損切り値・この銘柄の前日までの算入v2記録から。損切り回避率/H1勝率は根拠として併記）2026-06-22→22dタイト優先。
   var _refCutPick = useMemo(function() {
+    return null;   // 2026-11-16 損切り撤去＝推奨損切りは出さない
     if (!fStock) return null;
     var recs = _elStockRecsBefore(data, fStock, fDate);
     if (!recs.length) return null;
@@ -9734,7 +9742,7 @@ function EntryRecordForm(_ref_erf) {
   var _fCutLine = (function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
-    return (_cd != null && _cd.cutLine != null) ? _cd.cutLine : 15;
+    return Infinity;   // 2026-11-16 損切り撤去（記録フォームのライン判定を無効化）
   })();
   // === EP起算方式: フォーム状態からEP位置・E判定をライブ導出（OS1高値=常に↑正・OS2/3は符号付き）===
   // 確定待ち（旧5分足確定足 2026-10-17→2026-10-19）: チェック欄の値。手動のみ（新規の初期値はオフ）。
@@ -9975,7 +9983,7 @@ function EntryRecordForm(_ref_erf) {
       setFEstWidthSign(null); setFEstWidthVal("0");
       setFPlanSign(null); setFPlan("0"); return;
     }
-    var cutL1 = cd && cd.cutLine != null ? cd.cutLine : 15;
+    var cutL1 = Infinity;   // 2026-11-16 損切り撤去
     if (av != null && osV > 0 && osV - av >= cutL1) {
       setFEstWidthSign("-"); setFEstWidthVal(String(osV - av));
       setFPlanSign("-"); setFPlan(String(Math.round((osV - av) * 100))); return;
@@ -10018,7 +10026,7 @@ function EntryRecordForm(_ref_erf) {
     if (av == null) return;
     var osV = Number(fOsVal) || 0;
     if (osV <= 0) return;
-    var cutL2 = cd && cd.cutLine != null ? cd.cutLine : 15;
+    var cutL2 = Infinity;
     var diff = osV - av;
     if (diff < 0) { setFResult("miss"); return; }
     if (diff >= cutL2) { setFResult("ng"); return; }
@@ -10044,7 +10052,7 @@ function EntryRecordForm(_ref_erf) {
     if (av != null && osV > 0 && osV < av) {
       setFPlanSign(null); setFPlan("0"); return;
     }
-    var cutL3 = (function(){ var _ck3 = fStock + "_" + fDate; var _cd3 = data.charts && data.charts[_ck3]; return _cd3 && _cd3.cutLine != null ? _cd3.cutLine : 15; })();
+    var cutL3 = Infinity;   // 2026-11-16 損切り撤去
     if (av != null && osV > 0 && (osV - av) >= cutL3) {
       setFPlanSign("-");
       setFPlan(String(Math.round((osV - av) * 100)));
@@ -10085,7 +10093,7 @@ function EntryRecordForm(_ref_erf) {
     var _cd = data.charts && data.charts[_ck];
     var _av = _fAlpha;
 
-    var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 15;
+    var _cutLHold = Infinity;   // 2026-11-16 損切り撤去
     if (fResult === "miss") {
 
       if (!(fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _av)) {
@@ -10181,7 +10189,7 @@ function EntryRecordForm(_ref_erf) {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
     var _av = _fAlpha;
-    var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 15;
+    var _cutLHold = Infinity;   // 2026-11-16 損切り撤去
     if (fResult === "miss") {
       // H1の高値がα到達（H1でエントリー成立）なら、H2は自身がα未達でもmiss扱いせず結果を算出。
       var _h1ReachedA = (_av != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _av);
@@ -11677,6 +11685,7 @@ function EntryRecordForm(_ref_erf) {
       })()],
       [React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
+        return null;   // 2026-11-16 損切り撤去＝損切り値の入力欄は出さない（保存済みの cutLine は残すが使わない）
         var _ckC = fStock + "_" + fDate;
         var _cdC = data.charts && data.charts[_ckC];
         var _cv = _cdC && _cdC.cutLine != null ? _cdC.cutLine : 15;
@@ -11831,7 +11840,7 @@ function EntryRecordForm(_ref_erf) {
         })();
         var _epPnlChip = (function() {
           if (_ef.judge !== "ok" || _ef.epHigh == null || _ef.alpha == null) return null;
-          var _cl = _fCutLine != null ? _fCutLine : 10;
+          var _cl = Infinity;   // 2026-11-16 損切り撤去
           var _df = _ef.epHigh - _ef.alpha;
           // 2026-07-29 終値撤退方式へ追従: 旧実装は高値がラインに触れたら -(高値−α)×100（＝ラインで約定する前提の
           //   旧式。_elDynPlanned が「旧実装の分岐は廃止」として捨てた式）を使っていたため、入力中にこの欄が出す額と
@@ -12102,7 +12111,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              [["○ 利益+", "yes", "#922B21", "#F7C1C1"], ["△ 利益-", "mid", "#C0392B", "#FCEBEB"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#6B7280", "#F3F4F6"]].map(function(kv) {
+              [["○ 利益+", "yes", "#922B21", "#F7C1C1"], ["△ 利益-", "mid", "#C0392B", "#FCEBEB"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#6B7280", "#F3F4F6"]].map(function(kv) {
                 var on = fHoldProfit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
@@ -12160,7 +12169,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化", React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（H１比）")),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              [["○ 利益+", "yes", "#922B21", "#F7C1C1"], ["△ 利益-", "mid", "#C0392B", "#FCEBEB"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#6B7280", "#F3F4F6"]].map(function(kv) {
+              [["○ 利益+", "yes", "#922B21", "#F7C1C1"], ["△ 利益-", "mid", "#C0392B", "#FCEBEB"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#6B7280", "#F3F4F6"]].map(function(kv) {
                 var on = fHold2Profit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
@@ -12780,7 +12789,7 @@ function EntryLogCard(_ref_elc) {
       record.stockTags && record.stockTags.map(function(t) {
         return React.createElement("span", { key: t, style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, border: "1px solid #BFDBFE" } }, "📌 " + t);
       }),
-      _elcAi && _elcAi.alpha != null && React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap", padding: "1px 6px", background: "#F0F9FF", borderRadius: 4, border: "1px solid #BAE6FD" } }, "採用α " + _elAlphaShown(s, _elcAi.alpha) + "円 / 損切り " + _elcAi.cutLine + "円"),
+      _elcAi && _elcAi.alpha != null && React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap", padding: "1px 6px", background: "#F0F9FF", borderRadius: 4, border: "1px solid #BAE6FD" } }, "採用α " + _elAlphaShown(s, _elcAi.alpha) + "円"),
       _elcAi && _elcAi.alpha != null ? _elAlphaBreakdownNode(s, _elcAi.alpha) : null,
       _elcAi && _elcAi.alpha != null ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
         React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "E"),
