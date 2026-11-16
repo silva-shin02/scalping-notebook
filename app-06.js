@@ -1919,7 +1919,7 @@ var _CESIT_FEATS = [
   ["prevKind", "前足の陰陽", 1], ["prevBody", "前足の実体", 1], ["prevUp", "前足の上ヒゲ", 1], ["prevLo", "前足の下ヒゲ", 1],
   ["prevHigh", "前足の高値→EPまで", 1], ["prevClose", "前足の終値→EPまで", 1], ["run3", "直前3本の陽線", 1], ["mom3", "直前3本の値動き", 1],
   ["eOpen", "エントリー足の始値→EPまで", 1], ["os1Prev", "OS1の前足の陰陽", 1], ["pos", "エントリー足の位置", 1], ["five", "5分確定足か", 1],
-  ["tz", "時間帯", 1], ["sig", "シグナル", 1], ["alpha", "α（VAP）の大きさ", 1], ["rn", "RN加算", 1], ["yori", "寄り足（1分）", 1], ["dow", "曜日", 1],
+  ["sig", "シグナル", 1],   // 2026-11-16b 時間帯・曜日・α・RN・寄り足を撤去（ユーザー指示「チャートから読み取れる情報だけ」）
   ["eKind", "参考：エントリー足の陰陽（結果）", 0], ["eUpw", "参考：エントリー足の上ヒゲ（結果）", 0]
 ];
 function _ceSitKind(b) { return !b ? null : b.c > b.o ? "陽線" : b.c < b.o ? "陰線" : "同時線"; }
@@ -1932,13 +1932,7 @@ function _ceSitFeat(r, x) {
   var p1 = B(tE, -1), p2 = B(tE, -2), p3 = B(tE, -3), eb = B(tE, 0), o1p = B(t0, -1);
   f.pos = "OS" + (x.k0 + 1);
   f.five = _epIs5mConf(s.time, x.k0) ? "5分確定足" : "5分確定足ではない";
-  var m = _snlTm(tE);
-  f.tz = m == null ? null : m < 555 ? "9:00〜9:14" : m < 570 ? "9:15〜9:29" : m < 600 ? "9:30〜9:59" : m < 690 ? "10:00〜11:29" : m < 780 ? "12:30〜12:59" : m < 870 ? "13:00〜14:29" : "14:30〜";
-  var dw = new Date(r.date + "T00:00:00").getDay(); f.dow = isNaN(dw) ? null : "日月火水木金土".charAt(dw) + "曜";
   f.sig = _elTagLabel(s) || null;
-  f.alpha = _ceSitBk(x.a, [3, 7, 12], ["〜3円", "4〜7円", "8〜12円", "13円〜"]);
-  f.rn = _elRnYes(s) ? "RN〇" : "RN×";
-  var yk = _yoriKind(_yoriGet(r.stock, r.date), "1"); f.yori = yk === "up" ? "陽線" : yk === "down" ? "陰線" : yk === "doji" ? "同時線" : null;
   if (p1) {
     f.prevKind = _ceSitKind(p1);
     f.prevBody = _ceSitBk(Math.abs(p1.c - p1.o), [1, 4, 9], ["1円以下", "2〜4円", "5〜9円", "10円以上"]);
@@ -1968,6 +1962,8 @@ function _ElCeSitSection(props) {
   var _uN = useState(5), minN = _uN[0], setMinN = _uN[1];
   var _uF = useState("prevKind"), feat = _uF[0], setFeat = _uF[1];
   var _uS = useState(null), sel = _uS[0], setSel = _uS[1];
+  var _uK = useState("one"), kind = _uK[0], setKind = _uK[1];   // ✅/⛔サブタブの中の切替: one＝条件1つ／two＝条件2つの組み合わせ
+  var mode = props.mode || "good";
   var rows = [], skipN = {};
   recs.forEach(function(r) {
     var s = r.signal, a = aiOf(r); if (!s || !a) return;
@@ -2069,8 +2065,7 @@ function _ElCeSitSection(props) {
   var head = React.createElement("div", { style: { marginBottom: 8 } },
     React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "🔍 確定待ちが効く場面 ― どんな場面なら確定を待った方がいいか"),
     React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
-      "全ての記録（エントリー足の種類を問わない）で「確定待ちにしていたら」と「今（α値で約定）」の想定損益（100株換算）を比べ、差額（確定待ち − 今）を場面ごとに集計。プラス＝確定を待った方が良かった。",
-      "良／悪／同＝確定待ちの方が良かった／悪かった／同じだった件数。確定待ちを付けた記録も外した場合と比べる（直上VAPは加味しない）。前足＝エントリー足の1本前の1分足。行を押すとその記録の一覧。"));
+      "全記録で「確定待ちにしていたら − 今（α値で約定）」の想定損益（100株換算）を、チャートの場面ごとに集計。プラス＝待った方が良かった。良／悪／同＝その件数。前足＝エントリー足の1本前の1分足。行を押すと記録の一覧。"));
   var kpi = React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", fontSize: 11, marginBottom: 6 } },
     React.createElement("span", null, "対象 ", React.createElement("b", null, all.n + "件")),
     React.createElement("span", null, "確定待ちの方が 良 ", React.createElement("b", { style: { color: "#0E7490" } }, all.better), "・悪 ", React.createElement("b", { style: { color: "#B45309" } }, all.worse), "・同 ", React.createElement("b", null, all.same)),
@@ -2113,12 +2108,29 @@ function _ElCeSitSection(props) {
         React.createElement("button", { type: "button", onClick: function() { setSel(null); }, style: { padding: "1px 8px", fontSize: 10, borderRadius: 5, border: "1px solid #ddd", background: "#fff", cursor: "pointer", color: "#888" } }, "閉じる")),
       hit.length ? props.recTable(hit.map(function(o) { return o.r; }), extra) : null);
   }
-  return React.createElement("div", null, head, kpi, nSel,
-    _h("✅ 確定を待った方がいい場面（条件1つ）", "平均差額が大きい順（上位10）。"), _tbl(top(sList, true, 10), lbl1, "該当なし（件数の条件を下げると出ることがあります）", "g1_"),
-    _h("⛔ 待たずに入った方がいい場面（条件1つ）", "平均差額が小さい順（上位10）。"), _tbl(top(sList, false, 10), lbl1, "該当なし", "b1_"),
-    _h("✅ 確定を待った方がいい場面（条件2つの組み合わせ）", "参考（結果でしか分からない条件）は含めない。"), _tbl(top(cList, true, 15), lbl1, "該当なし", "g2_"),
-    _h("⛔ 待たずに入った方がいい場面（条件2つの組み合わせ）"), _tbl(top(cList, false, 15), lbl1, "該当なし", "b2_"),
-    _h("📊 条件ごとの内訳"), detail, selList);
+  var body;
+  if (mode === "detail") body = React.createElement("div", null, _h("📊 条件ごとの内訳"), detail);
+  else {
+    var good = mode === "good";
+    var kSel = React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", margin: "8px 0 2px" } },
+      _pill(kind === "one", "条件1つ", function() { setKind("one"); setSel(null); }, "k1"), _pill(kind === "two", "条件2つの組み合わせ", function() { setKind("two"); setSel(null); }, "k2"));
+    var list = kind === "one" ? top(sList, good, 10) : top(cList, good, 15);
+    body = React.createElement("div", null, kSel,
+      _h(good ? "✅ 確定を待った方がいい場面" : "⛔ 待たずに入った方がいい場面", (good ? "平均差額が大きい順" : "平均差額が小さい順") + "（上位" + (kind === "one" ? 10 : 15) + "）" + (kind === "two" ? "。参考（結果でしか分からない条件）は含めない。" : "。")),
+      _tbl(list, lbl1, "該当なし（件数の条件を下げると出ることがあります）", (good ? "g" : "b") + kind + "_"));
+  }
+  return React.createElement("div", null, head, kpi, nSel, body, selList);
+}
+// ⏳タブのサブタブ 2026-11-16b（ユーザー要望「縦に長すぎるのでサブタブで」）: ⏳5分確定待ち｜✅待つべき場面｜⛔待たない場面｜📊条件ごとの内訳
+var _CE_SUBTABS = [["five", "⏳ 5分確定待ち"], ["good", "✅ 待つべき場面"], ["bad", "⛔ 待たない場面"], ["detail", "📊 条件ごとの内訳"]];
+function _ElCeTabs(props) {
+  var _u = useState("five"), sub = _u[0], setSub = _u[1];
+  var bar = React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 } }, _CE_SUBTABS.map(function(t) {
+    var on = sub === t[0];
+    return React.createElement("button", { key: t[0], type: "button", onClick: function() { setSub(t[0]); }, style: { padding: "5px 12px", fontSize: 12, fontWeight: 800, borderRadius: 8, cursor: "pointer", border: "1px solid " + (on ? "#0E7490" : "#D6D3D1"), background: on ? "#0E7490" : "#fff", color: on ? "#fff" : "#57534E" } }, t[1]);
+  }));
+  return React.createElement("div", null, bar,
+    sub === "five" ? React.createElement(_ElAllCeSection, props) : React.createElement(_ElCeSitSection, Object.assign({}, props, { mode: sub, key: "sit" })));
 }
 // ===== 🕯 寄り足 タブ 2026-11-12（📡シグナル総合 → 寄り足ライン の中・ユーザー要望）=====
 // ①寄り足（9:00の1分足・5分足の両方）が陽線／陰線／同時線で、件数・勝率・損切り率・合計／平均の想定損益を比べる。
@@ -10171,8 +10183,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     // ⏳ 5分確定待ち 2026-11-12b（旧「全部確定待ち」を作り替え・ユーザー要望）。母数＝📊集計の合計損益と同じ線引き（期間選択・算入・データのみ・仮シグナル・算入銘柄・時間かぶり除外）。計算は app-05 _elAllCeRow。
     var _ceRecs = v2recs.filter(function(r) { return r && r.signal && !_isDataOnly(data, r) && !_elIsProvisional(r.signal) && _elAmtRecOk(r) && !_elCollExcluded(data, r, _collScope); });
     _tabBody = _cardify([
-      _elCard(React.createElement(_ElAllCeSection, { recs: _ceRecs, aiOf: _ai, data: data, recTable: function(rs, ex) { return _recTable(rs, "full", "allce_", null, null, ex); } })),
-      _elCard(React.createElement(_ElCeSitSection, { recs: _ceRecs, aiOf: _ai, data: data, recTable: function(rs, ex) { return _recTable(rs, "full", "cesit_", null, null, ex); } }))
+      _elCard(React.createElement(_ElCeTabs, { recs: _ceRecs, aiOf: _ai, data: data, recTable: function(rs, ex) { return _recTable(rs, "full", "allce_", null, null, ex); } }))
     ]);
   } else if (view === "proj" && _isAllStock) {
     // 📈 損益推移シミュレーター 2026-08-05（💰損益タブ・🧮シミュの右）: 本体は app-09.js の DaytradeProjection。
