@@ -1892,6 +1892,27 @@ function migrateData(d) {
       d._migFjkToMurata = true;
     } catch(e) { console.warn("[migrateData] fjk-to-murata error:", e); }
   }
+  // 【一回性 _migFjkToMurata2・2026-11-17 ユーザー報告「変わってない」】11/1〜11/10 は旧方式（固定タブ＋日替わり）でフジクラは固定タブ＝日ごとの選定(dailyStock)に入っていなかった。
+  //   この期間も「その日の選定銘柄」方式（app-04 _DS_TRIO_SINCE を 11/01 へ）に揃え、各日に 今の選定＝固定タブ＋その日の日替わり（未指定は既定SUMCO）を書き込み、フジクラ→村田製作所に置き換える。
+  if (!d._migFjkToMurata2) {
+    try {
+      var _f2Ds = (d.dailyStock && typeof d.dailyStock === "object") ? Object.assign({}, d.dailyStock) : {};
+      var _f2Sd = (d.dailyStockSeed && typeof d.dailyStockSeed === "object") ? Object.assign({}, d.dailyStockSeed) : {};
+      var _f2Fx = (d.custom && Array.isArray(d.custom.fixedTabs)) ? d.custom.fixedTabs : [];
+      var _f2Rot = (d.custom && Array.isArray(d.custom.rotatingStocks)) ? d.custom.rotatingStocks : [];
+      for (var _f2i = 1; _f2i <= 10; _f2i++) {
+        var _f2D = "2026-11-" + (_f2i < 10 ? "0" : "") + _f2i;
+        var _f2V = _f2Ds[_f2D], _f2Raw = (_f2V == null || _f2V === "") ? [] : (Array.isArray(_f2V) ? _f2V : [_f2V]);
+        if (!_f2Raw.length && !_f2Sd[_f2D] && _f2Rot.indexOf("SUMCO") >= 0) _f2Raw = ["SUMCO"];   // 9/1以降の既定（app-04 _DS_DEFAULT_STOCK）と同じ読み
+        var _f2Out = [];
+        _f2Fx.concat(_f2Raw).forEach(function(x) { if (x && typeof x === "string" && x !== "日経平均株価") { var y = (x === "フジクラ") ? "村田製作所" : x; if (_f2Out.indexOf(y) < 0) _f2Out.push(y); } });
+        _f2Out = _f2Out.slice(0, 4);
+        if (_f2Out.length) { _f2Ds[_f2D] = _f2Out.length === 1 ? _f2Out[0] : _f2Out; _f2Sd[_f2D] = 1; }
+      }
+      d.dailyStock = _f2Ds; d.dailyStockSeed = _f2Sd;
+      d._migFjkToMurata2 = true;
+    } catch(e) { console.warn("[migrateData] fjk-to-murata2 error:", e); }
+  }
   return d;
 }
 function stLoad() {
