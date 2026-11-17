@@ -3293,3 +3293,4 @@ HomeEventFormModal, App
 - 2026-11-17 v653 🗑ごみ箱：app-05 `_TRASH_DAYS`/`_trashLive`/`_trashDaysLeft`/`_trashPush`/`_trashEntriesOfCharts`/`_trashRestore`/`_trashPurge`/`_trashEmpty`/`_SnTrashList`/`_SnTrashPanel`/`_SnTrashDayBox`（`_elDeleteSignal` の直前）。data.trash=[{id,kind:"sig",stock,date,at,sig}]（トップレベルのid付き配列＝_m3で端末間に伝わる）。呼び出し：app-05 `_elDeleteSignal`・app-04 purgeOne/handlePurgeStock・app-02 EntrySignalSection（+追加の下）・app-04 SettingsModal タブ "trash"・app-01 migrateData（期限切れ削除）。
 - 2026-11-17 v654：app-02 EntrySignalSection の `_SnTrashDayBox` を表と「＋追加」ボタンの間へ移動。
 - 2026-11-17 v655：app-01 migrateData 末尾に一回性 `_migFjkToMurata`（11/1〜実行日の dailyStock の「フジクラ」→「村田製作所」）。
+- 2026-11-17 v656：app-04 `_DS_TRIO_SINCE`＝"2026-11-01"（旧11-11）。app-01 一回性 `_migFjkToMurata2`＝11/1〜10の dailyStock に 固定タブ＋日替わり（未指定は既定SUMCO）をフジクラ→村田製作所で書き込み・dailyStockSeed も付ける。

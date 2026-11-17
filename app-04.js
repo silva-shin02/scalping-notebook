@@ -4045,7 +4045,7 @@ function _dailyStockRaw(data, date) {
 // _DS_TRIO_SINCE 以降の日は「本日の取引銘柄」(dailyStock[日付])＝その日の3銘柄（EPナビの3列・日別ページの銘柄タブ・合計算入の正本）。
 //   全銘柄（日経平均株価を除く）が候補扱い＝3銘柄に入っていない銘柄の記録はデータのみ。未選択の日は直前の選択日の3銘柄を引き継ぐ。
 //   それより前の日は従来どおり（固定タブ＋日替わり候補プール）＝過去の合計額は変わらない。
-var _DS_TRIO_SINCE = "2026-11-11", _DS_TRIO_MAX = 4;   // 2026-11-11d 3→4銘柄（ユーザー指示）
+var _DS_TRIO_SINCE = "2026-11-01", _DS_TRIO_MAX = 4;   // 2026-11-17 11/11→11/01（11/1〜10もその日の選定銘柄方式に・app-01 _migFjkToMurata2 が各日の選定を書き込み済み）   // 2026-11-11d 3→4銘柄（ユーザー指示）
 function _dsTrioMode(date) { return !!date && String(date) >= _DS_TRIO_SINCE; }
 function _dsPoolHas(data, date, stock) {
   if (!stock) return false;
