@@ -1913,6 +1913,27 @@ function migrateData(d) {
       d._migFjkToMurata2 = true;
     } catch(e) { console.warn("[migrateData] fjk-to-murata2 error:", e); }
   }
+  // 【一回性 _migFjkToMurata3・2026-11-17 ユーザー報告「記録が不算入のまま」】_migFjkToMurata/2 は選定(dailyStock)だけを書き換え、記録の合計算入(includeInTotal)を
+  //   画面で選定を切り替えたとき(app-04 _dsTrioSet)と同じように揃えていなかった。11/1〜実行日で、選定に入った村田製作所の記録は算入へ・選定から外れたフジクラの記録は不算入へ
+  //   （明示フラグが選定と食い違う記録だけ＝app-04 _dsNeedsSync と同じ規約。スルー・手動オーバーライド・データ算入オフは触らない）。app-04 未ロード時は次回へ回す。
+  if (!d._migFjkToMurata3 && typeof _dailyStockList === "function" && typeof _dsNeedsSync === "function") {
+    try {
+      var _f3To = todayStr(), _f3Ch = Object.assign({}, d.charts || {}), _f3N = 0;
+      Object.keys(_f3Ch).forEach(function(ck) {
+        var i = ck.lastIndexOf("_"); if (i < 0) return;
+        var st = ck.slice(0, i), dt = ck.slice(i + 1);
+        if ((st !== "村田製作所" && st !== "フジクラ") || dt < "2026-11-01" || dt > _f3To) return;
+        var c = _f3Ch[ck]; if (!c || !Array.isArray(c.signals)) return;
+        var on = _dailyStockList(d, dt).indexOf(st) >= 0;
+        if (st === "フジクラ" && on) return;   // フジクラが選定のまま（後から自分で選んだ日）は触らない
+        var hit = false;
+        var ns = c.signals.map(function(sg) { if (!_dsNeedsSync(sg, on)) return sg; hit = true; _f3N++; return Object.assign({}, sg, { includeInTotal: !!on }); });
+        if (hit) _f3Ch[ck] = Object.assign({}, c, { signals: ns });
+      });
+      if (_f3N) { d.charts = _f3Ch; console.log("[migrateData] 選定の置き換えに合わせて合計算入を揃えた記録: " + _f3N + "件"); }
+      d._migFjkToMurata3 = true;
+    } catch(e) { console.warn("[migrateData] fjk-to-murata3 error:", e); }
+  }
   return d;
 }
 function stLoad() {
