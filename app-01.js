@@ -1873,6 +1873,25 @@ function migrateData(d) {
       d._migTrio1111 = true;
     } catch(e) { console.warn("[migrateData] trio1111 error:", e); }
   }
+  // 【一回性 _migFjkToMurata・2026-11-17 ユーザー指示】11/1〜この移行を走らせた日までで、その日の選定銘柄(dailyStock[日付])に「フジクラ」がある日は「村田製作所」に置き換える。
+  //   選定だけを変える（記録は動かさない）＝その日のフジクラの記録はデータのみ・村田製作所の記録が合計に入る。並び順は保ち、村田製作所が既にあれば重複させない。以後フジクラを選んだ日は触らない。
+  if (!d._migFjkToMurata) {
+    try {
+      var _fmDs = (d.dailyStock && typeof d.dailyStock === "object") ? d.dailyStock : null, _fmTo = todayStr(), _fmN = 0;
+      if (_fmDs) {
+        var _fmOut = Object.assign({}, _fmDs);
+        Object.keys(_fmDs).forEach(function(dt) {
+          if (dt < "2026-11-01" || dt > _fmTo) return;
+          var v = _fmDs[dt], a = Array.isArray(v) ? v.slice() : (v ? [v] : []);
+          if (a.indexOf("フジクラ") < 0) return;
+          var o = []; a.forEach(function(x) { var y = (x === "フジクラ") ? "村田製作所" : x; if (y && o.indexOf(y) < 0) o.push(y); });
+          _fmOut[dt] = o.length === 1 ? o[0] : o; _fmN++;
+        });
+        if (_fmN) { d.dailyStock = _fmOut; console.log("[migrateData] フジクラ→村田製作所: " + _fmN + "日"); }
+      }
+      d._migFjkToMurata = true;
+    } catch(e) { console.warn("[migrateData] fjk-to-murata error:", e); }
+  }
   return d;
 }
 function stLoad() {
