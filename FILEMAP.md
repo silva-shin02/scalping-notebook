@@ -3291,3 +3291,4 @@ HomeEventFormModal, App
 - 2026-11-16 v651：⏳タブを app-06 `_ElCeTabs`（`_CE_SUBTABS`）でサブタブ化。`_ElCeSitSection` は props.mode（good/bad/detail）＋内部 state kind（one/two）。`_CESIT_FEATS` から時間帯・曜日・α・RN・寄り足を撤去（チャートから読み取れる情報だけ）。
 - 2026-11-16 v652：app-01 migrateData に「大RN底抜け（全角ＲＮも）→底つきライン」統合（_migSignalRename6 の直後・フラグなしで毎回）。_elSignalRenameData 後に custom.signalTags の並びを元に戻す。
 - 2026-11-17 v653 🗑ごみ箱：app-05 `_TRASH_DAYS`/`_trashLive`/`_trashDaysLeft`/`_trashPush`/`_trashEntriesOfCharts`/`_trashRestore`/`_trashPurge`/`_trashEmpty`/`_SnTrashList`/`_SnTrashPanel`/`_SnTrashDayBox`（`_elDeleteSignal` の直前）。data.trash=[{id,kind:"sig",stock,date,at,sig}]（トップレベルのid付き配列＝_m3で端末間に伝わる）。呼び出し：app-05 `_elDeleteSignal`・app-04 purgeOne/handlePurgeStock・app-02 EntrySignalSection（+追加の下）・app-04 SettingsModal タブ "trash"・app-01 migrateData（期限切れ削除）。
+- 2026-11-17 v654：app-02 EntrySignalSection の `_SnTrashDayBox` を表と「＋追加」ボタンの間へ移動。
