@@ -4883,6 +4883,7 @@ function EntrySignalSection(_ref_es) {
         }
       }, "+ 追加")
     ),
+    React.createElement(_SnTrashDayBox, { data: data, save: save, stock: stock, date: date }),   // 2026-11-17 🗑 この日・この銘柄の消した記録
     editTarget && React.createElement(EntryRecordForm, {
       data: data,
       save: save,

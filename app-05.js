@@ -8166,19 +8166,131 @@ function _elSaveSignal(save, stock, date, signal, isNew) {
 }
 
 
+// ===== 🗑 ごみ箱（消したエントリー記録を30日間保管）2026-11-17 ユーザー要望 =====
+// data.trash = [{ id, kind:"sig", stock, date, at(消した時刻ms), sig(消す前の記録そのまま) }]。トップレベルのid付き配列＝3者統合(_m3)で端末間の追加・削除がそのまま伝わる。
+// 30日を過ぎた分は追加・復元のたび／起動時(migrateData)に落とす。復元は新しいidで元の日・銘柄へ戻す（他端末の削除トムストーン _delSig で再び消されないように）。
+var _TRASH_DAYS = 30;
+function _trashLive(list, now) {
+  var lim = (now || Date.now()) - _TRASH_DAYS * 86400000;
+  return (Array.isArray(list) ? list : []).filter(function(t) { return t && t.sig && typeof t.at === "number" && t.at >= lim; });
+}
+function _trashDaysLeft(t, now) { return Math.max(0, Math.ceil((t.at + _TRASH_DAYS * 86400000 - (now || Date.now())) / 86400000)); }
+// entries=[{stock,date,sig}] をごみ箱へ足した prev を返す（save の中で使う）
+function _trashPush(prev, entries) {
+  entries = (entries || []).filter(function(e) { return e && e.sig; });
+  if (!entries.length) return prev;
+  var now = Date.now(), cur = _trashLive(prev && prev.trash, now);
+  entries.forEach(function(e, i) {
+    cur.push({ id: "tr_" + now.toString(36) + "_" + i + "_" + Math.random().toString(36).slice(2, 7), kind: "sig", stock: e.stock, date: e.date, at: now, sig: e.sig });
+  });
+  return Object.assign({}, prev, { trash: cur });
+}
+// charts のキー（"銘柄_日付"）群から、中のエントリー記録をごみ箱用の entries にする（銘柄・日ごとの削除用）
+function _trashEntriesOfCharts(charts, keys) {
+  var out = [];
+  (keys || []).forEach(function(ck) {
+    var c = charts && charts[ck]; if (!c || !Array.isArray(c.signals)) return;
+    var i = ck.lastIndexOf("_"); if (i < 0) return;
+    var st = ck.slice(0, i), dt = ck.slice(i + 1);
+    c.signals.forEach(function(sg) { if (sg) out.push({ stock: st, date: dt, sig: sg }); });
+  });
+  return out;
+}
+function _trashRestore(save, tid) {
+  save(function(prev) {
+    var list = Array.isArray(prev.trash) ? prev.trash : [];
+    var t = null; list.forEach(function(x) { if (x && x.id === tid) t = x; });
+    if (!t || !t.sig) return prev;
+    var charts = Object.assign({}, prev.charts || {}), ck = t.stock + "_" + t.date;
+    var c = Object.assign({}, charts[ck] || {});
+    var sig = Object.assign({}, t.sig, { id: _sigId() });
+    c.signals = (Array.isArray(c.signals) ? c.signals : []).concat([sig]);
+    charts[ck] = c;
+    var out = Object.assign({}, prev, { charts: charts, trash: _trashLive(list.filter(function(x) { return x !== t; })) });
+    var pc = out.custom || {};
+    if (Array.isArray(pc.stocks) && pc.stocks.length && t.stock && pc.stocks.indexOf(t.stock) < 0) out.custom = Object.assign({}, pc, { stocks: pc.stocks.concat([t.stock]) });   // 完全削除した銘柄の記録を戻したら銘柄も戻す
+    return out;
+  });
+}
+function _trashPurge(save, tid) {
+  save(function(prev) { var list = Array.isArray(prev.trash) ? prev.trash : []; return Object.assign({}, prev, { trash: _trashLive(list.filter(function(x) { return !x || x.id !== tid; })) }); });
+}
+function _trashEmpty(save, filterFn) {
+  save(function(prev) { var list = Array.isArray(prev.trash) ? prev.trash : []; return Object.assign({}, prev, { trash: filterFn ? _trashLive(list.filter(function(x) { return x && !filterFn(x); })) : [] }); });
+}
+// ごみ箱の一覧（設定の🗑ごみ箱タブ／日の記録一覧の下 で共用）。items＝表示するごみ箱の項目（新しく消した順に並べ替える）。
+function _SnTrashList(props) {
+  var data = props.data || {}, save = props.save, items = (props.items || []).slice().sort(function(a, b) { return b.at - a.at; });
+  var now = Date.now();
+  var _pad = function(n) { return (n < 10 ? "0" : "") + n; };
+  var _dt = function(ms) { var d = new Date(ms); return (d.getMonth() + 1) + "/" + d.getDate() + " " + _pad(d.getHours()) + ":" + _pad(d.getMinutes()); };
+  var _pnl = function(t) {
+    try {
+      var ai = _elAlphaInfo({ stock: t.stock, date: t.date, signal: t.sig }, data);
+      var p = ai ? _elHoldFinalParts(t.sig, ai.alpha, ai.cutLine) : null;
+      return p ? p.main : null;
+    } catch (e) { return null; }
+  };
+  var th = function(x) { return React.createElement("th", { style: { padding: "4px 6px", fontSize: 10, color: "#9A9186", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "left" } }, x); };
+  var td = function(x, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", fontSize: 11.5, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, x); };
+  var btn = function(lbl, col, bg, fn, title) { return React.createElement("button", { type: "button", title: title || null, onClick: fn, style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: "pointer", border: "1px solid " + col, background: bg, color: col, marginRight: 4, minHeight: IS_TOUCH ? 32 : 24 } }, lbl); };
+  if (!items.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "10px 0", textAlign: "center" } }, "ごみ箱は空です");
+  return React.createElement("div", { style: { overflowX: "auto" } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+      React.createElement("thead", null, React.createElement("tr", null,
+        props.hideWhere ? null : th("日付"), props.hideWhere ? null : th("銘柄"), th("時刻"), th("シグナル"), th("想定損益"), th("消した日時"), th("残り"), th(""))),
+      React.createElement("tbody", null, items.map(function(t) {
+        var pn = _pnl(t), left = _trashDaysLeft(t, now);
+        return React.createElement("tr", { key: t.id },
+          props.hideWhere ? null : td(t.date), props.hideWhere ? null : td(t.stock, { fontWeight: 700 }),
+          td(t.sig.time || "—"), td(_elTagLabel(t.sig) || "—", { whiteSpace: "normal", minWidth: 90 }),
+          td(React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(pn) } }, pn == null ? "—" : _elPnlFmt(Math.round(pn)))),
+          td(_dt(t.at), { color: "#78716C" }),
+          td(left + "日", { color: left <= 3 ? "#B45309" : "#78716C", fontWeight: left <= 3 ? 700 : 400 }),
+          td(React.createElement("span", null,
+            btn("↩ 復元", "#0E7490", "#ECFEFF", function() { _trashRestore(save, t.id); }, "元の日・銘柄の記録に戻します"),
+            btn("完全に削除", "#B91C1C", "#fff", function() {
+              window._snConfirm("この記録を完全に削除しますか？\n（ごみ箱から消え、戻せなくなります）").then(function(ok) { if (ok) _trashPurge(save, t.id); });
+            }))));
+      }))));
+}
+// 設定の「🗑 ごみ箱」タブ
+function _SnTrashPanel(props) {
+  var data = props.data || {}, save = props.save, items = _trashLive(data.trash);
+  return React.createElement("div", null,
+    React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
+      React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#444" } }, "🗑 ごみ箱（" + items.length + "件）"),
+      items.length ? React.createElement("button", { type: "button", onClick: function() {
+        window._snConfirm("ごみ箱を空にしますか？\n" + items.length + "件の記録が完全に削除され、戻せなくなります。").then(function(ok) { if (ok) _trashEmpty(save); });
+      }, style: { padding: "4px 12px", fontSize: 11.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", border: "1px solid #B91C1C", background: "#FEF2F2", color: "#B91C1C" } }, "ごみ箱を空にする") : null),
+    React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 8 } },
+      "消したエントリー記録（1件ずつの削除・銘柄の完全削除）は、ここに" + _TRASH_DAYS + "日間残ります。「復元」で元の日・銘柄の記録に戻ります。" + _TRASH_DAYS + "日を過ぎると自動で完全に消えます。どの端末からでも戻せます。"),
+    React.createElement(_SnTrashList, { data: data, save: save, items: items }));
+}
+// 日の記録一覧の下：この日・この銘柄の消した記録（0件なら出さない・たたんで置く）
+function _SnTrashDayBox(props) {
+  var data = props.data || {}, items = _trashLive(data.trash).filter(function(t) { return t.stock === props.stock && t.date === props.date; });
+  var _u = useState(false), open = _u[0], setOpen = _u[1];
+  if (!items.length) return null;
+  return React.createElement("div", { style: { marginTop: 8, padding: "6px 10px", background: "#FAFAF9", border: "1px dashed #D6D3D1", borderRadius: 8 } },
+    React.createElement("button", { type: "button", onClick: function() { setOpen(!open); }, style: { border: "none", background: "transparent", cursor: "pointer", padding: 0, fontSize: 11.5, fontWeight: 700, color: "#78716C" } },
+      (open ? "▾ " : "▸ ") + "🗑 消した記録 " + items.length + "件（" + _TRASH_DAYS + "日以内なら復元できます）"),
+    open ? React.createElement("div", { style: { marginTop: 6 } }, React.createElement(_SnTrashList, { data: data, save: props.save, items: items, hideWhere: true })) : null);
+}
 function _elDeleteSignal(save, stock, date, signalId) {
   save(function(prev) {
     var charts = Object.assign({}, prev.charts || {});
     var ck = stock + "_" + date;
     var c = charts[ck];
     if (!c || !Array.isArray(c.signals)) return prev;
+    var _gone = c.signals.filter(function(s) { return s && s.id === signalId; });   // 2026-11-17 ごみ箱へ
     var signals = c.signals.filter(function(s) { return s.id !== signalId; });
     // 削除トムストーン: 物理削除に加え削除idを_delSigに記録＝多端末同期で復活させない（[[project-scalping-signal-delete-resurrection]]）。2026-06-19
     var dels = Array.isArray(c._delSig) ? c._delSig.slice() : [];
     var _sid = String(signalId);
     if (dels.indexOf(_sid) < 0) dels.push(_sid);
     charts[ck] = Object.assign({}, c, { signals: signals, _delSig: dels });
-    return Object.assign({}, prev, { charts: charts });
+    return _trashPush(Object.assign({}, prev, { charts: charts }), _gone.map(function(g) { return { stock: stock, date: date, sig: g }; }));
   });
 }
 

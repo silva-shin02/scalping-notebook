@@ -1524,6 +1524,8 @@ function migrateData(d) {
       });
     }
   } catch(e) { console.warn("[migrateData] stop-hold-default error:", e); }
+  // 🗑 ごみ箱の期限切れ（30日超）を落とす 2026-11-17（_trashLive は app-05）
+  try { if (Array.isArray(d.trash) && typeof _trashLive === "function") { var _tl = _trashLive(d.trash); if (_tl.length !== d.trash.length) d.trash = _tl; } } catch (e) { console.warn("[migrateData] trash-prune error:", e); }
   // 損切りの概念を撤去（2026-11-16 ユーザー指示）: 期待度欄の「損切り済」は△として読む。元の値は signal._stopExpOrig{欄名:"損切り済"} に残す（戻せるように）。冪等。
   try {
     if (d.charts && typeof d.charts === "object") {

@@ -2529,7 +2529,7 @@ function SettingsModal(_ref54) {
     }
   }, "\u2699\uFE0F \u8A2D\u5B9A"),
   React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 18, borderBottom: "1px solid #eee", paddingBottom: 10 } },
-    [["sync", "\uD83D\uDD04 \u540C\u671F"], ["data", "\uD83D\uDCCA \u30C7\u30FC\u30BF\u30FB\u9298\u67C4"], ["maint", "\uD83D\uDDBC \u753B\u50CF\u30FB\u30E1\u30F3\u30C6"], ["display", "\uD83C\uDFA8 \u8868\u793A"]].map(function(t) {
+    [["sync", "\uD83D\uDD04 \u540C\u671F"], ["data", "\uD83D\uDCCA \u30C7\u30FC\u30BF\u30FB\u9298\u67C4"], ["maint", "\uD83D\uDDBC \u753B\u50CF\u30FB\u30E1\u30F3\u30C6"], ["display", "\uD83C\uDFA8 \u8868\u793A"], ["trash", "\uD83D\uDDD1 \u3054\u307F\u7BB1"]].map(function(t) {
       var on = _stTab === t[0];
       return React.createElement("button", {
         key: t[0], onClick: function() { _setStTab(t[0]); },
@@ -2539,6 +2539,7 @@ function SettingsModal(_ref54) {
       }, t[1]);
     })
   ),
+  _stTab === "trash" && React.createElement(_SnTrashPanel, { data: data, save: save }),   // 2026-11-17 🗑 ごみ箱
   _stTab === "display" && React.createElement("div", {
     style: { marginBottom: 20 }
   },
@@ -2745,6 +2746,8 @@ function SettingsModal(_ref54) {
         var ps = (pc.stocks && pc.stocks.length > 0) ? pc.stocks.slice() : [].concat(DEF_STOCKS);
         var ns = ps.filter(function(s){ return s !== stock; });
         var nc = Object.assign({}, prev.charts || {});
+        var _trE = _trashEntriesOfCharts(nc, Object.keys(nc).filter(function(k){ return k.indexOf(stock + "_") === 0; }));   // 2026-11-17 中のエントリー記録はごみ箱へ
+        prev = _trashPush(prev, _trE);
         Object.keys(nc).forEach(function(k){ if (k.indexOf(stock + "_") === 0) delete nc[k]; });
         var psc = Object.assign({}, pc.stockCodes || {});
         delete psc[stock];
@@ -5875,6 +5878,7 @@ function DayView(_ref57) {
       var ps = (pc.stocks && pc.stocks.length > 0) ? pc.stocks.slice() : [].concat(DEF_STOCKS);
       var ns = ps.filter(function(s) { return s !== stock; });
       var nc = Object.assign({}, prev.charts || {});
+      prev = _trashPush(prev, _trashEntriesOfCharts(nc, Object.keys(nc).filter(function(k) { return k.indexOf(stock + "_") === 0; })));   // 2026-11-17 中のエントリー記録はごみ箱へ
       Object.keys(nc).forEach(function(k) {
         if (k.indexOf(stock + "_") === 0) delete nc[k];
       });
