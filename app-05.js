@@ -8609,6 +8609,16 @@ function _SnLineChart(_p) {
   // 表示範囲（ホイール＝カーソル位置中心で拡大縮小・ドラッグ＝左右・2本指ピンチ）。null＝初期（前後10本）
   var _vw = useState(null), view = _vw[0], setView = _vw[1];
   useEffect(function() { setView(null); }, [bars, si]);
+  // 2026-11-17 ユーザー指示「クリック以外の動作は、一度チャートをクリックしてから」: ホイール・ドラッグ・ピンチは、チャートを1回クリック（タップ）して
+  //   動かせる状態(active)になってから効く。チャートの外を押すと解除。足のタップ（起点の足の入力）はいつでも効く。動かせない間のホイールはページのスクロールに回す。
+  var _acS = useState(false), active = _acS[0], setActive = _acS[1];
+  var acRef = useRef(false); acRef.current = active;
+  useEffect(function() {
+    if (!active) return;
+    var off = function(e) { if (ref.current && e.target !== ref.current) setActive(false); };
+    document.addEventListener("pointerdown", off, true);
+    return function() { document.removeEventListener("pointerdown", off, true); };
+  }, [active]);
   var from = view ? view.f : Math.max(0, si - 10), to = view ? view.t : Math.min(nB - 1, si + 10);
   var padL = 4, padR = 46, padT = 6, padB = 16, cw = (W - padL - padR) / Math.max(1, to - from + 1);
   var stRef = useRef({}); stRef.current = { from: from, to: to, n: nB };
@@ -8624,6 +8634,7 @@ function _SnLineChart(_p) {
   useEffect(function() {
     var cv = ref.current; if (!cv) return;
     var onW = function(e) {
+      if (!acRef.current) return;   // 動かせる状態でなければページのスクロールのまま
       e.preventDefault();
       var st = stRef.current, span = st.to - st.from + 1, ns = span * (e.deltaY > 0 ? 1.15 : 1 / 1.15);
       if (Math.round(ns) === span) ns = span + (e.deltaY > 0 ? 1 : -1);
@@ -8634,6 +8645,7 @@ function _SnLineChart(_p) {
   }, [si < 0, W]);
   var _pDown = function(e) {
     var g = gRef.current; if (!Object.keys(g.pts).length) g.moved = false;
+    if (!acRef.current) { g.pts = {}; g.moved = false; return; }   // 動かせる状態になるまでドラッグ・ピンチは受けない（クリックは onClick で受ける）
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e) {}
     g.pts[e.pointerId] = _cx(e.clientX);
     var ks = Object.keys(g.pts), st = stRef.current;
@@ -8642,7 +8654,7 @@ function _SnLineChart(_p) {
     else if (ks.length >= 2) { var a = g.pts[ks[0]], b = g.pts[ks[1]]; g.d0 = Math.max(10, Math.abs(a - b)); g.m0 = (a + b) / 2; }
   };
   var _pMove = function(e) {
-    var g = gRef.current; if (g.pts[e.pointerId] == null) return;
+    var g = gRef.current; if (!acRef.current || g.pts[e.pointerId] == null) return;
     g.pts[e.pointerId] = _cx(e.clientX);
     var ks = Object.keys(g.pts), n = stRef.current.n;
     if (ks.length >= 2) {
@@ -8702,10 +8714,10 @@ function _SnLineChart(_p) {
       var yy = up ? padT + 6 + 11 * _offU++ : H - padB - 6 - 11 * _offD++; ctx.fillStyle = L[2]; ctx.fillText((up ? "↑" : "↓") + L[1] + " " + _snlR(v), W - padR - 8, yy); });
   }, [bars, si, from, to, _p.level, _p.kitenT, _p.kitenP, (_p.passVals || []).join(","), W, H, tf, JSON.stringify(_p.hl || null), JSON.stringify(_p.mk || null)]);
   if (si < 0) return null;
-  return React.createElement("canvas", { ref: ref, title: (_p.onPick ? "足をタップすると起点の足の時刻（起点が「無し」ならその足の実体の安値も株価欄）に入ります。" : "") + "ホイール／ピンチで拡大縮小・左右ボタン同時押し（iPadは1本指）のドラッグで左右",
+  return React.createElement("canvas", { ref: ref, title: (_p.onPick ? "足をタップすると起点の足の時刻（起点が「無し」ならその足の実体の安値も株価欄）に入ります。" : "") + (active ? "" : "一度クリックすると動かせます（外を押すと解除）。") + "ホイール／ピンチで拡大縮小・左右ボタン同時押し（iPadは1本指）のドラッグで左右",
     onPointerDown: _pDown, onPointerMove: _pMove, onPointerUp: _pUp, onPointerCancel: _pUp, onContextMenu: function(e) { e.preventDefault(); },
-    onClick: _p.onPick ? function(e) { if (gRef.current.moved) return; var x = _cx(e.clientX); var i = from + Math.floor((x - padL) / cw); if (i >= from && i <= to && bars[i]) _p.onPick(bars[i]); } : null,
-    style: { touchAction: "pan-y", width: W, height: "auto", aspectRatio: W + " / " + H, display: "block", borderRadius: 6, border: "1px solid #333", cursor: _p.onPick ? "crosshair" : "default", flexShrink: 0, maxWidth: "100%" } });
+    onClick: function(e) { if (gRef.current.moved) return; if (!acRef.current) setActive(true); if (!_p.onPick) return; var x = _cx(e.clientX); var i = from + Math.floor((x - padL) / cw); if (i >= from && i <= to && bars[i]) _p.onPick(bars[i]); },
+    style: { touchAction: "pan-y", width: W, height: "auto", aspectRatio: W + " / " + H, display: "block", borderRadius: 6, border: active ? "1px solid #fb923c" : "1px solid #333", boxShadow: active ? "0 0 0 2px rgba(251,146,60,0.35)" : "none", cursor: _p.onPick ? "crosshair" : "default", flexShrink: 0, maxWidth: "100%" } });
 }
 // 右の縦の並び（上＝EP基準ライン／水準線、下＝起点）
 function _snlFlowNode(o) {
