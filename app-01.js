@@ -1763,16 +1763,23 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslH3; d._migBHide1109 = true;
     } catch(e) { console.warn("[migrateData] bHide1109 error:", e); }
   }
-  // 【2026-11-19】大RN-OS も①EP基準ライン不要（ユーザー指示）＝sigSecLabels[大RN-OS].bHide。名前の「-」の表記ゆれ（ー・−・－・‐）と全角ＲＮも同じ扱い。
-  //   通常・仮シグナル両方の一覧から該当名を探す（無ければ既定の「大RN-OS」）。フラグなし・毎回（未設定のときだけ書く＝冪等）。過去記録の値は残す（表示・必須チェックだけ外れる）。
-  try {
-    var _bhRe = /^大(RN|ＲＮ)[-ー−－‐]OS$/;
-    var _bhNames = (d.custom.signalTags || []).concat(d.custom.provSignalTags || []).filter(function(t) { return typeof t === "string" && _bhRe.test(t.trim()); });
-    if (!_bhNames.length) _bhNames = ["大RN-OS"];
-    var _sslH4 = d.custom.sigSecLabels || {}, _bhChg = false;
-    _bhNames.forEach(function(nm) { if (!(_sslH4[nm] && _sslH4[nm].bHide)) { if (!_bhChg) { _sslH4 = Object.assign({}, _sslH4); _bhChg = true; } _sslH4[nm] = Object.assign({}, _sslH4[nm] || {}, { bHide: true }); } });
-    if (_bhChg) d.custom.sigSecLabels = _sslH4;
-  } catch(e) { console.warn("[migrateData] bHide-daiRnOs error:", e); }
+  // 【一回性 _migDaiRnOsB1119・2026-11-19】大RN-OS：①EP基準ラインはやっぱり必要（ユーザー指示・v661 の bHide を撤回）＝bHide を外し、①の選択肢に「大RN」「中RN」を用意する。
+  //   名前の「-」の表記ゆれ（ー・−・－・‐）と全角ＲＮも同じ扱い（通常・仮シグナル両方の一覧から探す・無ければ既定の「大RN-OS」）。選択肢は無いものだけ足す（並びは既存の後ろに 大RN→中RN）。
+  if (!d._migDaiRnOsB1119) {
+    try {
+      var _bhRe = /^大(RN|ＲＮ)[-ー−－‐]OS$/;
+      var _bhNames = (d.custom.signalTags || []).concat(d.custom.provSignalTags || []).filter(function(t) { return typeof t === "string" && _bhRe.test(t.trim()); });
+      if (!_bhNames.length) _bhNames = ["大RN-OS"];
+      var _sslH4 = Object.assign({}, d.custom.sigSecLabels || {}), _sd2 = Object.assign({}, d.custom.sigDetails2 || {});
+      _bhNames.forEach(function(nm) {
+        if (_sslH4[nm] && _sslH4[nm].bHide) { var _o4 = Object.assign({}, _sslH4[nm]); delete _o4.bHide; _sslH4[nm] = _o4; }
+        var _c4 = Object.assign({ b: [], k: [], f: [] }, _sd2[nm] || {}), _b4 = Array.isArray(_c4.b) ? _c4.b.slice() : [];
+        ["大RN", "中RN"].forEach(function(x) { if (_b4.indexOf(x) < 0) _b4.push(x); });
+        _c4.b = _b4; _sd2[nm] = _c4;
+      });
+      d.custom.sigSecLabels = _sslH4; d.custom.sigDetails2 = _sd2; d._migDaiRnOsB1119 = true;
+    } catch(e) { console.warn("[migrateData] daiRnOsB1119 error:", e); }
+  }
   // 【一回性 _migRange1105・2026-11-05】レンジ崩れ：①EP基準ライン不要（bHide）＋仮シグナルへ降格（過去記録も仮＝合計から外す・ユーザー決定）。
   if (!d._migRange1105 && typeof _elProvDemoteData === "function") {   // 降格の関数は app-05＝読み込み前には走らせない（フラグも立てない）
     try {
