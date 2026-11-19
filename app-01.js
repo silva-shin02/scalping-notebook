@@ -1934,6 +1934,8 @@ function migrateData(d) {
       d._migFjkToMurata3 = true;
     } catch(e) { console.warn("[migrateData] fjk-to-murata3 error:", e); }
   }
+  // 選定銘柄方式の日の記録の合計算入を選定に揃える（毎回・冪等・2026-11-19 app-04 _dsSyncAllTrio）＝同期で届いた分も揃う。
+  try { if (typeof _dsSyncAllTrio === "function") d = _dsSyncAllTrio(d); } catch(e) { console.warn("[migrateData] trio-sync error:", e); }
   return d;
 }
 function stLoad() {

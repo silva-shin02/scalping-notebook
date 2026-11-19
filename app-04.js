@@ -4166,6 +4166,24 @@ function _dsNeedsSync(s, on) {
   if (s.includeInData === false) return false;
   return on ? (s.includeInTotal === false) : (s.includeInTotal === true);
 }
+// 2026-11-19 ユーザー報告「ローツェ→イビデンに入れ替えたのに合計に入らない」: 印(includeInTotal)を揃えるのが「切り替えたその日だけ」だったため、
+//   引き継ぎの日（未選択日は直前の選択日を引き継ぐ）や、選定外の時に保存した記録が古い印のまま残った。
+//   ユーザー決定（選定だけで決める）: その日の選定銘柄方式の日(_dsTrioMode)は、保存のたび(app-08 save)と読み込み時(migrateData)に全記録の印を選定に揃える。
+//   対象外＝スルー・手動オーバーライド・データ算入オフ（_dsNeedsSync）と仮シグナル（仮は常に不算入）。変化が無ければ同じ参照を返す。
+function _dsSyncAllTrio(d) {
+  if (!d || !d.charts || typeof d.charts !== "object") return d;
+  var ch = d.charts, out = null;
+  Object.keys(ch).forEach(function(ck) {
+    var i = ck.lastIndexOf("_"); if (i < 0) return;
+    var st = ck.slice(0, i), dt = ck.slice(i + 1);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dt) || !_dsTrioMode(dt)) return;
+    var c = ch[ck]; if (!c || !Array.isArray(c.signals)) return;
+    var on = _dailyStockHas(d, dt, st), hit = false;
+    var ns = c.signals.map(function(sg) { if (!sg || sg.provisional === true || !_dsNeedsSync(sg, on)) return sg; hit = true; return Object.assign({}, sg, { includeInTotal: on }); });
+    if (hit) { if (!out) out = Object.assign({}, ch); out[ck] = Object.assign({}, c, { signals: ns }); }
+  });
+  return out ? Object.assign({}, d, { charts: out }) : d;
+}
 function _dsSyncCount(data, date, stock, on) {
   var c = ((data && data.charts) || {})[stock + "_" + date];
   var sigs = (c && Array.isArray(c.signals)) ? c.signals : [];

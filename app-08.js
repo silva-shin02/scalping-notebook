@@ -756,6 +756,8 @@ function App() {
     var d = typeof dOrFn === 'function' ? dOrFn(dataRef.current) : dOrFn;
     // 記録が追加された日の「ノーシグナル／有効シグナルなし」タグを自動で外す 2026-10-05（_clearNoSigTags・app-01）。変更が無ければ d は同じ参照のまま。
     if (d && d.charts && dataRef.current) { var _nsCh = _clearNoSigTags(d.charts, dataRef.current.charts, true); if (_nsCh !== d.charts) d = _objectSpread(_objectSpread({}, d), {}, { charts: _nsCh }); }
+    // 選定銘柄方式の日は、記録の合計算入を選定に揃える（引き継ぎの日も・2026-11-19 app-04 _dsSyncAllTrio）。選定か記録が変わった保存のときだけ走らせる。
+    if (d && dataRef.current && (d.dailyStock !== dataRef.current.dailyStock || d.dailyStockSeed !== dataRef.current.dailyStockSeed || d.charts !== dataRef.current.charts) && typeof _dsSyncAllTrio === "function") { try { d = _dsSyncAllTrio(d); } catch (_eTr) { console.warn("[save] trio-sync error:", _eTr); } }
     
     d = _objectSpread(_objectSpread({}, d), {}, { _v: Date.now() });
     setData(d);
