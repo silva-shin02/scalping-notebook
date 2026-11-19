@@ -3299,3 +3299,4 @@ HomeEventFormModal, App
 - 2026-11-19 v659：app-04 `_dsSyncAllTrio(d)`（_dsNeedsSync の直前）＝選定銘柄方式の日の全記録の includeInTotal を選定(_dailyStockHas)に揃える。呼び出し＝app-08 save（dailyStock/seed/charts が変わった保存）・app-01 migrateData 末尾（毎回）。
 - 2026-11-19 v660：app-04 `_dsFreezeAfter(prev, date)`（_dsTodayStr の直前）＝選定銘柄方式の日の変更前に、後〜今日の未選択日を現在の引き継ぎ値で dailyStock/seed に書く。_dsTrioSet・_dailyStockSet・_dailyStockToggle から使用。
 - 2026-11-19 v661：app-01 migrateData（_migBHide1109 の直後）で 大RN-OS（表記ゆれ含む）の sigSecLabels.bHide=true を毎回補う。
+- 2026-11-19 v662：v661 の毎回 bHide 付与を撤去し、一回性 `_migDaiRnOsB1119`＝大RN-OS の bHide 削除＋sigDetails2[名].b に 大RN・中RN を追加。
