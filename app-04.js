@@ -4093,8 +4093,8 @@ function _dsWrite(m, date, list) {
 function _dailyStockSet(save, date, stocks) {
   save(function(prev) {
     return Object.assign({}, prev, {
-      dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, Array.isArray(stocks) ? stocks : (stocks ? [stocks] : [])),
-      dailyStockSeed: _dsSeedMark(prev, date)   // 明示的に設定した日も自動引き継ぎの対象外にする（_dailyStockToggleと同じ規約）
+      dailyStock: _dsWrite(_dsFreezeAfter(prev, date).ds, date, Array.isArray(stocks) ? stocks : (stocks ? [stocks] : [])),
+      dailyStockSeed: Object.assign(_dsFreezeAfter(prev, date).sd, _dsSeedMark(prev, date))   // 明示的に設定した日も自動引き継ぎの対象外にする（_dailyStockToggleと同じ規約）・後の日はつられない 2026-11-19
     });
   });
 }
@@ -4109,8 +4109,8 @@ function _dailyStockToggle(save, date, stock) {
     var i = cur.indexOf(stock);
     cur = (i >= 0) ? [] : [stock];   // 単一選択: 足すのではなく置き換える
     return Object.assign({}, prev, {
-      dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, cur),
-      dailyStockSeed: _dsSeedMark(prev, date)   // 手で触った日は以後もう自動引き継ぎしない（下の規約を参照）
+      dailyStock: _dsWrite(_dsFreezeAfter(prev, date).ds, date, cur),
+      dailyStockSeed: Object.assign(_dsFreezeAfter(prev, date).sd, _dsSeedMark(prev, date))   // 手で触った日は以後もう自動引き継ぎしない（下の規約を参照）・後の日はつられない 2026-11-19
     });
   });
 }
@@ -4126,6 +4126,23 @@ function _dsSeedMark(prev, date) {
   var o = Object.assign({}, (prev && prev.dailyStockSeed) || {});
   o[date] = 1;
   return o;
+}
+// 2026-11-19 ユーザー決定「入れ替えた日だけ変わる」: 選定銘柄方式の日に選定を変える直前、その日より後〜今日までの「まだ選んでいない日」
+//   （引き継ぎで決まっている日）を、変更前の銘柄のまま確定（dailyStock に書く＋seed）＝前の日を入れ替えても後の日はつられない。
+//   今日より後（まだ来ていない日）は確定しない＝新しい日を開いたときの初期値は直前の日と同じのまま。返り値 {ds, sd}（コピー）。
+function _dsFreezeAfter(prev, date) {
+  var ds = Object.assign({}, (prev && prev.dailyStock) || {}), sd = Object.assign({}, (prev && prev.dailyStockSeed) || {});
+  if (!date || !_dsTrioMode(date)) return { ds: ds, sd: sd };
+  var today = _dsTodayStr(), d = new Date(date + "T00:00:00");
+  for (var k = 0; k < 400; k++) {
+    d.setDate(d.getDate() + 1);
+    var ds_ = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    if (ds_ > today) break;
+    if (_dailyStockRaw(prev, ds_).length || (prev.dailyStockSeed && prev.dailyStockSeed[ds_])) break;   // 手で選んだ日に着いたら、その先はその日の引き継ぎ＝触らない
+    var cur = _dailyStockList(prev, ds_).slice();
+    if (cur.length) { _dsWrite(ds, ds_, cur); sd[ds_] = 1; }
+  }
+  return { ds: ds, sd: sd };
 }
 function _dsTodayStr() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 // その日より前で「本日の取引銘柄」が入っている最も近い日の選定（無ければ空配列）。日付キーはYYYY-MM-DDなので文字列比較で足りる。
@@ -4220,7 +4237,9 @@ function _dsTrioSet(save, date, list) {
     };
     nl.forEach(function(x) { if (old.indexOf(x) < 0) _sync(x, true); });
     old.forEach(function(x) { if (nl.indexOf(x) < 0) _sync(x, false); });
-    var upd = { dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, nl), dailyStockSeed: _dsSeedMark(prev, date) };
+    var _fz = _dsFreezeAfter(prev, date);   // 後の日をつられさせない 2026-11-19
+    _fz.sd[date] = 1;
+    var upd = { dailyStock: _dsWrite(_fz.ds, date, nl), dailyStockSeed: _fz.sd };
     if (chg) upd.charts = charts;
     return Object.assign({}, prev, upd);
   });
