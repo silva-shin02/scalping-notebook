@@ -3296,3 +3296,4 @@ HomeEventFormModal, App
 - 2026-11-17 v656：app-04 `_DS_TRIO_SINCE`＝"2026-11-01"（旧11-11）。app-01 一回性 `_migFjkToMurata2`＝11/1〜10の dailyStock に 固定タブ＋日替わり（未指定は既定SUMCO）をフジクラ→村田製作所で書き込み・dailyStockSeed も付ける。
 - 2026-11-17 v657：app-01 一回性 `_migFjkToMurata3`＝11/1〜実行日の村田製作所(選定内→算入)・フジクラ(選定外→不算入)の記録の includeInTotal を _dsNeedsSync 規約で揃える（_dailyStockList/_dsNeedsSync は app-04・未ロードなら次回）。
 - 2026-11-17 v658：app-05 `_SnLineChart` に active 状態（クリックで有効・外の pointerdown で解除）。ホイール/ドラッグ/ピンチは active の間だけ。onClick は onPick 無しでも有効化する。
+- 2026-11-19 v659：app-04 `_dsSyncAllTrio(d)`（_dsNeedsSync の直前）＝選定銘柄方式の日の全記録の includeInTotal を選定(_dailyStockHas)に揃える。呼び出し＝app-08 save（dailyStock/seed/charts が変わった保存）・app-01 migrateData 末尾（毎回）。
