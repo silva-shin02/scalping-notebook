@@ -35,6 +35,7 @@
 
 ## ▶ 次のセッションはこの続きから
 
+- 2026-11-20 Bのひっ算（フォーム・表）は ①②の印を左の列・金額を右の列でそろえ、②未エントリーは「ー円」（v698・app-05 `_elBSumNode` の "hissan"＝inline-grid 3列・実機未確認）。
 - 2026-11-20 確度を B・C に切り替えたら直上VAPは初期オン（v697・実機未確認）：app-05 `_pickKakudo` で `setFCeTopOn(true)`（既存記録を開いてBにしたときオフのままだった）。
 - 2026-11-20 B の段（EP・H1・H2…）は①のEP足を起点に足ごと（v696・実機未確認＝最初に聞く「Bの記録でEPの印が①の足・EP/H1/H2の枚が ①＋②（②未エントリーは―）になっているか」）：段n＝w×①の段n＋(1−w)×②の段(n−Δ)（app-05 `_elBMixWrap` の stageOf・`_elBSplitStage`）。表の OS・損益詳細は `_elBView`（①の並び・`_bOrig`）を `_elDetailFlowStack` で使う。フォームは `_epFormState`＝①・②の確定待ち表示は `_epFormStateCe`（`_mkEpFS`）。想定損益（合計）は変わらない。
 - 2026-11-20 ホームの「損益」「指値同値」の見出しに「（1000株換算）」（v695・app-08 `_homeChips`・実機未確認）。
