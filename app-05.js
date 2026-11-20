@@ -3843,8 +3843,14 @@ var _EL_NO_KD = false;
 function _elEntryCell(s, entered, alpha, cutLine, okCol) {
   var top = _elTradeLbl(s, entered, okCol);
   if (alpha == null) return top;
-  _EL_NO_KD = true;
-  var e; try { e = _epECell(s, alpha, cutLine); } finally { _EL_NO_KD = false; }
+  // 2026-11-20 確定待ち・直上VAPの札と(+16)は出さない。確度Bは ①（基準ライン）・②（確定待ちor直上VAP）の印を2行で（ユーザー指示）
+  var e, _real = _elBReal(s);
+  if (_elBMixOn(_real, alpha)) {
+    var _row = function(k, mk, rec) { return React.createElement("span", { key: k, style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", lineHeight: 1.15 } },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, mk + "："), _epEJudge(rec, alpha).node); };
+    e = React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start" } },
+      _row("b1", "①", Object.assign({}, _real, { ceOn: undefined })), _row("b2", "②", _real));
+  } else e = _epEJudge(s, alpha).node;
   return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2 } }, e, top);   // 2026-11-20 〇などEの印が上・言葉が下（ユーザー指示）
 }
 // 2026-11-20 表の「E確度」欄：A/B/C/D の文字だけ（色は確度の札と同じ）。未設定は「—」。
@@ -5553,6 +5559,14 @@ function _epEpDiffNode(s, alpha) {
 }
 function _epECell(s, alpha, cutLine) {
   if (!s || alpha == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var _jj = _epEJudge(s, alpha), j = _jj.j, _jn = _jj.node;
+  var _diff = (j === "ok" || j === "x" || j === "miss") ? _epEpDiffNode(s, alpha) : null;
+  var _ceB = _elCeBadge(s, alpha, cutLine);   // 確定待ちの目印（cutLineを渡した表だけα約定比の差額も出す）
+  if (!_diff && !_ceB) return _jn;
+  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 } }, _jn, _diff, _ceB);
+}
+// E の印（○・×（同値）・同値・未達・—）と判定。2026-11-20 表のエントリー欄（_elEntryCell）でも使う。
+function _epEJudge(s, alpha) {
   var j;
   if (_epIsV2(s)) { var _re = _epResolve(s, alpha); j = _re ? _re.judge : null; }
   else j = s.osVal == null ? null : (_elH2Miss(s, alpha) ? "miss" : "ok");
@@ -5564,10 +5578,7 @@ function _epECell(s, alpha, cutLine) {
     : (j === "miss" && _elEqSelf(s, alpha)) ? React.createElement("span", { title: "指値同値＝OS最大がEPとちょうど同値（上抜けず未約定）", style: { fontSize: 10, fontWeight: 800, color: "#0F6E56", whiteSpace: "nowrap" } }, "同値")
     : j === "miss" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#7C3AED", whiteSpace: "nowrap" } }, "未達")
     : React.createElement("span", { style: { color: "#ccc" } }, "—");
-  var _diff = (j === "ok" || j === "x" || j === "miss") ? _epEpDiffNode(s, alpha) : null;
-  var _ceB = _elCeBadge(s, alpha, cutLine);   // 確定待ちの目印（cutLineを渡した表だけα約定比の差額も出す）
-  if (!_diff && !_ceB) return _jn;
-  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 } }, _jn, _diff, _ceB);
+  return { j: j, node: _jn };
 }
 // EP損益欄: 旧「OS値・確定値・α値比値幅・結果/EP損益」を1セルに統合。「高値→確定値/α比/結果・損益」。
 // pnlDisp=損益表示ノード(各表のランク付き表示を注入・nullなら内蔵表示)。
