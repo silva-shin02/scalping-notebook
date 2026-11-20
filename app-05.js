@@ -7430,6 +7430,9 @@ function _SnReasonPicker(props) {
   var _u1 = useState(false), mgr = _u1[0], setMgr = _u1[1];
   var _u2 = useState(null), order = _u2[0], setOrder = _u2[1];
   var _u3 = useState(null), inp = _u3[0], setInp = _u3[1];
+  var _u4 = useState(null), pop = _u4[0], setPop = _u4[1];   // 2026-11-20l 分足ポップアップを開いている理由（props.tfMap があるときだけ）
+  var tfMap = props.tfMap || null, onTfPick = props.onTfPick;
+  var _tfLbl = function(t) { var a = String(t || "").split(",").filter(Boolean); return a.length >= 2 ? "1分・5分" : a.length ? a[0] + "分" : ""; };
   var dragRef = useRef(null), movedRef = useRef(false), valRef = useRef("");
   var master = (data && data.custom && Array.isArray(data.custom[mk])) ? data.custom[mk] : props.defaults;
   var list = (order && order.list) ? order.list : master;
@@ -7499,11 +7502,23 @@ function _SnReasonPicker(props) {
           onPointerCancel: function() { dragRef.current = null; movedRef.current = false; setOrder(null); },
           style: { display: "inline-flex", alignItems: "center", gap: 1, touchAction: "none", boxShadow: dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null, transform: dragging ? "scale(1.06)" : null, opacity: dragging ? 0.9 : null } };
         pr[attr] = rsn;
+        if (tfMap) pr.style = Object.assign({}, pr.style, { position: "relative" });
+        var _tl = tfMap && on ? _tfLbl(tfMap[rsn]) : "";
+        var _pk = function(t) { if (!on) onChange(value.concat([rsn])); if (onTfPick) onTfPick(rsn, t); setPop(null); };
         return React.createElement("span", pr,
-          optBtn(rsn, on, function() {
+          optBtn(tfMap && on ? (_tl ? rsn + "(" + _tl + ")" : React.createElement(React.Fragment, null, rsn, React.createElement("span", { style: { color: "#DC2626", fontSize: 10 } }, "(分足?)"))) : rsn, on, function() {
             if (movedRef.current) { movedRef.current = false; return; }   // ドラッグ直後のclickは選択に変換しない
+            if (tfMap) { setPop(pop === rsn ? null : rsn); return; }   // 2026-11-20l 押すと分足の小さいポップアップ（ユーザー指示）
             onChange(on ? value.filter(function(x) { return x !== rsn; }) : value.concat([rsn]));
           }, false, null),
+          (tfMap && pop === rsn) ? React.createElement(React.Fragment, null,
+            React.createElement("div", { onClick: function() { setPop(null); }, style: { position: "fixed", inset: 0, zIndex: 60 } }),
+            React.createElement("div", { onPointerDown: function(e) { e.stopPropagation(); }, style: { position: "absolute", top: "100%", left: 0, marginTop: 3, zIndex: 61, display: "flex", alignItems: "center", gap: 4, padding: "5px 6px", background: "#fff", border: "1px solid #67E8F9", borderRadius: 7, boxShadow: "0 3px 10px rgba(0,0,0,0.18)", whiteSpace: "nowrap" } },
+              [["1", "1分足"], ["5", "5分足"], ["1,5", "両方"]].map(function(o) { var cur = on && String(tfMap[rsn] || "") === o[0];
+                return React.createElement("button", { key: o[0], type: "button", onClick: function() { _pk(o[0]); },
+                  style: { padding: "3px 9px", fontSize: 11, fontWeight: 800, borderRadius: 5, cursor: "pointer", border: "1px solid #0E7490", background: cur ? "#0E7490" : "#fff", color: cur ? "#fff" : "#0E7490" } }, o[1]); }),
+              on ? React.createElement("button", { type: "button", onClick: function() { onChange(value.filter(function(x) { return x !== rsn; })); if (onTfPick) onTfPick(rsn, null); setPop(null); },
+                style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, borderRadius: 5, cursor: "pointer", border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C" } }, "外す") : null)) : null,
           mgr ? React.createElement(React.Fragment, null,
             React.createElement("button", { type: "button", title: "この選択肢の名前を変更（過去の記録の" + noun + "も一括変更）", onClick: function() { if (movedRef.current) { movedRef.current = false; return; } valRef.current = rsn; setInp({ old: rsn, val: rsn }); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" } }, "✎"),
             React.createElement("button", { type: "button", title: "この選択肢を削除（過去の記録に付いた" + noun + "はそのまま残ります）", onClick: function() { if (movedRef.current) { movedRef.current = false; return; } setInp(null); del(rsn); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" } }, "×")
@@ -12257,7 +12272,7 @@ function EntryRecordForm(_ref_erf) {
             var _vp = _vapInOs ? _vapParts() : null;
             var _epTx = _hasLv ? String(Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100) + "円" : "—";
             var _rowS = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
-            var _lvRow = React.createElement("div", { style: _rowS }, _lvPriceBox("lv_os"), React.createElement("div", {
+            var _lvRow = React.createElement("div", { style: _rowS }, _lvPriceBox("lv_os"), _vp ? null : React.createElement("div", {
               style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
             },
               React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, "最終EP"),
@@ -12282,26 +12297,16 @@ function EntryRecordForm(_ref_erf) {
               !isEdit ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須") : null,
               React.createElement("span", { style: { color: "#6B7280", fontWeight: 600, marginLeft: 6, fontSize: 10 } }, "複数選択できます")),
             React.createElement(_SnReasonPicker, { data: data, save: save, masterKey: "ceReasons", defaults: _DEF_CE_REASONS, sigKey: "ceReasons", noun: "確定待ちの理由",
-              value: fCeReasons, onChange: function(l) { setFCeReasons(l); } }),
-            // 2026-11-20b 理由ごとの分足（ユーザー要望「理由を選んだら、その理由がどちらの分足のものかを選ぶ」）。1分・5分とも選べる。新規は全部の理由に必須。
-            (fCeReasons || []).filter(Boolean).length ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3, marginTop: 4, paddingLeft: 6, borderLeft: "2px solid #67E8F9" } },
-              (fCeReasons || []).filter(Boolean).map(function(rn) {
-                var _cur = fCeRTf[rn] ? String(fCeRTf[rn]).split(",") : [];
-                return React.createElement("div", { key: rn, style: { display: "flex", alignItems: "center", gap: 6, fontSize: 11 } },
-                  React.createElement("span", { style: { fontWeight: 700, color: "#155E75", minWidth: 80 } }, rn),
-                  React.createElement("span", { style: { display: "inline-flex", border: "1px solid #67E8F9", borderRadius: 6, overflow: "hidden" } },
-                    _EL_TFS.map(function(tf, i) { var on = _cur.indexOf(tf) >= 0; return React.createElement("button", { key: tf, type: "button", onClick: function() { var nx = _EL_TFS.filter(function(x) { return x === tf ? !on : _cur.indexOf(x) >= 0; }).join(","); setFCeRTf(function(prev) { var o = Object.assign({}, prev); if (nx) o[rn] = nx; else delete o[rn]; return o; }); },
-                      style: { padding: "1px 8px", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap", border: "none", borderLeft: i ? "1px solid #67E8F9" : "none", cursor: "pointer", background: on ? "#0E7490" : "#fff", color: on ? "#fff" : "#0E7490" } }, tf + "分足"); })),
-                  (!_cur.length && !isEdit) ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#DC2626" } }, "分足を選ぶ") : null);
-              })) : null) : null;
+              value: fCeReasons, onChange: function(l) { setFCeReasons(l); },
+              tfMap: fCeRTf, onTfPick: function(rn, t) { setFCeRTf(function(prev) { var o = Object.assign({}, prev); if (t) o[rn] = t; else delete o[rn]; return o; }); } }),   // 2026-11-20l 分足は理由を押したときのポップアップで選ぶ（ユーザー指示）
+            (!isEdit && _fCeRList().some(function(r) { return !fCeRTf[r]; })) ? React.createElement("div", { style: { fontSize: 10, fontWeight: 800, color: "#DC2626", marginTop: -4 } }, "(分足?) の理由を押して分足を選んでください") : null) : null;
             return React.createElement("div", { style: { margin: "0 0 6px 2px", display: "flex", flexDirection: "column", gap: 6, fontSize: 11 } },
               React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                 React.createElement("span", { style: { fontWeight: 800, color: "#44403C" } }, "エントリー確度"),
                 React.createElement(_KakudoSeg, { value: fKakudo, onChange: _pickKakudo, letters: true }),
                 !fKakudo ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (isEdit && fCeOn) ? "#0E7490" : "#DC2626" } }, (isEdit && fCeOn) ? "未設定（確定待ちオン）" : isEdit ? "未設定" : "必須（選ぶとEP基準ラインの欄が出ます）") : null),
               _reasonEl,   // 2026-11-20j B・Cにした理由はエントリー確度の直下（ユーザー指示）
-              _kdOpen ? _lvRow : null,
-              _kdOpen ? _common : null,
+              _kdOpen ? _common : null,   // 2026-11-20l EP基準ラインはVAP値のすぐ上へ（Bはオレンジの箱のEP①の中）・VAP欄があるときの右の最終EPは撤去（ユーザー指示）
               !_kdOpen ? null : fKakudo === "B" ? React.createElement("div", { style: _boxS(c.bd, "#FFF7ED") },
                 React.createElement("div", { style: _rowS },
                   React.createElement("span", { style: { fontWeight: 700, color: "#78716C" } }, "割合"),
@@ -12311,12 +12316,13 @@ function EntryRecordForm(_ref_erf) {
                 React.createElement("div", { style: { borderTop: "1px dashed " + c.bd, alignSelf: "stretch", width: "100%", height: 0 } }),   // 2026-11-20i 割合はEP①の上・点線で区切る（ユーザー指示）
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
                   React.createElement("div", { style: _rowS },
-                    React.createElement("span", { style: { fontWeight: 800, color: c.fg } }, "EP①（基準ライン）"),
-                    _vapRow ? null : React.createElement("span", { style: { fontWeight: 800, fontVariantNumeric: "tabular-nums" } }, "最終EP " + _epTx)),
+                    React.createElement("span", { style: { fontWeight: 800, color: c.fg } }, "EP①（基準ライン）")),
+                  _lvRow,
                   _vapRow),
                 React.createElement("div", { style: { borderTop: "1px dashed " + c.bd, alignSelf: "stretch", width: "100%", height: 0 } }),
                 _ceRow(true)))
               : React.createElement(React.Fragment, null,
+                  _lvRow,
                   _vapRow,
                   fCeOn ? React.createElement("div", { style: _boxS("#67E8F9", "#F0FDFF") }, _ceRow(false)) : null),
               null);   // 2026-11-20e VAPメモは廃止（ユーザー指示・保存済みの signal.alphaMemo は消さない）
