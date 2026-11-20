@@ -6548,6 +6548,7 @@ function _elHold2TotPartsFixed(s, alpha, cutLine) {
 //   △ → （）外=1段下・（）内=そこまで保有した差／○ → 完全○チェーンなら（）外を自分の損益に更新・チェーンが切れていれば（）内へ
 // エントリー確度B 2026-11-20: ①（確定待ちを外した損益）と②（確定待ちの損益・入らなければ0円）を割合で混ぜる。①が入らない記録（×見送り・未達）は②のまま。
 function _elHoldFinalParts(s, alpha, cutLine) {
+  if (s && s._bOrig) s = s._bOrig;   // 表示用の仮の記録（_elBView）は元の記録で計算 2026-11-20z4
   if (!_EL_BMIX_IN && s && !s._ceV && s.kakudo === "B" && s.ceOn === true && alpha != null && _epIsV2(s)) {
     var _w = _bRatioOf(s) / 100;
     var _c = _elHoldFinalParts0(s, alpha, cutLine), _b = _elHoldFinalParts0(Object.assign({}, s, { ceOn: undefined }), alpha, cutLine);
@@ -6602,17 +6603,44 @@ function _elHoldFinalParts0(s, alpha, cutLine) {
 //   想定損益（_elHoldFinalParts）だけでなく、EP損益(_elDynPlanned)・H1(_elDynHold/_elHold1TotParts/_elH1HeldBase)・H2(_elDynHold2)・3段目以降(_elDynHoldAt)も
 //   w×①（確定待ちを外した記録）＋(1−w)×②（確定待ちの記録・入らなければ0円）。①が成立しない（×見送り・未達）ときは②のまま（想定損益と同じ規約）。
 //   混ぜる計算の内側（と _elHoldFinalParts0＝混ぜる前の正本）では入れ子で混ぜない（_EL_BMIX_IN）。
+// 2026-11-20z4 段は①のEPの足を起点に足ごとにそろえる（ユーザー指示「OS1＝①3000・②ー、OS2＝①8000・②8000」）：
+//   段n（0＝EP・1＝H1…）の値＝w×①の段n＋(1−w)×②の段(n−Δ)（Δ＝②のEP足−①のEP足・②がまだ入っていない段は0＝表示は「—」）。
+//   _elBView(s)＝表示用の仮の記録（①の並び＝ceOn を外す・_bOrig に元の記録）。これを渡すと EP の位置・H1/H2 は①の足、金額は上の混ぜ方。
 var _EL_BMIX_IN = 0;
-function _elBMixOn(s, alpha) { return !_EL_BMIX_IN && !!(s && !s._ceV && s.kakudo === "B" && s.ceOn === true && alpha != null && _epIsV2(s)); }
-function _elBMixWrap(fn, kind) {
+function _elBReal(s) { return (s && s._bOrig) ? s._bOrig : s; }
+function _elBMixOn(s, alpha) { var r = _elBReal(s); return !_EL_BMIX_IN && !!(r && !r._ceV && r.kakudo === "B" && r.ceOn === true && alpha != null && _epIsV2(r)); }
+var _EL_BVIEW_CACHE = (typeof WeakMap !== "undefined") ? new WeakMap() : null;
+function _elBView(s) {
+  if (!s || s._bOrig || s._ceV || s.kakudo !== "B" || s.ceOn !== true) return s;
+  var v = _EL_BVIEW_CACHE ? _EL_BVIEW_CACHE.get(s) : null;
+  if (!v) { v = Object.assign({}, s, { ceOn: undefined, _bOrig: s }); if (_EL_BVIEW_CACHE) _EL_BVIEW_CACHE.set(s, v); }
+  return v;
+}
+function _elBStageRaw(v, alpha, cutLine, n) { return n === 0 ? _elDynPlanned(v, alpha, cutLine) : _elDynHoldAt(v, alpha, cutLine, n); }
+// ②の段m（②のEP足からm本目）が①の段nに当たる。②が入っていない段は null。
+function _elBStageC(real, alpha, cutLine, rA, n) {
+  var rC = _epResolve(real, alpha);
+  if (!rC || rC.judge !== "ok" || rC.epIdx < 0) return null;
+  var m = n - (rC.epIdx - rA.epIdx);
+  return m < 0 ? null : _elBStageRaw(real, alpha, cutLine, m);
+}
+function _elBMixWrap(fn, kind, stageOf) {
   return function(s, alpha) {
     var args = Array.prototype.slice.call(arguments);
     if (kind === "raw" || !_elBMixOn(s, alpha)) { if (kind !== "raw") return fn.apply(null, args); _EL_BMIX_IN++; try { return fn.apply(null, args); } finally { _EL_BMIX_IN--; } }
     _EL_BMIX_IN++;
     try {
+      s = _elBReal(s);
       var w = _bRatioOf(s) / 100, sA = Object.assign({}, s, { ceOn: undefined });
-      var c = fn.apply(null, [s].concat(args.slice(1))), rA = _epResolve(sA, alpha);
-      if (!rA || rA.judge !== "ok") return c;
+      var rA = _epResolve(sA, alpha);
+      if (!rA || rA.judge !== "ok") return fn.apply(null, [s].concat(args.slice(1)));
+      if (kind === "num" && stageOf) {   // 足ごとにそろえる 2026-11-20z4
+        var n = stageOf(args), a0 = fn.apply(null, [sA].concat(args.slice(1)));
+        if (a0 == null) return fn.apply(null, [s].concat(args.slice(1)));
+        var bv = _elBStageC(s, alpha, args[2], rA, n);
+        return Math.round(w * a0 + (1 - w) * (bv == null ? 0 : bv));
+      }
+      var c = fn.apply(null, [s].concat(args.slice(1)));
       var b = fn.apply(null, [sA].concat(args.slice(1)));
       if (kind === "num") { if (b == null) return c; return Math.round(w * b + (1 - w) * (c == null ? 0 : c)); }
       if (!b || b.main == null) return c;
@@ -6623,17 +6651,33 @@ function _elBMixWrap(fn, kind) {
   };
 }
 _elHoldFinalParts0 = _elBMixWrap(_elHoldFinalParts0, "raw");
-_elDynPlanned = _elBMixWrap(_elDynPlanned, "num");
-_elDynHold = _elBMixWrap(_elDynHold, "num");
-_elDynHold2 = _elBMixWrap(_elDynHold2, "num");
-_elDynHoldAt = _elBMixWrap(_elDynHoldAt, "num");
+_elDynPlanned = _elBMixWrap(_elDynPlanned, "num", function() { return 0; });
+_elDynHold = _elBMixWrap(_elDynHold, "num", function() { return 1; });
+_elDynHold2 = _elBMixWrap(_elDynHold2, "num", function() { return 2; });
+_elDynHoldAt = _elBMixWrap(_elDynHoldAt, "num", function(a) { return Math.max(1, Number(a[3]) || 0); });
 _elH1HeldBase = _elBMixWrap(_elH1HeldBase, "num");
 _elHold1TotParts = _elBMixWrap(_elHold1TotParts, "parts");
 // Bの内訳 2026-11-20n（ユーザー指示「分割の場合、〇円＋〇円＝〇円」）: fn(s, alpha, ...) の ①の分（w×①）・②の分（(1−w)×②）・合計。
 //   合計は混ぜた値（_elBMixWrap と同じ式）＝②の分は 合計−①の分（端数のずれを出さない）。Bでない・①が成立しない記録は null（従来の1つの値の表示）。
+// 段n（①のEP足からn本目）の ①の分・②の分（②がまだ入っていなければ b＝null）・合計。2026-11-20z4
+function _elBSplitStage(s, alpha, cutLine, n) {
+  if (!_elBMixOn(s, alpha)) return null;
+  s = _elBReal(s);
+  var w = _bRatioOf(s) / 100, sA = Object.assign({}, s, { ceOn: undefined }), rA, a0, bv;
+  _EL_BMIX_IN++;
+  try { rA = _epResolve(sA, alpha); if (!rA || rA.judge !== "ok") return null; } finally { _EL_BMIX_IN--; }
+  a0 = _elBStageRaw(sA, alpha, cutLine, n);   // 外側の呼び出し＝1000株換算（_elKWrap）が掛かる
+  if (a0 == null) return null;
+  var rC = _epResolve(s, alpha);
+  if (rC && rC.judge === "ok" && rC.epIdx >= 0) { var m = n - (rC.epIdx - rA.epIdx); if (m >= 0) { _EL_BMIX_IN++; try { bv = _elBStageRaw(s, alpha, cutLine, m); } finally { _EL_BMIX_IN--; } } }
+  if (bv == null) { var a1 = Math.round(w * a0); return { a: a1, b: null, t: a1, w: w }; }
+  var t = Math.round(w * a0 + (1 - w) * bv), a = Math.round(w * a0);
+  return { a: a, b: t - a, t: t, w: w };
+}
 function _elBSplit(fn, s, alpha) {
   if (!_elBMixOn(s, alpha)) return null;
   var rest = Array.prototype.slice.call(arguments, 2);
+  s = _elBReal(s);
   _EL_BMIX_IN++;
   try {
     var w = _bRatioOf(s) / 100, sA = Object.assign({}, s, { ceOn: undefined }), rA = _epResolve(sA, alpha);
@@ -7275,6 +7319,7 @@ function _elEpAlignedRow(s, alpha, cutLine) {
   return React.createElement("div", { style: { borderBottom: "1px solid #e0d8c8" } }, _tbl);
 }
 function _elDetailFlowStack(s, alpha, cutLine) {
+  s = _elBView(s);   // 2026-11-20z4 Bは①のEP足を起点に並べる（EPの印・H1/H2は①の足・金額は足ごとの①＋②）
   if (_elEqSelf(s, alpha)) return React.createElement("div", { title: "指値同値＝未約定。以下は『もし約定していたら』の参考表示（合計には入っていません）", style: { opacity: 0.6 } }, _elFillEqLoose(function() { return _elDetailFlowStack(s, alpha, cutLine); }));
   // 2026-07-13 EP行をH1/H2と同じ桁にそろえる(_elEpAlignedRow)。miss/×見送りはnull→従来のインラインEP行にフォールバック。
   var _epRow = _elEpAlignedRow(s, alpha, cutLine) || React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "flex-start", gap: 3, padding: "0 0 1px", borderBottom: "1px solid #e0d8c8", whiteSpace: "nowrap" } },
@@ -10277,7 +10322,8 @@ function EntryRecordForm(_ref_erf) {
     var adj = (_vapMode && fVap !== "" && !isNaN(Number(fVap))) ? (Number(fVapAdj) || 0) : 0;   // 2026-11-20v 直上VAPにもVAP補正（保存値 _epCeTopRel と同じ）
     return (isNaN(p) || isNaN(lv)) ? null : Math.round((p - lv + adj) * 100) / 100;
   })();
-  var _epFormState = (function() {
+  // 2026-11-20z4 Bは EP の位置・H1/H2 を①（基準ライン＝確定待ちしない）で決める（_epFormState）。②の確定待ちの表示だけ _epFormStateCe。
+  var _mkEpFS = function(_useCe) {
     if (!isV2Form) return null;
     var _av = _fAlpha;
     var _o1 = (fOsVal !== "" && !isNaN(Number(fOsVal))) ? Number(fOsVal) : null;
@@ -10294,7 +10340,7 @@ function EntryRecordForm(_ref_erf) {
     var epIdx = -1, ce = false, top = false, skipIdx = -1, _hs = [_o1, _o2, _o3];
     for (var _ki = 0; _ki < 3; _ki++) {
       if (!_rs[_ki]) continue;
-      if (_fCeActive && _ki === k0 && fCeOn) {   // 確定待ちはチェック欄の足（k0）だけ 2026-10-19
+      if (_useCe && _fCeActive && _ki === k0 && fCeOn) {   // 確定待ちはチェック欄の足（k0）だけ 2026-10-19
         if (_fCeTopRel != null && _fCeTopRel > _av && _hs[_ki] != null && _hs[_ki] >= _fCeTopRel) { ce = true; top = true; epIdx = _ki; break; }   // 直上VAPに届いた＝即エントリー（_epResolveと同じ規約）2026-10-28
         if (_cs[_ki] != null && !(_cs[_ki] > _av)) { skipIdx = _ki; continue; }
         if (_cs[_ki] != null) ce = true;
@@ -10312,7 +10358,10 @@ function EntryRecordForm(_ref_erf) {
     var epConf = (_ecr && _ecr[0] !== "" && !isNaN(Number(_ecr[0]))) ? (_ecr[1] === "-" ? -Number(_ecr[0]) : Number(_ecr[0])) : null;
     var px = top ? _fCeTopRel : (ce && epConf != null) ? epConf : _av;   // 約定値（確定足エントリーは終値・直上VAPに届いたら直上VAP）
     return { alpha: _av, o1: _o1, o2: _o2, o3: _o3, epIdx: epIdx, judge: judge, showOs2: showOs2, showOs3: showOs3, epHigh: epHigh, epConf: epConf, k0: k0, ce: ce, top: top, skipIdx: skipIdx, px: px };
-  })();
+  };
+  var _fBForm = fKakudo === "B" && !!fCeOn && _fCeActive;
+  var _epFormStateCe = _mkEpFS(true);
+  var _epFormState = _fBForm ? _mkEpFS(false) : _epFormStateCe;
   var _fK0 = _epFormState ? _epFormState.k0 : -1;
   // 2026-10-19 確定待ちは手動のみ＝時刻による自動判定（旧・新規記録のeffect）は撤去。新規の初期値はオフ。
   // 旧名互換の導出値（次足期待度fNxsを現在のEP位置で解決）2026-07-06: fOs1Exp/fOs2Exp=OS1/OS2スロットの生値（保存はEP位置でゲート）・fHoldExp/fHold2Exp=EP足/EP+1足の引けの判断（=旧H1期待/H2期待）。
@@ -12362,6 +12411,8 @@ function EntryRecordForm(_ref_erf) {
         })();
         var _epPnlChip = (function() {
           if (_ef.judge !== "ok" || _ef.epHigh == null || _ef.alpha == null) return null;
+          var _bs0 = _fBForm ? _elBSplitStage(_fVSig, _fAlpha, _fCutLine, 0) : null;   // 2026-11-20z4 Bは①のEP足の時点の合計（②が入っていなければ①だけ）
+          if (_bs0) return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: _bs0.t > 0 ? "#C0392B" : _bs0.t < 0 ? "#1E8449" : "#888" } }, "EP損益 " + (_bs0.t > 0 ? "+" : "") + _bs0.t.toLocaleString() + "円");
           var _cl = Infinity;   // 2026-11-16 損切り撤去
           var _df = _ef.epHigh - _ef.alpha;
           // 2026-07-29 終値撤退方式へ追従: 旧実装は高値がラインに触れたら -(高値−α)×100（＝ラインで約定する前提の
@@ -12384,6 +12435,7 @@ function EntryRecordForm(_ref_erf) {
           ),
           // 確定待ち（旧5分足確定足 2026-10-17→2026-10-19改称・手動のみ）: α値に届いた最初の足のOS足の確定を待つ＝その足の終値でエントリーした扱い。
           (function() {
+            var _ef = _epFormStateCe || {};   // 2026-11-20z4 確定待ち（②）の表示は確定待ちの判定で（Bの _epFormState は①）
             var _k0 = _ef.k0 != null ? _ef.k0 : -1;
             var _tAt = _k0 >= 0 ? _epCeTimeAt(fTime, _k0) : null;
             var _lv = parseFloat(fLevelPrice), _hasLv = fLevelPrice !== "" && !isNaN(_lv);
@@ -12631,7 +12683,7 @@ function EntryRecordForm(_ref_erf) {
             //   ラインで約定する前提で、保存後の表・集計（撤退足の終値ベース）と必ずズレていた。
             _pvV2 = (_epFormState.epConf != null) ? Math.round((_epFormState.px - _epFormState.epConf) * 100 * _fKf) : (_dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100 * _fKf) : null);   // 表示は1000株換算 2026-11-20s
           }
-          var _bspP = (_useV2P && fKakudo === "B") ? _elBSplit(_elDynPlanned, _fVSig, _fAlpha, _fCutLine) : null;   // 2026-11-20n Bは ①＋②＝合計
+          var _bspP = (_useV2P && fKakudo === "B") ? _elBSplitStage(_fVSig, _fAlpha, _fCutLine, 0) : null;   /* 2026-11-20z4 ①のEP足を起点に足ごと */   // 2026-11-20n Bは ①＋②＝合計
           if (_bspP) return _elBSumNode(_bspP, "hissan", true);
           var _sgnP = _useV2P ? (_pvV2 == null ? null : _pvV2 > 0 ? "+" : _pvV2 < 0 ? "-" : null) : fPlanSign;
           var _txtP = _useV2P
@@ -12663,7 +12715,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, _fKLbl)),
-            _fMiss ? _fMissEl : _fPlanStopNow ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHoldExp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine), "hissan", true) : React.createElement("span", {
+            _fMiss ? _fMissEl : _fPlanStopNow ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHoldExp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplitStage(_fVSig, _fAlpha, _fCutLine, 1)) ? _elBSumNode(_elBSplitStage(_fVSig, _fAlpha, _fCutLine, 1), "hissan", true) : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
@@ -12709,7 +12761,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, _fKLbl)),
-            _fMiss ? _fMissEl : (_fPlanStopNow || _fH1StopNow) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHold2Exp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine), "hissan", true) : React.createElement("span", {
+            _fMiss ? _fMissEl : (_fPlanStopNow || _fH1StopNow) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHold2Exp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplitStage(_fVSig, _fAlpha, _fCutLine, 2)) ? _elBSumNode(_elBSplitStage(_fVSig, _fAlpha, _fCutLine, 2), "hissan", true) : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
