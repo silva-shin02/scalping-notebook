@@ -6813,10 +6813,10 @@ function DayView(_ref57) {
       var allTrExp = _trEntryRecords.every(function(r) { return !!trTableRecExp[_trRecKey(r)]; });
       var _trAllMiss = _elAllMissRow(_trTotRecs, function(_r){ return _elAlphaInfo(_r, data).alpha; }, function(_r){ return _elAlphaInfo(_r, data).cutLine; });
       var totRow = React.createElement("tr", { key: "__trtot__", style: { background: "#FFF7ED" } },
-        React.createElement("td", { colSpan: 7, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
+        React.createElement("td", { colSpan: 6, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),   // 2026-11-20 VAP値列の撤去で7→6
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6", background: "#FFFBF0" } },
           React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, "想定損益"),
-          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _trTotHold2Cnt > 0 ? (function() { var _g2 = _profitGradeFromPnl(_trTotHold2 != null ? _trTotHold2 : 0, _trTotHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2 ? _trBadge(_g2) : null, React.createElement("span", { style: { fontWeight: 600, color: _trTotHold2 > 0 ? "#C0392B" : _trTotHold2 < 0 ? "#1E8449" : "#888" } }, (_trTotHold2 > 0 ? "+" : "") + (_trTotHold2 || 0).toLocaleString() + "円")); })() : (_trTotHold2RefCnt > 0 ? null : (_trAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_trTotHold2, _trTotHold2Ref, _trTotHold2RefCnt))
+          React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } }, _trTotHold2Cnt > 0 ? (function() { var _g2 = _profitGradeFromPnl(_trTotHold2 != null ? _trTotHold2 : 0, _trTotHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2 ? _trBadge(_g2) : null, React.createElement("span", { style: { fontWeight: 600, color: _trTotHold2 > 0 ? "#C0392B" : _trTotHold2 < 0 ? "#1E8449" : "#888" } }, (_trTotHold2 > 0 ? "+" : "") + (_trTotHold2 || 0).toLocaleString() + "円")); })() : (_trTotHold2RefCnt > 0 ? null : (_trAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_trTotHold2, _trTotHold2Ref, _trTotHold2RefCnt))
         ),
         React.createElement("td", { colSpan: 2, style: { padding: "4px 6px", textAlign: "left", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6", background: "#F8FBFE" } },
           React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
@@ -6862,13 +6862,7 @@ function DayView(_ref57) {
               : _dynHPtr === "no"
                 ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×")
                 : React.createElement("span", { style: { color: "#ccc" } }, "—");
-        var entLabel = entered
-          ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 14 } }, "〇")
-          : _elIsThru(s)
-            ? _elThruLbl(s)
-            : _elIsReview(s)
-              ? React.createElement("span", { title: "要審議", style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審")
-              : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×");
+        var entLabel = _elTradeLbl(s, entered, "#C0392B");   // 2026-11-20 見送り＝「見」・要審議は下に縦並び
         var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(_t) { return _elTagDisp(s, _t); }).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
         var sigLabel = _sigParts.length > 0 ? _sigParts.join(" / ") : "(未設定)";
         var resultEl = _dynResTr === "ok"
@@ -6885,14 +6879,12 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
               React.createElement("div", null,
                 React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
-                s.time || "—", _minBarBadge(s)),
+                s.time || "—"),
               _epIncompleteMark(s), _elCollMarkNode(data, r, null, _EL_COLL_HIDE_KEEP), _elCollPickNode(data, r, save), _elFillRiskNode(r),
               (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()   // 2026-07-29 選外(データのみ)も無印にしない
             ),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, _stkLbl(r.stock)),
-            React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", whiteSpace: "nowrap" } }, _elSigCell(s, "flex-start")),
-            React.createElement("td", { style: { padding: "4px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
-              _elAlphaTypeCell(s, _aiTr.alpha)),
+            React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", whiteSpace: "nowrap" } }, _elSigCell(s, "flex-start", true)),
             _elLineCell(s, _aiTr.alpha, _aiTr.cutLine, "1px solid #f0ede6"),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               _epECell(s, _aiTr.alpha, _aiTr.cutLine)),
@@ -6904,7 +6896,7 @@ function DayView(_ref57) {
         if (rExp) {
           dataRows.push(
             React.createElement("tr", { key: rKey + "_card" },
-              React.createElement("td", { colSpan: 13, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("td", { colSpan: 12, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                 React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); } })
               )
             )
@@ -6928,7 +6920,6 @@ function DayView(_ref57) {
                 _trTh("時間", { textAlign: "left" }),
                 _trTh("銘柄"),
                 _trTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-                _trTh(_elAW() + "値", { width: "1%" }),
                 _trTh("ライン", { width: "1%" }),
                 _trTh("E", { width: "1%" }),
                 _trTh("取引", { width: 1, padding: "4px 2px" }),
@@ -7269,20 +7260,16 @@ function DayView(_ref57) {
             simCtx ? _renderSimAlphaInput(r, simCtx) : null,
             cutCtx ? _renderSimCutInput(r, cutCtx) : null),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
-            React.createElement("div", null, s.time || "—", _minBarBadge(s)),
+            React.createElement("div", null, s.time || "—"),
             _epIncompleteMark(s), _elCollMarkNode(data, r, null, _EL_COLL_HIDE_KEEP), _elCollPickNode(data, r, save), _elFillRiskNode(r),
             (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()),   // 2026-07-29 選外(データのみ)も無印にしない
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 60 } },
-            _elSigCell(s, "center")),
-          React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%", background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
-            _elAlphaTypeCell(s, _alphaRec)),
+            _elSigCell(s, "center", true)),
           _elLineCell(s, _alphaRec, _cutLrec, bb),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             _epECell(s, _alphaRec)),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%" } },
-            entered
-              ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇")
-              : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")
+            _elTradeLbl(s, entered)
           ),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", background: "#FFFBF0" } },
             _elHold2AmtNode(s, _alphaRec, _cutLrec), _elRideMiniNode(s, _alphaRec, _cutLrec)),
@@ -7295,7 +7282,7 @@ function DayView(_ref57) {
         ));
         if (rExp) {
           subRows.push(React.createElement("tr", { key: rKey + "_detail" },
-            React.createElement("td", { colSpan: 14, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
+            React.createElement("td", { colSpan: 13, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
               React.createElement(EntryLogCard, {
                 record: r,
                 alpha: alphaOf(r),
@@ -7331,9 +7318,9 @@ function DayView(_ref57) {
       var _pbAllMiss = _elAllMissRow(expRecs.filter(_amtOkPb), alphaOf, cutOf);
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
-        React.createElement("td", { colSpan: 6, style: { borderTop: "2px solid #FB923C" } }),   // 2026-11-20y 損切り列の撤去で1列多くなっていた（合計の行が1列右へずれる）
+        React.createElement("td", { colSpan: 5, style: { borderTop: "2px solid #FB923C" } }),   // 2026-11-20 VAP値列の撤去で6→5／2026-11-20y 損切り列の撤去で1列多くなっていた（合計の行が1列右へずれる）
         React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", background: "#FFFBF0" } }, _lblTot("想定損益"),
-          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _totHold2Cnt > 0 ? (function() { var _g2f = _profitGradeFromPnl(_pdAvg(_totHold2 != null ? _totHold2 : 0), _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2f ? _pbBadge(_g2f) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })() : (_totHold2RefCnt > 0 ? null : (_pbAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_totHold2, _totHold2Ref, _totHold2RefCnt))),
+          React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } }, _totHold2Cnt > 0 ? (function() { var _g2f = _profitGradeFromPnl(_pdAvg(_totHold2 != null ? _totHold2 : 0), _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2f ? _pbBadge(_g2f) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })() : (_totHold2RefCnt > 0 ? null : (_pbAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_totHold2, _totHold2Ref, _totHold2RefCnt))),
         React.createElement("td", { colSpan: 2, style: { padding: "1px 4px", textAlign: "left", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", background: "#F8FBFE" } },
           React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
             React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
@@ -7385,7 +7372,6 @@ function DayView(_ref57) {
               _rTh("銘柄", { width: 52 }),
               _rTh("時間", { width: 44 }),
               _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-              _rTh(_elAW() + "値", { width: 32 }),
               _rTh("ライン", { width: 1 }),
               _rTh("E", { width: 26 }),
               _rTh("取引", { width: 26 }),

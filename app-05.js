@@ -3828,6 +3828,16 @@ function _elThruLbl(s) {
     React.createElement("span", { style: { color: "#9CA3AF", fontSize: 9 } }, "・"),
     React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審"));
 }
+// 2026-11-20 表の「取引」列：〇／見（見送り）／ス（スルー）／審（要審議）。見送り・スルーと要審議は縦に並べる（審が下）。okCol＝〇の色（表ごと）。
+function _elTradeLbl(s, entered, okCol) {
+  if (entered) return React.createElement("span", { style: { color: okCol || "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇");
+  var _mk = function(k, txt, col, ttl) { return React.createElement("span", { key: k, title: ttl, style: { display: "block", color: col, fontWeight: 700, fontSize: 12, lineHeight: 1.2 } }, txt); };
+  var _rv = _elIsReview(s);
+  var top = _elIsThru(s) ? _mk("t", "ス", "#6B7280", "スルー") : ((_rv && s.reviewSkip !== true) ? null : _mk("m", "見", "#999", "見送り"));
+  var bot = _rv ? _mk("r", "審", "#DB2777", "要審議") : null;
+  if (top && bot) return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } }, top, bot);
+  return top || bot;
+}
 // ===== 仮シグナル（シグナルではあるが合計に算入しないジャンル）2026-09-22 ユーザー決定 =====
 // マスターは custom.provSignalTags（通常の custom.signalTags とは別リスト・排他）。
 // 記録側は保存時に includeInTotal=false / includeInData=true / provisional=true を立てる＝
@@ -4155,6 +4165,8 @@ function _elAlphaTypeCell(s, alpha) {
 // 各記録の分足(signal.minBar)を正規化して number配列 [1]/[5]/[1,5] で返す。旧形式の単一number(1 or 5)も配列1件として扱う。2026-06-24複数選択化。
 function _minBarList(s) { if (!s || s.minBar == null) return []; var arr = Array.isArray(s.minBar) ? s.minBar : [s.minBar]; var out = []; for (var i = 0; i < arr.length; i++) { var n = Number(arr[i]); if ((n === 1 || n === 5) && out.indexOf(n) < 0) out.push(n); } out.sort(function(a, b) { return a - b; }); return out; }
 // 各記録の分足を表の時間欄の下に出す小バッジ（「1分」=薄青／「5分」=薄緑の個別ピル・両方選択時は2つ並ぶ）。未設定はnull。2026-06-24に新規エントリー記録フォームへ再導入＝旧minBar欄。色分け2026-06-24→色入替2026-06-25(1分=青/5分=緑)。
+// 2026-11-20 シグナル欄の分足の札：1分／5分／両分（両方＝紫の札1つ）。justify＝札の寄せ。
+function _minBarTfBadge(s, justify) { var list = _minBarList(s); if (!list.length) return null; var _both = list.length > 1; var _n = list[0]; var _c = _both ? { color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD" } : (_n === 1) ? { color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #93C5FD" } : { color: "#166534", background: "#F0FDF4", border: "1px solid #86EFAC" }; return React.createElement("div", { style: { display: "flex", justifyContent: justify || "center", marginTop: 2 } }, React.createElement("span", { style: { display: "inline-block", padding: "1px 7px", fontSize: 11, fontWeight: 800, color: _c.color, background: _c.background, border: _c.border, borderRadius: 4, lineHeight: 1.5, whiteSpace: "nowrap" } }, _both ? "両分" : _n + "分")); }
 function _minBarBadge(s) { var list = _minBarList(s); if (!list.length) return null; var _mbStyle = function(_n) { var _c = (_n === 1) ? { color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #93C5FD" } : { color: "#166534", background: "#F0FDF4", border: "1px solid #86EFAC" }; return { display: "inline-block", padding: "1px 7px", fontSize: 11, fontWeight: 800, color: _c.color, background: _c.background, border: _c.border, borderRadius: 4, lineHeight: 1.5, whiteSpace: "nowrap", textAlign: "center" }; }; return React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 3, marginTop: 2 } }, list.map(function(_n) { return React.createElement("span", { key: _n, style: _mbStyle(_n) }, _n + "分"); })); }
 // === EP起算方式(scheme:2)のリゾルバ ===
 // 新方式: OS1〜OS3の3本以内にα値到達した足=EP(エントリーポイント)。EPの次の足からH1/H2。
@@ -7278,27 +7290,15 @@ function _elEpHighVal(s, alpha, cutLine) {
   return (eph == null || isNaN(eph)) ? null : eph;
 }
 // 記録表「ライン」セルの中身(td無し): 水準線値／予定EP額（水準線＋合計α）／予定損切りライン額（EP＋損切り値）／実現到達（水準線＋手じまいまでの最高値mx）を6行(各 ラベル／額)で縦積み＝実価格（円）。EPナビ/フォームの「予定EP」「予定損切りライン」と同じ実価格。水準線値(levelPrice)未入力は「—」・実現到達はE成立(v2)行のみ（未成立/α未達は「—」）。2026-07-18e実価格化。2026-07-24 EPの上に「水準」・損切の下に「実現到達」を追加（実現到達＝水準線＋_elRideVals.mx＝手じまいまでに到達した最高値・OS値ではなく実価格）。合計α=各行の採用α・損切り値=採用損切り値。
-function _elLineInner(s, alpha, cutLine) {
+function _elLineInner(s, alpha, cutLine) {   // 2026-11-20 表のライン欄＝基準ラインの種類（大RNなど・分足付きはそのまま）と基準ライン（水準線値）の縦並びだけ（旧＝水準/EP/実現到達）
   var lv = (s && s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))) ? Number(s.levelPrice) : null;
-  var a = (alpha != null && !isNaN(Number(alpha))) ? Number(alpha) : null;
-  var epPrice = (lv != null && a != null) ? Math.round((lv + a) * 100) / 100 : null;   // 予定EP額＝水準線値＋合計α（app-04:3506の正本式と同じ）
-  var stopPrice = (epPrice != null && cutLine != null && !isNaN(Number(cutLine))) ? Math.round((epPrice + Number(cutLine)) * 100) / 100 : null;   // 予定損切りライン＝予定EP＋損切り値（向きは常にEP＋・2026-07-18d確定）
-  var _rv = _elRideVals(s, alpha, cutLine);   // 決済サマリーの素の値（mx=手じまいまでの最高値・水準線比↑正）
-  var reachPrice = (lv != null && _rv && _rv.mx != null && !isNaN(Number(_rv.mx))) ? Math.round((lv + Number(_rv.mx)) * 100) / 100 : null;   // 実現到達＝水準線値＋手じまいまでの最高値（実価格）2026-07-24
-  var _lbl = { fontSize: 9, color: "#999", fontWeight: 700, lineHeight: 1.1 };
-  var _num = { fontSize: 11, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: "tabular-nums" };
-  var _fmt = function(v, col) {
-    if (v == null) return React.createElement("span", { style: { color: "#ccc", fontWeight: 700, fontSize: 11 } }, "—");
-    return React.createElement("span", { style: Object.assign({}, _num, { color: col }) }, v);
-  };
-  var _epLbl = _elRnYes(s) ? Object.assign({}, _lbl, { marginTop: 1, whiteSpace: "nowrap", color: "#7C3AED" }) : Object.assign({}, _lbl, { marginTop: 1 });
-  return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } },
-    React.createElement("span", { style: _lbl }, "水準"),   // 水準線値をEPの上に表示 2026-07-24
-    _fmt(lv, "#64748B"),
-    React.createElement("span", { style: _epLbl }, _elRnYes(s) ? "EP（RN）〇" : "EP"),   // RN加算〇＝EPがRN(キリ番)に乗っている記録は「EP（RN）〇」表記（紫）2026-07-18h
-    _fmt(epPrice, "#334155"),
-    React.createElement("span", { style: Object.assign({}, _lbl, { marginTop: 1, whiteSpace: "nowrap" }) }, "実現到達"),   // 手じまいまでに到達した最高値＝水準線値＋mx（実価格）2026-07-24
-    _fmt(reachPrice, "#475569"));
+  var _tags = s ? (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])) : [];
+  var _kinds = [];
+  _tags.forEach(function(_t) { var _b = _elBJoin(s, _t); if (!_b) return; _b = String(_b).replace(/^1・5分:/, ""); if (_kinds.indexOf(_b) < 0) _kinds.push(_b); });
+  return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } },
+    _kinds.length ? _kinds.map(function(_k, _i) { return React.createElement("span", { key: "k" + _i, style: { fontSize: 10, fontWeight: 700, color: "#64748B", whiteSpace: "nowrap" } }, _k); }) : null,
+    lv == null ? React.createElement("span", { style: { color: "#ccc", fontWeight: 700, fontSize: 11 } }, "—")
+      : React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#334155", fontVariantNumeric: "tabular-nums" } }, lv));
 }
 // 「ライン」セル(td込み)。数値の左右余白を最小(2px)に。border=各表の枠線(borderBottom/borderRightに同値)。2026-07-18。
 function _elLineCell(s, alpha, cutLine, border) {
@@ -7396,10 +7396,15 @@ function _elHold2AmtNode(s, alpha, cutLine) {
     : React.createElement("span", { style: { color: "#ccc" } }, "—");
   var g = _profitGradeFromPnl(p.main, 1);
   var _bsp = _elBSplit(_elHoldFinalParts0, s, alpha, cutLine);   // 2026-11-20n Bは ①＋②＝合計 を縦に
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+  return _elRefBelow(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
     (g && !_bsp) ? _elHoldGradeBadge(g) : null,
     _bsp ? _elBSumNode(_bsp, "hissan", false, g ? _elHoldGradeBadge(g) : null, 11) :   /* 2026-11-20x 表は1件の額と同じ大きさ（合計も）・セルの中央に（ユーザー指示） */   /* 2026-11-20r 表もひっ算の形・①②を大きく（ユーザー指示） */ React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(p.main) } }, _elPnlFmt(p.main)),
-    _elHold2RefSuffix(p.main, p.ref, p.ref != null ? 1 : 0));
+    null), _elHold2RefSuffix(p.main, p.ref, p.ref != null ? 1 : 0));   // 2026-11-20 括弧の額は下に
+}
+// 2026-11-20 想定損益欄：括弧の額（参考）は金額の下に縦並び（ユーザー指示）。suffix が null なら main だけ。
+function _elRefBelow(main, suffix) {
+  if (!suffix) return main;
+  return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1 } }, main, React.cloneElement(suffix, { style: Object.assign({}, suffix.props.style, { marginLeft: 0 }) }));
 }
 // 集計/早見表用: 「H１合計」td と「H２合計」td の2セル。集計表はH列を統合しない（2列のまま）。
 function _elHoldSumTd2(sumH1, sumH2, tdStyle, refH2, refCnt, allMiss, refH1, refCntH1) {
@@ -8484,23 +8489,25 @@ function _elTagDisp(s, t) {
   return _ps.length ? t + "（" + _ps.join("・") + "）" : t;
 }
 // シグナルセルの2行表示（案B 2026-07-07）: 1行目=シグナル名、2行目=底X・起Y、3行目=③特徴。詳細が1つも無い記録は赤「詳細未選択」バッジで明示。_elTagDisp（1行括弧表記）の縦積み版で、明細表のシグナル欄に使う。
-function _elSigCellNode(s, t, key) {
+function _elSigCellNode(s, t, key, noB) {
   // 2026-07-09: 明細表のシグナル欄はシグナル名だけ表示（旧=底/起/特徴の詳細＋詳細未選択バッジも表示）。詳細はsigDetailに保持され分析側で使用。
   // 2026-07-09e: nowrapで1行固定（OS・損益詳細の幅圧縮で捻出した幅を使う）。
   // 2026-07-13: シグナル名の下に①底抜け(sigDetail[t].b)をプレーンで小さく表示（ユーザー「VWAPみたいにシンプルに」）。EPナビ早見カードの e.b 表示と同思想。旧記録(b無し)は名前だけ。
-  var _b = _elBJoin(s, t);   // ①EP基準ラインは1・5分共通（2026-10-29j）。寄り足ラインの①起点は分足付き
+  var _b = noB ? null : _elBJoin(s, t);   // ①EP基準ラインは1・5分共通（2026-10-29j）。寄り足ラインの①起点は分足付き
   return React.createElement("div", { key: key, style: { whiteSpace: "nowrap" } },
     React.createElement("div", { style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, t),
     _b ? React.createElement("div", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", lineHeight: 1.15 } }, _b) : null);
 }
 // 明細表のシグナル欄（全タグ＋カスタムタグ＋未設定）を案Bの縦積みで返す共有部品。align=セル内の水平寄せ。
-function _elSigCell(s, align) {
+function _elSigCell(s, align, tfMode) {   // tfMode＝明細表（2026-11-20）: 基準ラインの種類はライン欄へ・名前の下に分足の札
   var _tags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []));
-  var _nodes = _tags.map(function(_t, _i) { return _elSigCellNode(s, _t, _i); });
+  var _nodes = _tags.map(function(_t, _i) { return _elSigCellNode(s, _t, _i, tfMode); });
   if (s.isCustomTag) _nodes.push(React.createElement("div", { key: "cust", style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, s.customTagText || "(その他)"));
   // タグ非設定でカテゴリ記録（日経/マクロ等・sigDetail概念なし）はプレーン表示（詳細未選択バッジは出さない）
   if (!_nodes.length && s.categories && s.categories.length) _nodes = s.categories.map(function(_c, _i) { return React.createElement("div", { key: "c" + _i, style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, _c); });
-  if (!_nodes.length) return React.createElement("span", { style: { color: "#94A3B8" } }, "(未設定)");
+  if (!_nodes.length) _nodes = [React.createElement("span", { key: "none", style: { color: "#94A3B8" } }, "(未設定)")];
+  if (tfMode) { var _tb = _minBarTfBadge(s, align || "center"); if (_tb) _nodes = _nodes.concat([React.cloneElement(_tb, { key: "tf" })]); }
+  else if (_nodes.length === 1 && _nodes[0].key === "none") return _nodes[0];
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: align || "center", gap: 3 } }, _nodes);
 }
 function _elTagEntries(s) {

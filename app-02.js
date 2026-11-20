@@ -4661,10 +4661,10 @@ function EntrySignalSection(_ref_es) {
           };
           var isCustomMode = sortMode === "custom";
           var totRow = React.createElement("tr", { key: "__estot__", style: { background: "#FFF7ED" } },
-            React.createElement("td", { colSpan: 6, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
+            React.createElement("td", { colSpan: 5, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),   // 2026-11-20 VAP値列の撤去で6→5
             React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6", background: "#FFFBF0" } },
               React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, "想定損益"),
-              React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Cnt > 0 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 600, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + (_esTotHold2 || 0).toLocaleString() + "円")) : (_esTotHold2RefCnt > 0 ? null : (_esAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_esTotHold2, _esTotHold2Ref, _esTotHold2RefCnt))
+              React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Cnt > 0 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 600, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + (_esTotHold2 || 0).toLocaleString() + "円")) : (_esTotHold2RefCnt > 0 ? null : (_esAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_esTotHold2, _esTotHold2Ref, _esTotHold2RefCnt))
             ),
             React.createElement("td", { colSpan: 2, style: { padding: "1px 4px", textAlign: "left", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6", background: "#F8FBFE" } },
               React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
@@ -4793,25 +4793,17 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   React.createElement("div", null,
                     React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
-                    s.time || "—", _minBarBadge(s)),
+                    s.time || "—"),
                   _epIncompleteMark(s), _elCollMarkNode(data, r, stock), _elFillRiskNode(r),
                   _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : ((_vapWorld(date) && _elVapUnsetSig(s)) ? React.createElement("div", { style: { marginTop: 1 } }, _elVapUnsetBadge()) : null)
                 ),
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
-                  _elSigCell(s, "flex-start")),
-                React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
-                  _elAlphaTypeCell(s, _avH)),
+                  _elSigCell(s, "flex-start", true)),
                 _elLineCell(s, _avH, _cutLH, "1px solid #f0ede6"),
                 React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   _epECell(s, _avH)),
                 React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-                  entered
-                    ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇")
-                    : _elIsThru(s)
-                      ? _elThruLbl(s)
-                      : _elIsReview(s)
-                        ? React.createElement("span", { title: "要審議", style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審")
-                        : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
+                  _elTradeLbl(s, entered)),
                 React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#FFFBF0" } },
                   _elHold2AmtNode(s, _avH, _cutLH), _elRideMiniNode(s, _avH, _cutLH)),
                 React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#F8FBFE" } },
@@ -4841,7 +4833,7 @@ function EntrySignalSection(_ref_es) {
             if (rExp) {
               dataRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
-                  React.createElement("td", { colSpan: isCustomMode ? 13 : 12, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: isCustomMode ? 12 : 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                     React.createElement(EntryLogCard, { record: r, data: data, collScope: stock, onEdit: function(rec) { setEditTarget(rec); } })
                   )
                 )
@@ -4855,7 +4847,6 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("tr", null,
                   _esTh("時間", { textAlign: "left", width: 50 }),
                   _esTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-                  _esTh(_vapWorld(date) ? "VAP値" : "α値", { width: 36 }),
                   _esTh("ライン", { width: 1 }),
                   _esTh("E", { width: 28 }),
                   _esTh("取引", { width: 28 }),
@@ -5129,23 +5120,21 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#9A3412" } },
         React.createElement("div", null, (r.date || "").slice(5)), _simInput(r, true), _simInput(r, false)),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#666" } },
-        React.createElement("div", null, s.time || "—", _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r, stock), _elFillRiskNode(r),
+        React.createElement("div", null, s.time || "—"), _epIncompleteMark(s), _elCollMarkNode(data, r, stock), _elFillRiskNode(r),
         _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
-        _elSigCell(s, "center")),
-      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%", background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
-        _elAlphaTypeCell(s, a)),
+        _elSigCell(s, "center", true)),
       _elLineCell(s, a, c, _bb),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%" } }, _epECell(s, a)),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", width: "1%" } },
-        entered ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇") : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
+        _elTradeLbl(s, entered)),
       _elPnlDetailCells(s, a, c, _bb, "1px 3px", "1px 5px"),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, whiteSpace: "nowrap" } },
         _elRPnlDispW(realPnl, gReal, 72, false, _elPer100Of(realPnl, s)))
     );
     if (!rExp) return _row;
     return React.createElement(React.Fragment, { key: rKey + "_f" }, _row,
-      React.createElement("tr", { key: rKey + "_d" }, React.createElement("td", { colSpan: 14, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
+      React.createElement("tr", { key: rKey + "_d" }, React.createElement("td", { colSpan: 13, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
         React.createElement(EntryLogCard, { record: r, alpha: a, cutLine: c, onEdit: function(rec) { _wSetEdit(rec); } }))));
   });
   };
@@ -5154,7 +5143,7 @@ function WeeklyPnlPanel(_wpp) {
     refCnt = refCnt || 0;
     if (cnt === 0) return (refCnt > 0) ? _elHold2RefSuffix(0, ref, refCnt) : (allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
     var g = isReal ? _profitGradeFromPnlReal((days && days > 0) ? Math.round((v || 0) / days) : (v || 0), cnt) : _profitGradeFromPnl((days && days > 0) ? Math.round((v || 0) / days) : (v || 0), cnt);
-    var _mn = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, g ? _elGradeBadge18(g) : null, React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)), refCnt > 0 ? _elHold2RefSuffix(v, ref, refCnt) : null);
+    var _mn = _elRefBelow(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, g ? _elGradeBadge18(g) : null, React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v))), refCnt > 0 ? _elHold2RefSuffix(v, ref, refCnt) : null);   // 2026-11-20 括弧の額は下に
     if (sub == null) return _mn;
     return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } },
       _mn, React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
@@ -5172,7 +5161,7 @@ function WeeklyPnlPanel(_wpp) {
     var _listM = _list.filter(function(r) { return !_elCollExcluded(data, r, stock); });   // 時間かぶり除外後＝OS・損益詳細(EP/H1/H2)の集計は姉妹の最新式サマリーと同じ_recsM方式 2026-07-13
     var _totDays = _elBizDaysOf(_listM, data);
     return React.createElement("tr", { key: "wpp_tot", style: { background: "#FFF7ED" } },
-      React.createElement("td", { colSpan: 9, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
+      React.createElement("td", { colSpan: 8, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),   // 2026-11-20 VAP値列の撤去で9→8
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", background: "#FFFBF0" } }, _lblTot("想定損益"), _amtCell(_t.hold2, _t.hold2Cnt, _t.hold2Ref, _t.hold2RefCnt, false, _allMiss, _totDays)),
       React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", background: "#F8FBFE" } }, _elDetailPnlStackNode(_listM, _alphaOf, _cutOf, _elGradeBadge18, _allMiss, _totDays)),
       React.createElement("td", { style: { borderTop: "2px solid #FB923C" } }),
@@ -5190,7 +5179,7 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
           _rTh("", { width: 20 }), _rTh("日付", { width: 52 }), _rTh("時間", { width: 44 }), _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-          _rTh((_list && _list.length && _list.every(function(_lr) { return _vapWorld(_lr.date); })) ? "VAP値" : "α値", { width: 32 }), _rTh("ライン", { width: 1 }), _rTh("E", { width: 26 }), _rTh("取引", { width: 26 }),
+          _rTh("ライン", { width: 1 }), _rTh("E", { width: 26 }), _rTh("取引", { width: 26 }),
           _rTh("想定損益・詳細", { width: 84 }),
           React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "OS・損益詳細"),
           _rTh(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有"), { width: 30 }),
