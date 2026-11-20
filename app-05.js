@@ -8535,7 +8535,7 @@ function VirtualAlphaCalc(_ref_vac) {
 function _VapAnaPanel(props) {
   var data = props.data;
   var _uo = useState(false), open = _uo[0], setOpen = _uo[1];
-  var _us = useState("ss"), scope = _us[0], setScope = _us[1];
+  var _us = useState("all"), scope = _us[0], setScope = _us[1];   // 2026-11-20f 対象は全記録だけ（ユーザー指示・切替は撤去）
   var _uf = useState("all"), fil = _uf[0], setFil = _uf[1];
   var _btn = React.createElement("button", { type: "button", onClick: function() { setOpen(!open); },
     style: { alignSelf: "flex-start", padding: "3px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid #DDD6FE", background: open ? "#5B21B6" : "#F5F3FF", color: open ? "#fff" : "#5B21B6" } },
@@ -8569,11 +8569,12 @@ function _VapAnaPanel(props) {
   var _cur = (props.vap !== "" && props.vap != null && !isNaN(Number(props.vap))) ? Number(props.vap) : null;
   // 2026-10-19 VAP補正の導入にともない「足す」は補正をk円にする（追加円数＝読み値からの差＝補正そのもの）。読み値は変えない。
   var _apply = (_best && _cur != null && _best.k !== (props.adj || 0)) ? _cur + _best.k : null;
-  return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+  // props.inline＝横並びの行の中（記録フォームの補正の右）：ボタンだけ行に入れ、開いた中身は次の行いっぱいに出す（flexBasis 100%）2026-11-20f
+  return React.createElement(props.inline ? React.Fragment : "div", props.inline ? null : { style: { display: "flex", flexDirection: "column", gap: 6 } },
     _btn,
-    React.createElement("div", { style: { border: "1px solid #DDD6FE", borderRadius: 8, padding: "8px 10px", background: "#FCFBFF", display: "flex", flexDirection: "column", gap: 6 } },
+    React.createElement("div", { style: { border: "1px solid #DDD6FE", borderRadius: 8, padding: "8px 10px", background: "#FCFBFF", display: "flex", flexDirection: "column", gap: 6, flexBasis: "100%", width: "100%", boxSizing: "border-box" } },
       React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" } },
-        _grp(_scopes.map(function(o) { return _pill(o[0], o[1], scope === o[0], function() { setScope(o[0]); }, _base.filter(o[2]).length); })),
+        React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#5B21B6" } }, "対象：全記録（全銘柄・全シグナル）" + _base.length + "件"),
         _grp([["all", "全記録", _z + _nz], ["nz", "VAP≠0円のみ", _nz], ["z", "VAP＝0円のみ", _z]].map(function(o) { return _pill(o[0], o[1], fil === o[0], function() { setFil(o[0]); }, o[2]); }))),
       _best ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 11 } },
         React.createElement("span", { style: { fontWeight: 800, color: _best.ref ? "#94A3B8" : "#CA8A04" } }, "損益最大の追加 " + _vapKLabel(_best.k) + (_best.ref ? "（参考＝確定10件未満）" : " ★")),
@@ -10918,7 +10919,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { title: "EP\u57fa\u6e96\u30e9\u30a4\u30f3\uff0bVAP\u5024\uff1d\u4e88\u5b9a\u30a8\u30f3\u30c8\u30ea\u30fc\u4fa1\u683c", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "\u2192 \u6700\u7d42EP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, _epTxt), "\u5186")];
         return _kids;
       })();
-    return { vap: _k[0], adj: _k[1], rn: _k[2], ep: _k[3], ana: React.createElement(_VapAnaPanel, { data: data, stock: fStock, tags: fTags, vap: fVap, adj: fVapAdj, onAdj: function(k) { setFVapAdj(k); }, excludeId: isEdit ? initSig.id : null }) }; }
+    return { vap: _k[0], adj: _k[1], rn: _k[2], ep: _k[3], ana: React.createElement(_VapAnaPanel, { data: data, stock: fStock, tags: fTags, vap: fVap, adj: fVapAdj, onAdj: function(k) { setFVapAdj(k); }, excludeId: isEdit ? initSig.id : null, inline: true }) }; }
   function _vapBoxEls() { var _p = _vapParts(); return [React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } }, _p.vap, _p.adj, _p.rn, _p.ep), _p.ana]; }
   function _alphaMemoEl() { return React.createElement("div", { style: { marginBottom: 8 } },
         React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, _vapMode ? "VAPメモ" : "αメモ"),
@@ -12217,7 +12218,7 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円"),
               React.createElement("span", { style: { fontSize: 9, color: "#93C5FD", fontWeight: 700 } }, "自動")
             ));
-            var _common = _vp ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, React.createElement("div", { style: _rowS }, _vp.adj, _vp.rn), _vp.ana) : null;
+            var _common = _vp ? React.createElement("div", { style: _rowS }, _vp.adj, _vp.rn, _vp.ana) : null;   // 2026-11-20f VAP分析は補正の右に横並び
             var _vapRow = _vp ? React.createElement("div", { style: _rowS }, _vp.vap, _vp.ep) : null;
             var _ceRow = function(num) { return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, React.createElement("span", { style: { fontWeight: 800, color: "#0E7490" } }, num ? "EP②（確定待ちor直上VAP）" : "確定待ちor直上VAP"), _topFrag); };
             var _boxS = function(bd, bg) { return { padding: "6px 8px", border: "1px solid " + bd, background: bg, borderRadius: 7, display: "flex", flexDirection: "column", gap: 6 }; };
