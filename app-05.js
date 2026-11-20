@@ -3828,15 +3828,31 @@ function _elThruLbl(s) {
     React.createElement("span", { style: { color: "#9CA3AF", fontSize: 9 } }, "・"),
     React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審"));
 }
-// 2026-11-20 表の「取引」列：〇／見（見送り）／ス（スルー）／審（要審議）。見送り・スルーと要審議は縦に並べる（審が下）。okCol＝〇の色（表ごと）。
+// 2026-11-20 表の「エントリー」列（旧 取引）の言葉：エントリー／見送り／スルー／要審議。見送り・スルーと要審議は縦に並べる（要審議が下）。okCol＝エントリーの色（表ごと）。
 function _elTradeLbl(s, entered, okCol) {
-  if (entered) return React.createElement("span", { style: { color: okCol || "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇");
-  var _mk = function(k, txt, col, ttl) { return React.createElement("span", { key: k, title: ttl, style: { display: "block", color: col, fontWeight: 700, fontSize: 12, lineHeight: 1.2 } }, txt); };
+  var _mk = function(k, txt, col) { return React.createElement("span", { key: k, style: { display: "block", color: col, fontWeight: 700, fontSize: 11, lineHeight: 1.25, whiteSpace: "nowrap" } }, txt); };
+  if (entered) return _mk("e", "エントリー", okCol || "#2E7D32");
   var _rv = _elIsReview(s);
-  var top = _elIsThru(s) ? _mk("t", "ス", "#6B7280", "スルー") : ((_rv && s.reviewSkip !== true) ? null : _mk("m", "見", "#999", "見送り"));
-  var bot = _rv ? _mk("r", "審", "#DB2777", "要審議") : null;
+  var top = _elIsThru(s) ? _mk("t", "スルー", "#6B7280") : ((_rv && s.reviewSkip !== true) ? null : _mk("m", "見送り", "#999"));
+  var bot = _rv ? _mk("r", "要審議", "#DB2777") : null;
   if (top && bot) return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } }, top, bot);
   return top || bot;
+}
+// 2026-11-20 表の「エントリー」欄＝上に取引の言葉・下に E の印（○×・未達・同値・(+7)・確定待ち等）。確度の札は「E確度」欄へ移したのでここでは出さない。
+var _EL_NO_KD = false;
+function _elEntryCell(s, entered, alpha, cutLine, okCol) {
+  var top = _elTradeLbl(s, entered, okCol);
+  if (alpha == null) return top;
+  _EL_NO_KD = true;
+  var e; try { e = _epECell(s, alpha, cutLine); } finally { _EL_NO_KD = false; }
+  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2 } }, top, e);
+}
+// 2026-11-20 表の「E確度」欄：A/B/C/D の文字だけ（色は確度の札と同じ）。未設定は「—」。
+function _elKakudoCell(s) {
+  var k = _kakudoOf(s);
+  if (!k) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var c = _KAKUDO_COL[k];
+  return React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: c.fg } }, k);
 }
 // ===== 仮シグナル（シグナルではあるが合計に算入しないジャンル）2026-09-22 ユーザー決定 =====
 // マスターは custom.provSignalTags（通常の custom.signalTags とは別リスト・排他）。
@@ -4761,7 +4777,7 @@ function _elCeCand(s, alpha) {
 //   確定待ちを付けた記録（ceOn===true）は、直上VAPで約定したときも・この足でα値に届かず計算に効かないときも、必ず「確定待ち」の印を出す。
 // 2026-11-20 エントリー確度の印（確度A/B 50:50/C）を確定待ちの印の上に出す。
 function _elCeBadge(s, alpha, cutLine) {
-  var _x = _elCeBadge0(s, alpha, cutLine), _k = _kakudoBadge(s, "kd");
+  var _x = _elCeBadge0(s, alpha, cutLine), _k = _EL_NO_KD ? null : _kakudoBadge(s, "kd");   // 表のエントリー欄では確度はE確度欄へ（2026-11-20）
   if (!_k) return _x;
   if (!_x) return _k;
   return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2 } }, _k, _x);
@@ -7290,15 +7306,25 @@ function _elEpHighVal(s, alpha, cutLine) {
   return (eph == null || isNaN(eph)) ? null : eph;
 }
 // 記録表「ライン」セルの中身(td無し): 水準線値／予定EP額（水準線＋合計α）／予定損切りライン額（EP＋損切り値）／実現到達（水準線＋手じまいまでの最高値mx）を6行(各 ラベル／額)で縦積み＝実価格（円）。EPナビ/フォームの「予定EP」「予定損切りライン」と同じ実価格。水準線値(levelPrice)未入力は「—」・実現到達はE成立(v2)行のみ（未成立/α未達は「—」）。2026-07-18e実価格化。2026-07-24 EPの上に「水準」・損切の下に「実現到達」を追加（実現到達＝水準線＋_elRideVals.mx＝手じまいまでに到達した最高値・OS値ではなく実価格）。合計α=各行の採用α・損切り値=採用損切り値。
-function _elLineInner(s, alpha, cutLine) {   // 2026-11-20 表のライン欄＝基準ラインの種類（大RNなど・分足付きはそのまま）と基準ライン（水準線値）の縦並びだけ（旧＝水準/EP/実現到達）
+function _elLineInner(s, alpha, cutLine) {   // 2026-11-20 表のライン欄＝基準ラインの種類（大RNなど・分足付きはそのまま）と最終EP①（EP基準ライン＋採用VAP/α）の縦並び。確度Bで直上VAPがあれば最終EP②も（①②の2段）
   var lv = (s && s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))) ? Number(s.levelPrice) : null;
+  var a = (alpha != null && alpha !== "" && !isNaN(Number(alpha))) ? Number(alpha) : null;
+  var ep1 = (lv != null && a != null) ? Math.round((lv + a) * 100) / 100 : null;
+  var _tp = (_kakudoOf(s) === "B") ? _epCeTopRel(s) : null;
+  var ep2 = (lv != null && _tp != null) ? Math.round((lv + _tp) * 100) / 100 : null;
   var _tags = s ? (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])) : [];
   var _kinds = [];
   _tags.forEach(function(_t) { var _b = _elBJoin(s, _t); if (!_b) return; _b = String(_b).replace(/^1・5分:/, ""); if (_kinds.indexOf(_b) < 0) _kinds.push(_b); });
+  var _num = function(k, v, mark) { return React.createElement("span", { key: k, title: mark ? "最終EP" + mark : "最終EP", style: { fontSize: 11, fontWeight: 700, color: "#334155", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } },
+    mark ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginRight: 1 } }, mark) : null, v); };
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } },
     _kinds.length ? _kinds.map(function(_k, _i) { return React.createElement("span", { key: "k" + _i, style: { fontSize: 10, fontWeight: 700, color: "#64748B", whiteSpace: "nowrap" } }, _k); }) : null,
-    lv == null ? React.createElement("span", { style: { color: "#ccc", fontWeight: 700, fontSize: 11 } }, "—")
-      : React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#334155", fontVariantNumeric: "tabular-nums" } }, lv));
+    ep1 == null ? React.createElement("span", { key: "n", style: { color: "#ccc", fontWeight: 700, fontSize: 11 } }, "—")
+      : (ep2 != null ? [_num("e1", ep1, "①"), _num("e2", ep2, "②")] : _num("e1", ep1, null)));
+}
+// 2026-11-20 「E確度」セル(td込み)。border＝各表の枠線。
+function _elKakudoTd(s, border, pad) {
+  return React.createElement("td", { style: { padding: pad || "1px 4px", textAlign: "center", whiteSpace: "nowrap", borderBottom: border, borderRight: border, width: "1%", verticalAlign: "middle" } }, _elKakudoCell(s));
 }
 // 「ライン」セル(td込み)。数値の左右余白を最小(2px)に。border=各表の枠線(borderBottom/borderRightに同値)。2026-07-18。
 function _elLineCell(s, alpha, cutLine, border) {

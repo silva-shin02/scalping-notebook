@@ -6862,7 +6862,6 @@ function DayView(_ref57) {
               : _dynHPtr === "no"
                 ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×")
                 : React.createElement("span", { style: { color: "#ccc" } }, "—");
-        var entLabel = _elTradeLbl(s, entered, "#C0392B");   // 2026-11-20 見送り＝「見」・要審議は下に縦並び
         var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(_t) { return _elTagDisp(s, _t); }).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
         var sigLabel = _sigParts.length > 0 ? _sigParts.join(" / ") : "(未設定)";
         var resultEl = _dynResTr === "ok"
@@ -6885,10 +6884,10 @@ function DayView(_ref57) {
             ),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, _stkLbl(r.stock)),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", whiteSpace: "nowrap" } }, _elSigCell(s, "flex-start", true)),
+            _elKakudoTd(s, "1px solid #f0ede6", "4px 6px"),
             _elLineCell(s, _aiTr.alpha, _aiTr.cutLine, "1px solid #f0ede6"),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-              _epECell(s, _aiTr.alpha, _aiTr.cutLine)),
-            React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
+              _elEntryCell(s, entered, _aiTr.alpha, _aiTr.cutLine, "#C0392B")),
             _elPnlDetailCells(s, _aiTr.alpha, _aiTr.cutLine, "1px solid #f0ede6", "4px 6px", "1px 5px"),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trRPnlDisp(realPnl, realGrade, realPnlN != null && _sh > 0 ? realPnlN : null))   // 2026-08-05 採用αチップはα値欄へ移設
           )
@@ -6920,9 +6919,9 @@ function DayView(_ref57) {
                 _trTh("時間", { textAlign: "left" }),
                 _trTh("銘柄"),
                 _trTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
+                _trTh("E確度", { width: "1%" }),
                 _trTh("ライン", { width: "1%" }),
-                _trTh("E", { width: "1%" }),
-                _trTh("取引", { width: 1, padding: "4px 2px" }),
+                _trTh("エントリー", { width: "1%" }),
                 _trTh("想定損益・詳細"),
                 React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "OS・損益詳細"),
                 _trTh(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有"), { width: "1%" }),
@@ -7265,12 +7264,10 @@ function DayView(_ref57) {
             (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()),   // 2026-07-29 選外(データのみ)も無印にしない
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 60 } },
             _elSigCell(s, "center", true)),
+          _elKakudoTd(s, bb),
           _elLineCell(s, _alphaRec, _cutLrec, bb),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
-            _epECell(s, _alphaRec)),
-          React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%" } },
-            _elTradeLbl(s, entered)
-          ),
+            _elEntryCell(s, entered, _alphaRec)),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", background: "#FFFBF0" } },
             _elHold2AmtNode(s, _alphaRec, _cutLrec), _elRideMiniNode(s, _alphaRec, _cutLrec)),
           React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", background: "#F8FBFE" } },
@@ -7372,9 +7369,9 @@ function DayView(_ref57) {
               _rTh("銘柄", { width: 52 }),
               _rTh("時間", { width: 44 }),
               _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
+              _rTh("E確度", { width: 1 }),
               _rTh("ライン", { width: 1 }),
-              _rTh("E", { width: 26 }),
-              _rTh("取引", { width: 26 }),
+              _rTh("エントリー", { width: 1 }),
               _rTh("想定損益・詳細", { width: 84 }),
               React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "OS・損益詳細"),
               _rTh(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有"), { width: 30 }),
