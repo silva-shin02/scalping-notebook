@@ -247,7 +247,7 @@ function App() {
     _useState164 = _slicedToArray(_useState163, 2),
     cM = _useState164[0],
     setCM = _useState164[1];
-  var _useState165 = useState(false),
+  var _useState165 = _snUseSess("app.settings", false),
     _useState166 = _slicedToArray(_useState165, 2),
     showSettings = _useState166[0],
     setShowSettings = _useState166[1],
@@ -304,7 +304,7 @@ function App() {
     showHomeEventForm = _useStateHEFA[0],
     setShowHomeEventForm = _useStateHEFA[1];
   
-  var _useStateEL1 = useState(false),
+  var _useStateEL1 = _snUseSess("app.entrylog", false),
     _useStateEL2 = _slicedToArray(_useStateEL1, 2),
     showEntryLog = _useStateEL2[0],
     setShowEntryLog = _useStateEL2[1];
@@ -313,17 +313,17 @@ function App() {
     showEntryForm = _useStateEL4[0],
     setShowEntryForm = _useStateEL4[1];
   
-  var _useStateSHV1 = useState(false),
+  var _useStateSHV1 = _snUseSess("app.stockhist", false),
     _useStateSHV2 = _slicedToArray(_useStateSHV1, 2),
     showStockHistory = _useStateSHV2[0],
     setShowStockHistory = _useStateSHV2[1];
   
-  var _useStateNHV1 = useState(false),
+  var _useStateNHV1 = _snUseSess("app.newshist", false),
     _useStateNHV2 = _slicedToArray(_useStateNHV1, 2),
     showNewsHistory = _useStateNHV2[0],
     setShowNewsHistory = _useStateNHV2[1];
   
-  var _useStateMHV1 = useState(false),
+  var _useStateMHV1 = _snUseSess("app.sumhist", false),
     _useStateMHV2 = _slicedToArray(_useStateMHV1, 2),
     showSummaryHistory = _useStateMHV2[0],
     setShowSummaryHistory = _useStateMHV2[1];
@@ -564,6 +564,30 @@ function App() {
   
 
   
+  // 2026-11-20 再読み込みの直前のスクロール位置へ戻す（読み込みが終わってから・ページが伸びるのを待って最大8秒・その間に触ったらやめる）
+  useEffect(function() {
+    var _raf = null;
+    var _sv = function() { _raf = null; _snSessSet("__scrollY", Math.round(window.scrollY || 0)); };
+    var onScroll = function() { if (_raf == null) _raf = (window.requestAnimationFrame || setTimeout)(_sv); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pagehide", _sv);
+    return function() { window.removeEventListener("scroll", onScroll); window.removeEventListener("pagehide", _sv); };
+  }, []);
+  useEffect(function() {
+    if (loading) return;
+    var y = _snSessTake("__scrollY", null);
+    if (!(y > 0)) return;
+    var t0 = Date.now(), stop = false;
+    var cancel = function() { stop = true; };
+    ["wheel", "touchstart", "keydown", "mousedown"].forEach(function(ev) { window.addEventListener(ev, cancel, { once: true, passive: true }); });
+    (function tick() {
+      if (stop) return;
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      window.scrollTo(0, Math.min(y, Math.max(0, max)));
+      if (max >= y || Date.now() - t0 > 8000) return;
+      setTimeout(tick, 150);
+    })();
+  }, [loading]);
   var viewTokenRef = useRef("root");
   useEffect(function() {
     viewTokenRef.current = sel ? "sel:" + sel

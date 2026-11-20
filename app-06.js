@@ -2490,7 +2490,7 @@ function _ElNextTopSection(props) {
 }
 var _CE_SUBTABS = [["five", "⏳ 5分確定待ち"], ["good", "✅ 待つべき場面"], ["bad", "⛔ 待たない場面"], ["detail", "📊 条件ごとの内訳"], ["bsplit", "⚖ Bの割合"], ["cetop", "🎯 確定待ち vs 直上VAP"], ["nexttop", "⏭ 次の足：基準ライン vs 直上VAP"]];
 function _ElCeTabs(props) {
-  var _u = useState(_snBSplitReq ? "bsplit" : "five"), sub = _u[0], setSub = _u[1];
+  var _u = _snUseSess("elv.ceSub", _snBSplitReq ? "bsplit" : "five"), sub = _u[0], setSub = _u[1];
   useEffect(function() {
     _snBSplitReq = false;
     var h = function() { _snBSplitReq = false; setSub("bsplit"); };
@@ -7764,7 +7764,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     onSelectStock = _ref_elv2.onSelectStock;   // 2026-08-02c 配線: app-08から渡っていたが受け取っていなかった（死にprop）。ホームの「📊 銘柄別記録」ボタン撤去に伴い、ここを記録帳からの入口にする。
   var custom = data.custom || {};
   var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
-  var _uV = useState(_snBSplitReq ? "ce" : "sum"), view = _uV[0], setView = _uV[1];
+  var _uV = _snUseSess("elv.view", _snBSplitReq ? "ce" : "sum"), view = _uV[0], setView = _uV[1];
   // ⚖ Bの割合へ（記録フォーム・EPナビのボタン）2026-11-20c：開いている最中に押されたら 全体・⏳ に切り替え、開いていた記録フォームを閉じる。
   useEffect(function() {
     var h = function() { setView("ce"); setStockFil("__all__"); setEditTarget(null); };
@@ -7775,33 +7775,33 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   // 旧 period/rngFrom/rngTo（全期間/今週/1ヶ月…＋🗓期間指定）は撤去。旧「今週」はJSTで金曜が落ちるバグがあった（_elFilterPeriodのtoISOString）。
   var _uPS = useState(_elPSelAll), pSel = _uPS[0], setPSel = _uPS[1];
   // 2026-07-20i rngFrom/rngTo（🗓期間指定の自由レンジ）は_ElPeriodPickerへ統合して撤去。
-  var _uS = useState(_snBSplitReq ? "__all__" : ""), stockFil = _uS[0], setStockFil = _uS[1];
+  var _uS = _snUseSess("elv.stockFil", _snBSplitReq ? "__all__" : ""), stockFil = _uS[0], setStockFil = _uS[1];
   var _uE = useState(initialEdit || null), editTarget = _uE[0], setEditTarget = _uE[1];
-  var _uX = useState(null), expKey = _uX[0], setExpKey = _uX[1];
+  var _uX = _snUseSess("elv.expKey", null), expKey = _uX[0], setExpKey = _uX[1];
   var _uL = useState(50), listLimit = _uL[0], setListLimit = _uL[1];
   var _uD = useState(null), selDate = _uD[0], setSelDate = _uD[1];   // setSelDateは銘柄/損益ボタンのリセットで使用（selDate値は未使用＝旧カレンダー名残）
-  var _uSG = useState(null), selSig = _uSG[0], setSelSig = _uSG[1];
-  var _uGr = useState("week"), gran = _uGr[0], setGran = _uGr[1];
+  var _uSG = _snUseSess("elv.selSig", null), selSig = _uSG[0], setSelSig = _uSG[1];
+  var _uGr = _snUseSess("elv.gran", "week"), gran = _uGr[0], setGran = _uGr[1];
   // 2026-08-12 cFrom/cTo（旧・期間タブの「指定期間」レンジ）は月間・週間タブへの作り替えで不要になったため撤去。
   var _uPE = useState(null), perExp = _uPE[0], setPerExp = _uPE[1];
-  var _uOvE = useState({}), ovExp = _uOvE[0], setOvExp = _uOvE[1];   // 損益タブ「損益（期間別）」表の期間行展開 2026-06-22d→2026-07-30 ドリルダウン化: {パス文字列:true} のマップ（例 "2026-07"→"2026-07>2026-07-27"→"…>2026-07-30"）＝親を開いたまま子・孫を開ける
+  var _uOvE = _snUseSess("elv.ovExp", {}), ovExp = _uOvE[0], setOvExp = _uOvE[1];   // 損益タブ「損益（期間別）」表の期間行展開 2026-06-22d→2026-07-30 ドリルダウン化: {パス文字列:true} のマップ（例 "2026-07"→"2026-07>2026-07-27"→"…>2026-07-30"）＝親を開いたまま子・孫を開ける
   var _uChM = useState("h2"), chartMet = _uChM[0], setChartMet = _uChM[1];   // 期間ビューのグラフ指標（実現/手じまい）2026-07-09 EP/H1廃止・既定=手じまい
   // 月間・週間タブの粒度 2026-08-12。⚠️**gran(L6061)とは別state**にすること。granは💰損益タブの「全体損益（期間別）」
   //   の日別/週別/月別セグメント(_granSeg L7666)と共有しているので、こちらを月間/週間の2択に狭めると
   //   損益タブで日別を選んだあと月間タブに来たとき gran="day" が残って壊れる。
-  var _uMwG = useState("month"), mwGran = _uMwG[0], setMwGran = _uMwG[1];
-  var _uMwS = useState(null), mwSel = _uMwS[0], setMwSel = _uMwS[1];   // 📅月間・週間の成績表で表示中の期間キー（null＝最新）2026-10-19
-  var _uSM = useState("month"), sumMode = _uSM[0], setSumMode = _uSM[1];   // 銘柄別 集計タブの今月/全期間トグル（既定=今月）2026-06-22
+  var _uMwG = _snUseSess("elv.mwGran", "month"), mwGran = _uMwG[0], setMwGran = _uMwG[1];
+  var _uMwS = _snUseSess("elv.mwSel", null), mwSel = _uMwS[0], setMwSel = _uMwS[1];   // 📅月間・週間の成績表で表示中の期間キー（null＝最新）2026-10-19
+  var _uSM = _snUseSess("elv.sumMode", "month"), sumMode = _uSM[0], setSumMode = _uSM[1];   // 銘柄別 集計タブの今月/全期間トグル（既定=今月）2026-06-22
   var _uSY = useState(null), sumYM = _uSY[0], setSumYM = _uSY[1];        // 集計「今月」の対象年月 {y,m}（null=当月）2026-06-22
   var _uAA = useState("all"), _addAlphaFilRaw = _uAA[0], setAddAlphaFil = _uAA[1], addAlphaFil = legacy ? _addAlphaFilRaw : "all";   // 2026-10-05 VAP枠(8/20以降)に基本/応用の概念は無い（ユーザー指示）＝分類は常に「全記録」・トグルも出さない。   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
   var _uRO = useState(false), reviewOnly = _uRO[0], setReviewOnly = _uRO[1];
   var _uCeF = useState("all"), ceFil = _uCeF[0], setCeFil = _uCeF[1];
-  var _uLSt = useState(""), listStk = _uLSt[0], setListStk = _uLSt[1];   // 🗂記録一覧の銘柄絞り込み（""＝全て・表示のみ）2026-10-29 ユーザー要望
+  var _uLSt = _snUseSess("elv.listStk", ""), listStk = _uLSt[0], setListStk = _uLSt[1];   // 🗂記録一覧の銘柄絞り込み（""＝全て・表示のみ）2026-10-29 ユーザー要望
   var _uThO = useState(null), thruOpen = _uThO[0], setThruOpen = _uThO[1];   // サマリーの「スルー理由」帯で開いている理由（その理由の記録をボタンで並べる）2026-10-17   // 🗂記録一覧の5分足確定足の絞り込み（all/ce＝時刻が確定足の記録すべて/un＝そのうち未チェック・表示のみ）2026-10-17b   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
   var _uSO = useState("desc"), recOrder = _uSO[0], setRecOrder = _uSO[1];   // 記録一覧の並び順 2026-07-27（ユーザー指定）: "desc"=日付が新しい順（既定）／"asc"=古い順。どちらでも各日付の中は時間が早い順。全一覧で共通の1つの状態＝どこで切り替えても全部に効く
   var _uFR = useState(false), riskOpen = _uFR[0], setRiskOpen = _uFR[1];   // 「指値同値」セクションの該当記録リスト開閉（表示のみ・集計は不変）2026-07-20
-  var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
+  var _uAlS = _snUseSess("elv.alphaSub", "base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
   var _uOsF = useState("no"), _osDistFilRaw = _uOsF[0], setOsDistFil = _uOsF[1], osDistFil = legacy ? _osDistFilRaw : "no";   // VAP枠は常に"no"（VAP記録は応用を持たない＝全記録と同じ母数・トグル非表示）2026-10-05   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
   // OS値分布の基準トグルは2026-07-13に廃止（ユーザー承認③）＝実現OS(白枠・統計/棒クリックの主基準)と生の最高OS(色棒)をヒストグラムに同時表示（案A重ね棒・濃淡逆）。α目安(7割=α)は従来どおり生固定。
   var _osValFn = function(s) { return _elOsMaxFiltered(s); };   // OS値分布の主基準＝実現OS（×/損切りで打ち切り）。生(_elOsMaxAll)は各所でrawVals/併記として追加 2026-07-13
@@ -7815,11 +7815,11 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _uBSel = useState(null), bandSel = _uBSel[0], setBandSel = _uBSel[1];   // 株価帯別モードの選択帯キー（"b0".."bN"/"mat"=材料あり/"unk"=帯不明・null=件数最多帯に自動フォールバック）2026-07-22
   var _uSBS = useState("__all__"), sigBSel = _uSBS[0], setSigBSel = _uSBS[1];   // 📡シグナル総合の各シグナルタブ・①底抜けピルの選択（"__all__"=すべて/"d:名前"/"__none__"=未選択）2026-08-04
   var _uSGI = useState("band"), sigInner = _uSGI[0], setSigInner = _uSGI[1];   // 各シグナルタブ内の 💴株価帯別／📐VAP値（銘柄別）切替 2026-10-04
-  var _uSGT = useState("band"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: band(株価帯別・先頭・既定)/uki(浮き足%)/rn(RN) 2026-07-12（tod/dowは2026-07-16撤去）。既定を"uki"→"band"に（移設先を前面・ユーザー決定 2026-07-22j）
-  var _uRNS = useState("ana"), rnSub = _uRNS[0], setRnSub = _uRNS[1];   // 🔢RN加算タブ内の入れ子サブタブ: ana(分析)/list(記録一覧)/cand(候補記録)/thr(閾値スイープ) 2026-07-19→2026-07-20e thr追加
+  var _uSGT = _snUseSess("elv.sigSub", "band"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: band(株価帯別・先頭・既定)/uki(浮き足%)/rn(RN) 2026-07-12（tod/dowは2026-07-16撤去）。既定を"uki"→"band"に（移設先を前面・ユーザー決定 2026-07-22j）
+  var _uRNS = _snUseSess("elv.rnSub", "ana"), rnSub = _uRNS[0], setRnSub = _uRNS[1];   // 🔢RN加算タブ内の入れ子サブタブ: ana(分析)/list(記録一覧)/cand(候補記録)/thr(閾値スイープ) 2026-07-19→2026-07-20e thr追加
   var _uRNT = useState("all"), rnTier = _uRNT[0], setRnTier = _uRNT[1];   // RN種別トグル: all(合算)/50(中RN…50)/00(大RN…00＝100・1000台) 2026-07-20e／2026-09-02 分析タブと閾値タブで共有
   var _uUKB = useState("all"), ukiBand = _uUKB[0], setUkiBand = _uUKB[1];   // ⚡浮き足%タブの株価帯フィルタ（"all"=従来の全銘柄共通・既定／"b0".."bN"／"mat"／"unk"）。KPI早見・加算率ボード・記録一覧の3つ全部に効く 2026-07-25
-  var _uUKS = useState("ana"), ukiSub = _uUKS[0], setUkiSub = _uUKS[1];   // ⚡浮き足%タブ内の入れ子サブタブ: ana(分析)/list(記録一覧) 2026-07-19
+  var _uUKS = _snUseSess("elv.ukiSub", "ana"), ukiSub = _uUKS[0], setUkiSub = _uUKS[1];   // ⚡浮き足%タブ内の入れ子サブタブ: ana(分析)/list(記録一覧) 2026-07-19
   // 2026-07-20j 分析母数トグル anaJul/setAnaJul（「全期間/5月〜」）を撤去＝_anaRecsで4月以前を常時除外にしたため両状態が同結果になり無意味になった。
   // 2026-08-05t 分析母数トグル（ユーザー要望「シグナル分析についても6月29日以降のみで見れる機能がほしい」）。
   //   既定false＝全期間＝**従来の見え方を1件も変えない**。ONで新ルール期間（_EL_RULE_SINCE＝2026-06-29〜）だけに絞る。

@@ -4067,7 +4067,7 @@ function EntrySignalSection(_ref_es) {
       dragRecKey = _useStateESDRA[0], setDragRecKey = _useStateESDRA[1];
   var _useStateESDO = useState(null), _useStateESDOA = _slicedToArray(_useStateESDO, 2),
       dragOverKey = _useStateESDOA[0], setDragOverKey = _useStateESDOA[1];
-  var _useStateETRE = useState({}), _useStateETREA = _slicedToArray(_useStateETRE, 2),
+  var _useStateETRE = _snUseSess("cs.tblRecExp", {}), _useStateETREA = _slicedToArray(_useStateETRE, 2),
       tableRecExp = _useStateETREA[0], setTableRecExp = _useStateETREA[1];
 
   
@@ -5042,7 +5042,7 @@ function WeeklyPnlPanel(_wpp) {
   var _wo = useState(0), weekOffset = _wo[0], setWeekOffset = _wo[1];
   var _wsa = useState({}), simAlpha = _wsa[0], setSimAlpha = _wsa[1];
   var _wsc = useState({}), simCut = _wsc[0], setSimCut = _wsc[1];
-  var _wre = useState({}), recExp = _wre[0], setRecExp = _wre[1];
+  var _wre = _snUseSess("cs.wkRecExp", {}), recExp = _wre[0], setRecExp = _wre[1];
   var _wde = useState({}), dayExp = _wde[0], setDayExp = _wde[1];
   var _wet = useState(null), _wEdit = _wet[0], _wSetEdit = _wet[1];   // 展開カードから選択記録を編集（EntryRecordForm）2026-07-14g
   useEffect(function() { setSimAlpha({}); setSimCut({}); }, [date, weekOffset, stock]);
