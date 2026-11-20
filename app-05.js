@@ -3423,7 +3423,7 @@ function _vapLvBigRn(lv) {
   if (lv == null || lv === "") return false;
   var n = Number(lv);
   if (!isFinite(n) || n <= 0) return false;
-  return Math.round(n * 100) % 10000 === 0;   // 100円単位ちょうど（小数の誤差を避けて銭単位で判定）
+  return Math.round(n * 100) % 5000 === 0;   // 2026-11-20v 中RN（50円単位）も大RNと同じく対象（ユーザー指示）＝50円単位ちょうど（小数の誤差を避けて銭単位で判定）
 }
 function _vapAdjExemptLv(lv, vapRead) {
   if (vapRead == null || vapRead === "" || Number(vapRead) !== 0) return false;
@@ -4234,7 +4234,8 @@ function _epCeBar(s, k) { return s.ceIdx === k && s.ceOn === true; }
 function _epCeTopRel(s) {
   if (!s || s.ceTopPx == null || s.ceTopPx === "" || s.levelPrice == null || s.levelPrice === "") return null;
   var p = Number(s.ceTopPx), lv = Number(s.levelPrice);
-  return (isNaN(p) || isNaN(lv)) ? null : Math.round((p - lv) * 100) / 100;
+  var adj = (_vapOf(s) != null) ? _vapAdjEff(_vapAdjOf(s), _vapAdjExemptSig(s)) : 0;   // 2026-11-20v 直上VAPにもVAP補正を当てる（ユーザー指示・RN補正は当てない）
+  return (isNaN(p) || isNaN(lv)) ? null : Math.round((p - lv + adj) * 100) / 100;
 }
 function _epResolve(s, alpha) {
   if (!_epIsV2(s) || alpha == null) return null;
@@ -10249,7 +10250,8 @@ function EntryRecordForm(_ref_erf) {
   var _fCeTopRel = (function() {
     if (!fCeTopOn || fCeTopPx === "" || fLevelPrice === "" || fLevelPrice == null) return null;
     var p = Number(fCeTopPx), lv = Number(fLevelPrice);
-    return (isNaN(p) || isNaN(lv)) ? null : Math.round((p - lv) * 100) / 100;
+    var adj = (_vapMode && fVap !== "" && !isNaN(Number(fVap))) ? (Number(fVapAdj) || 0) : 0;   // 2026-11-20v 直上VAPにもVAP補正（保存値 _epCeTopRel と同じ）
+    return (isNaN(p) || isNaN(lv)) ? null : Math.round((p - lv + adj) * 100) / 100;
   })();
   var _epFormState = (function() {
     if (!isV2Form) return null;
@@ -11091,7 +11093,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("b", { style: { minWidth: 30, textAlign: "center", color: fVapAdj ? "#B45309" : "#94A3B8" } }, (fVapAdj > 0 ? "+" : "") + (fVapAdj || 0) + "円"),
             React.createElement("button", { type: "button", onClick: function() { setFVapAdj((fVapAdj || 0) + 1); }, style: { padding: "0 6px", fontSize: 12, fontWeight: 800, border: "1px solid #FCD34D", background: "#fff", color: "#92400E", borderRadius: 4, cursor: "pointer" } }, "＋"),
             fVap !== "" ? React.createElement("span", { style: { color: "#4C1D95", fontWeight: 700, whiteSpace: "nowrap" } }, "→ 採用VAP " + _fVapA + "円") : null,
-            _fVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E", whiteSpace: "nowrap" } }, "（EP基準ラインが大RN・VAP0のためマイナス補正なし）") : null),
+            _fVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E", whiteSpace: "nowrap" } }, "（EP基準ラインが大RN・中RN・VAP0のためマイナス補正なし）") : null),
           // RN補正 2026-11-12: RN補正を足す前のEPがちょうどRN（…50／…00／…000円）なら表示。新規は設定値を自動で足す（外す・±・自動に戻す）。
           (_fRnTier || _fRnAdjEff) ? React.createElement("div", { title: "EP（水準線＋採用VAP）がちょうどRNのときに足す補正（円）。新規は設定（記録帳 💰損益 → 🔢 RN補正）の値が自動で入ります", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 11 } },
             React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 800 } }, "RN補正" + (_fRnTier ? "（" + _rnTierLabel(_fRnTier) + "）" : "")),
@@ -12370,7 +12372,7 @@ function EntryRecordForm(_ref_erf) {
                 React.createElement("span", { key: "px", title: _epLbl + "で約定", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "→ " + (fKakudo === "B" ? "最終EP②" : "最終EP") + " ",
                   React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, _pxTxt(_epPx)), "円"),   // 2026-11-20i EP①の「→ 最終EP」と同じ見た目
                 (_fAlpha != null && !isNaN(_fAlpha) && _epPx != null) ? React.createElement("span", { key: "df", title: "最終EP" + (fKakudo === "B" ? "①" : "") + "（EP基準ライン＋VAP）から何円上でエントリーになったか（損益ではありません）", style: { fontWeight: 700, color: "#0E7490" } },
-                  (function() { var _d = Math.round((_epPx - _fAlpha) * 100) / 100; return "基準ライン" + (_d >= 0 ? "+" : "−") + Math.abs(_d) + "円"; })()) : null
+                  (function() { var _d = Math.round(_epPx * 100) / 100; return "基準ライン" + (_d >= 0 ? "+" : "−") + Math.abs(_d) + "円"; })()   /* 2026-11-20v EP基準ラインからの差（ユーザー指示） */) : null
               ];
             } else if (_ef.skipIdx != null && _ef.skipIdx >= 0) {
               var _ci2 = _elCeInfo(_fVSig, _fAlpha, _fCutLine);
@@ -12394,7 +12396,7 @@ function EntryRecordForm(_ref_erf) {
                   _stepBtn(function() { _ceTopStep(1); }, function() { _ceTopStep(-1); })),   // ▲▼で1円ずつ 2026-10-28b
                 React.createElement("span", { style: { color: "#94A3B8" } }, "円"),
                 _fCeTopRel != null ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (_fAlpha != null && !(_fCeTopRel > _fAlpha)) ? "#B91C1C" : "#64748B" } },
-                  "＝EP基準ライン" + (_fCeTopRel >= 0 ? "+" : "") + _fCeTopRel + (_fAlpha != null && !(_fCeTopRel > _fAlpha) ? "（VAP以下）" : ""))
+                  "＝EP基準ライン" + (function() { var _r = Math.round((Number(fCeTopPx) - Number(fLevelPrice)) * 100) / 100; return (_r >= 0 ? "+" : "") + _r; })() + (_fCeTopRel !== Math.round((Number(fCeTopPx) - Number(fLevelPrice)) * 100) / 100 ? "（補正後 " + (_fCeTopRel >= 0 ? "+" : "") + _fCeTopRel + "）" : "") + (_fAlpha != null && !(_fCeTopRel > _fAlpha) ? "（VAP以下）" : ""))
                   : (fCeTopPx !== "" && (fLevelPrice === "" || fLevelPrice == null)) ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B91C1C" } }, "EP基準ラインが必要") : null) : null,
               _k0 >= 0 ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "OS" + (_k0 + 1) + (_tAt ? "＝" + _tAt : "")) : null,
               _ciNode];
