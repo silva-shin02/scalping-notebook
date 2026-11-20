@@ -35,7 +35,7 @@
 
 ## ▶ 次のセッションはこの続きから
 
-- 2026-11-20 明細表のレイアウト変更（v700→v703・時間欄のスルー札は撤去・実機未確認＝最初に聞く「日の記録の表で 分足の札がシグナル名の下・E確度欄（A〜D）・Eライン欄が種類＋最終EP（Bは①②）・エントリー欄がEの印（上）＋言葉（下：エントリー/見送り/スルー/要審議）・括弧の額が下 になっているか」）：VAP値列は撤去。app-05 `_elSigCell(s, align, true)`/`_minBarTfBadge`/`_elKakudoCell`/`_elLineInner`/`_elEntryCell`/`_elTradeLbl`/`_elRefBelow`。対象＝app-02 日の記録・週の明細、app-04 本日/今週の2表、app-06 `_elOsTradeMini`・`_recTable`（extra.at は `_exAt` で補正）。
+- 2026-11-20 明細表のレイアウト変更（v700→v704・時間欄のスルー札は撤去・合計の行の「想定損益」見出し撤去とOS・損益詳細の中央ぞろえ・実機未確認＝最初に聞く「日の記録の表で 分足の札がシグナル名の下・E確度欄（A〜D）・Eライン欄が種類＋最終EP（Bは①②）・エントリー欄がEの印（上）＋言葉（下：エントリー/見送り/スルー/要審議）・括弧の額が下 になっているか」）：VAP値列は撤去。app-05 `_elSigCell(s, align, true)`/`_minBarTfBadge`/`_elKakudoCell`/`_elLineInner`/`_elEntryCell`/`_elTradeLbl`/`_elRefBelow`。対象＝app-02 日の記録・週の明細、app-04 本日/今週の2表、app-06 `_elOsTradeMini`・`_recTable`（extra.at は `_exAt` で補正）。
 - 2026-11-20 ⏳の中に「⏭ 次の足：基準ライン vs 直上VAP」サブタブ（v699・実データ未確認＝最初に聞く「件数と2つの合計が出ているか」）：最初の足で②が入らなかった記録で、次の足を基準ライン（今の決まり）か直上VAP（次の足1本だけ・届かなければ①だけ）か、②の分だけ（1000株換算）で比較。app-05 `_elNextTopRow`・app-06 `_ElNextTopSection`。
 - 2026-11-20 Bのひっ算（フォーム・表）は ①②の印を左の列・金額を右の列でそろえ、②未エントリーは「ー円」（v698・app-05 `_elBSumNode` の "hissan"＝inline-grid 3列・実機未確認）。
 - 2026-11-20 確度を B・C に切り替えたら直上VAPは初期オン（v697・実機未確認）：app-05 `_pickKakudo` で `setFCeTopOn(true)`（既存記録を開いてBにしたときオフのままだった）。
