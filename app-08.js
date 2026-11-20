@@ -1130,7 +1130,7 @@ function App() {
       sub2: _mEqTotPerDay != null ? ("1日 " + _snYen(_mEqTotPerDay)) : null,
       sub2Grade: _mEqTotPerDay != null ? _profitGradeFromPnl(_mEqTotPerDay, _mAgg.finalCnt + _mAgg.eqPnlCnt) : null,
       sub3: _mAgg.eqCnt + "件・未約定扱い",
-      title: "EP＝OS最大（ちょうど同値）の記録 " + _mAgg.eqCnt + "件。予定EPに触れただけで上抜けなかったので未約定として損益に入れていません"
+      title: "EP＝OS最大（ちょうど同値）の記録 " + _mAgg.eqCnt + "件。最終EPに触れただけで上抜けなかったので未約定として損益に入れていません"
         + "\n上段＝『もし約定していたら』の想定損益（100株換算）の合計 " + (_mAgg.eqPnlCnt > 0 ? _snYen(_mAgg.eqPnl) : "（確定した記録なし）")
         + "\n合計＝損益 " + _snYen(_mAgg.final) + " ＋ 同値分 " + _snYen(_mAgg.eqPnl) + " ＝ " + _snYen(_mEqTot)
         + (_mEqTotPerDay != null ? ("\n1日あたり " + _snYen(_mEqTotPerDay) + " ＝ 合計 ÷ 経過営業日 " + _mAgg.bizDone + "日（同値分だけの1日平均は出しません）") : "") } : null,

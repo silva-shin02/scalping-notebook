@@ -2961,7 +2961,7 @@ function SettingsModal(_ref54) {
       React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #E2E8F0" } },
         React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#B45309", marginBottom: 4 } }, "🔧 VAP補正"),
         React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 4 } },
-          "読んだVAP値に足す補正（円）。採用VAP（予定EP）＝読み値＋補正。新規記録の初期値になります。既存記録への反映は実エントリー以外の8/20以降の記録が対象です。"),
+          "読んだVAP値に足す補正（円）。採用VAP（最終EP）＝読み値＋補正。新規記録の初期値になります。既存記録への反映は実エントリー以外の8/20以降の記録が対象です。"),
         React.createElement(_VapAdjPanel, { data: data, save: save })),
       React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6 } }, "📅＝日替わり指定中。常設（フジクラ・SBG等）はそのまま個別タブに残します。")
     );
@@ -4820,9 +4820,9 @@ function _EpnRnSection(_p) {
     rnUsed ? React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円") : null,
     // 自動判定の状態（2026-07-30）: 自動中は淡いラベル・手動で触った後は「↺自動」ボタンで復帰（計算フォームの表示と対）。
     (e.rnAuto === false)
-      ? React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "RN加算の自動判定に戻す（予定EPの下二桁が中RNバンド→…50／大RNバンド→…00＝100・1000台。閾値は種別ごとに設定）",
+      ? React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "RN加算の自動判定に戻す（最終EPの下二桁が中RNバンド→…50／大RNバンド→…00＝100・1000台。閾値は種別ごとに設定）",
           style: { padding: "0 5px", fontSize: 8.5, fontWeight: 800, color: "#0F766E", background: "#F0FDFA", border: "1px solid #99F6E4", borderRadius: 4, cursor: "pointer", lineHeight: 1.7, whiteSpace: "nowrap" } }, "↺自動")
-      : React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "自動判定ON: 採用α（基本α/応用α）や詳細を変えると、予定EPの下二桁が中RNバンド→…50／大RNバンド→…00（100・1000台）になるようRN加算を自動で乗せ直します。〇×か数値に触ると手動に切り替わります。タップすると今すぐ再判定（この変更より前に作ったカード用）",
+      : React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "自動判定ON: 採用α（基本α/応用α）や詳細を変えると、最終EPの下二桁が中RNバンド→…50／大RNバンド→…00（100・1000台）になるようRN加算を自動で乗せ直します。〇×か数値に触ると手動に切り替わります。タップすると今すぐ再判定（この変更より前に作ったカード用）",
           style: { padding: 0, fontSize: 8.5, color: "#94A3B8", fontWeight: 700, whiteSpace: "nowrap", background: "none", border: "none", cursor: "pointer" } }, "自動"));
 }
 // ===== EPナビ 列ごとの独立計算フォーム（2026-07-08 案A: 2段整列）=====
@@ -5249,7 +5249,7 @@ function _EpnCalcForm(_p) {
       nRnUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#1D4ED8" } }, "→ +" + rnAddV + "円" + (_nRnKindI ? ("（" + _nRnKindI.target + "）") : "")) : null,
       // 2026-07-20b 自動判定の状態（記録フォームと同じ挙動）。自動中＝バッジ／手動中＝「↺自動」で復帰。
       nRnAuto
-        ? React.createElement("span", { title: "予定EP（EP基準ライン＋基底α＋浮き足加算）の下二桁が、中RNは 50−T〜49（→…50）・大RNは 100−T〜99（→…00＝100・1000台）なら自動で〇にして、そのキリ番ちょうどまで加算します。閾値Tは中RN・大RNで別々に設定できます（🔢RN加算タブ→閾値）。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
+        ? React.createElement("span", { title: "最終EP（EP基準ライン＋基底α＋浮き足加算）の下二桁が、中RNは 50−T〜49（→…50）・大RNは 100−T〜99（→…00＝100・1000台）なら自動で〇にして、そのキリ番ちょうどまで加算します。閾値Tは中RN・大RNで別々に設定できます（🔢RN加算タブ→閾値）。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
             _nRnAutoAdd == null ? "自動：EP基準ライン待ち" : (_nRnAutoAdd > 0 ? ("自動判定中" + (_nRnKindI ? ("・" + _nRnKindI.label) : "")) : "自動判定中（対象外）"))
         : React.createElement("button", { type: "button", onClick: function() { setNRnAuto(true); }, title: "自動判定に戻す",
             style: { fontSize: 9, fontWeight: 700, color: "#B45309", background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 自動に戻す"))),
