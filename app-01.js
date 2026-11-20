@@ -1599,7 +1599,7 @@ function migrateData(d) {
           });
         });
       }
-      if (_lvA || _lvB) console.log("[migrateData] vapAdjExLv: 0円へ " + _lvA + "件・補正を付け直し " + _lvB + "件（水準線値が大RN×VAP0円）");
+      if (_lvA || _lvB) console.log("[migrateData] vapAdjExLv: 0円へ " + _lvA + "件・補正を付け直し " + _lvB + "件（EP基準ラインが大RN×VAP0円）");
       d._migVapAdjExLv = true;
     } catch(e) { console.warn("[migrateData] vapAdjExLv error:", e); }
   }
