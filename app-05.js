@@ -97,10 +97,10 @@ function Calendar(_ref60) {
     return m;
   }, [data && data.trades]);
   
-  // 2026-08-17 日次バッジを想定損益（100株換算）基準へ。旧＝signal.realizedPnlだけを見ていたので、
+  // 2026-08-17 日次バッジを想定損益（1000株換算）基準へ。旧＝signal.realizedPnlだけを見ていたので、
   //   実現損益が未記録の日は「エントリーしたのに0円・グレードD」で出ていた（item.pnlも拾っていなかった）。
   //   集計は_snDailyPnlMapへ一本化＝ホームの4チップ・📊今月の損益パネルと必ず同じ数字になる。
-  //   グレードも実額スケール(_profitGradeFromPnlReal)→通常スケール(_profitGradeFromPnl)へ。想定損益は100株換算なので帯が10倍ずれていた。
+  //   グレードも実額スケール(_profitGradeFromPnlReal)→通常スケール(_profitGradeFromPnl)へ。想定損益は1000株換算なので帯が10倍ずれていた。
   var gradeByDate = useMemo(function() {
     var m = _snDailyPnlMap(data), result = {};
     Object.keys(m).forEach(function(dt) {
@@ -170,7 +170,7 @@ function Calendar(_ref60) {
     var isTap = tapped === key;
     var isToday = key === today;
     // 2026-08-17h セルのレイアウト刷新（案A+C・「損益は上」）: ①背景を損益で淡く着色（_SN_HEAT）
-    //   ②日付行から金額を追い出し、その下の【損益帯】に想定・実現・100株換算をまとめる＝日付行が空くぶん予定バーが1件多く入る。
+    //   ②日付行から金額を追い出し、その下の【損益帯】に想定・実現・1000株換算をまとめる＝日付行が空くぶん予定バーが1件多く入る。
     var _gd = gradeByDate[key];
     var _heat = _gd ? (_SN_HEAT[_gd.grade] || null) : null;
     return React.createElement("div", {
@@ -263,7 +263,7 @@ function Calendar(_ref60) {
         }, "+")
       ),
 
-      // 【損益帯】2026-08-17h: グレード・想定損益・実現(実額)・100株換算を1行にまとめてセル上部へ固定（ユーザー決定「損益は上」）。
+      // 【損益帯】2026-08-17h: グレード・想定損益・実現(実額)・1000株換算を1行にまとめてセル上部へ固定（ユーザー決定「損益は上」）。
       //   日付行から金額を追い出したので予定バーが1件ぶん多く入る。**記録のある日だけ**出す＝無い日は縦を1pxも食わない。
       //   ⚠️金額の丸めは k 表記で統一（1万円以上）。背景のヒートマップと同じ _gd.grade を見ているので、色と数字が食い違わない。
       //   ⚠️想定損益＝記録から計算した値（見送りの仮想も含む）。「実」だけが実際に約定した額。
@@ -271,8 +271,8 @@ function Calendar(_ref60) {
         var _gs = _GRADE_STYLE[_gd.grade] || _GRADE_STYLE.Z;
         var _k = function(v) { return (v > 0 ? "+" : "") + ((v >= 10000 || v <= -10000) ? ((Math.round(v / 100) / 10) + "k") : v.toLocaleString()); };
         return React.createElement("div", {
-          title: "想定損益グレード: " + _gd.grade + " (" + (_GRADE_DESC[_gd.grade] || "") + ")\n想定損益: " + _snYen(_gd.sum) + "（100株換算・" + _gd.cnt + "件）"
-            + (_gd.real != null ? "\n実現損益: 実額 " + _snYen(_gd.realRaw) + " / 100株換算 " + _snYen(_gd.real) : "\n実現損益: 未記録"),
+          title: "想定損益グレード: " + _gd.grade + " (" + (_GRADE_DESC[_gd.grade] || "") + ")\n想定損益: " + _snYen(_gd.sum) + "（1000株換算・" + _gd.cnt + "件）"
+            + (_gd.real != null ? "\n実現損益: 実額 " + _snYen(_gd.realRaw) + " / 1000株換算 " + _snYen(_gd.real) : "\n実現損益: 未記録"),
           style: { display: "flex", alignItems: "center", gap: 3, marginTop: 1, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden" }
         },
           React.createElement("span", {
@@ -289,7 +289,7 @@ function Calendar(_ref60) {
             React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700, marginLeft: 2, flexShrink: 0 } }, "実"),
             React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _snPnlCol(_gd.realRaw), flexShrink: 0 } }, _k(_gd.realRaw)),
             React.createElement("span", { style: { fontSize: 8, color: "#B9B3AA", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" } },
-              "(100株", React.createElement("span", { style: { color: _snPnlCol(_gd.real), marginLeft: 1 } }, _k(_gd.real)), ")")) : null);
+              "(1000株", React.createElement("span", { style: { color: _snPnlCol(_gd.real), marginLeft: 1 } }, _k(_gd.real)), ")")) : null);
       })() : null,
 
       hasEvents && React.createElement("div", {
@@ -4510,7 +4510,7 @@ function _elAllCeRow(s, alpha, cutLine, caRel) {
   }
   if (cur == null && alt == null) return { skip: "noamt", k0: k0 };
   var diff = (alt || 0) - (cur || 0);
-  var gain = (up && !already) ? Math.round((c - A) * 100) : null;
+  var gain = (up && !already) ? Math.round((c - A) * 100 * _SN_K) : null;   // 2026-11-20s 1000株換算（cur/alt と同じ単位）
   return { k0: k0, a: A, c: c, src: src, up: up, kind: kind, already: already, five: _epIs5mConf(s.time, k0), cur: cur, alt: alt, diff: diff,
     gain: gain, d2: gain != null ? diff - gain : null };
 }
@@ -4590,7 +4590,7 @@ function _kakudoBadge(s, key) {
     "確度" + k + (k === "B" ? " " + _bRatioLbl(_bRatioOf(s)) : ""));
 }
 // ===== 🎯 確定待ち vs 直上VAP 2026-11-20（ユーザー要望「確度BのEP②と確度Cで、確定待ちで入るべきか直上VAPで待つべきか」）=====
-// 対象＝記録に直上VAP（signal.ceTopPx）が入っていて、最終EP（α）より上の記録。各記録の「EP②（確定待ちor直上VAP）の分だけ」の想定損益（100株換算・Bの割合は混ぜない）を3通りで出す:
+// 対象＝記録に直上VAP（signal.ceTopPx）が入っていて、最終EP（α）より上の記録。各記録の「EP②（確定待ちor直上VAP）の分だけ」の想定損益（1000株換算・Bの割合は混ぜない）を3通りで出す:
 //   併用＝今の規約（エントリー足で直上VAPに届けば直上VAPで約定／届かなければ終値＞EPで終値約定／終値≦EPなら次の足でα値）。
 //   確定待ちだけ＝直上VAPを使わない（終値＞EPで終値約定／終値≦EPなら次の足でα値／OS3まで無ければ入らず0円）。
 //   直上VAPだけ＝直上VAPに指値を置いたまま（OS1〜OS3でその値段を上抜けた最初の足で直上VAPで約定・届かなければ入らず0円）。
@@ -5548,13 +5548,13 @@ function _elGradeBadge18(grade) {
 function _elLane(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); }
 function _elPnlColor(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; }
 function _elPnlFmt(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; }
-// 実現損益の「実額」と「100株換算」を出す単一源 2026-08-04。
-// 実額＝取引に紐づいていれば item.pnl、無ければ保存値 signal.realizedPnl(+符号)。100株換算＝実額÷株数×100。
+// 実現損益の「実額」と「1000株換算」を出す単一源 2026-08-04。
+// 実額＝取引に紐づいていれば item.pnl、無ければ保存値 signal.realizedPnl(+符号)。1000株換算＝実額÷株数×1000。
 // 株数(signal.shares)未入力の記録は換算しようがないので per100 は null＝表の下段を出さない（換算済みのフリをしないため）。
 // ⚠️ バッジの_profitGradeFromPnlRealは実額スケール（通常グレードの10倍・S=25001円〜）なので、必ず real の方に付ける。
 function _elPer100Of(v, s) {
   var sh = (s && Number(s.shares) > 0) ? Number(s.shares) : 0;
-  return (v == null || sh <= 0) ? null : Math.round(v / sh * 100);
+  return (v == null || sh <= 0) ? null : Math.round(v / sh * _SN_KSH);   // 2026-11-20s 1000株換算
 }
 // signal.itemId から取引アイテムを引く 2026-08-17j。_elCollectAllSignals が内部でやっている同じ引き当てを、
 // recラッパーを持たない呼び出し（チャートのグレード計算など）から使えるように単独関数化した。
@@ -5572,7 +5572,7 @@ function _elRealPnlPair(s, item) {
   return { real: Math.round(v), per100: _elPer100Of(v, s), shares: sh };
 }
 // ランク+金額のレーン表示（旧: _esRPnlDisp/_trRPnlDisp/_rPnlDisp。valW=金額レーン幅・showZ=Zも表示）
-// 2026-08-04 sub=下段に小さく併記する100株換算額。null/未指定なら従来どおり1段＝実現損益以外の欄は不変。
+// 2026-08-04 sub=下段に小さく併記する1000株換算額。null/未指定なら従来どおり1段＝実現損益以外の欄は不変。
 function _elRPnlDispW(v, grade, valW, showZ, sub) {
   var badge = (grade && (grade !== "Z" || showZ)) ? _elGradeBadge18(grade) : null;
   if (v == null && badge == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -5581,14 +5581,14 @@ function _elRPnlDispW(v, grade, valW, showZ, sub) {
   var main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
     _elLane(badge, 22), _elLane(val, valW || 72, "flex-start"));
   if (sub == null || v == null) return main;
-  // 2026-08-05 下段（100株換算）を主表示と同じ文字サイズ・同じ色に。バッジも付ける。
-  // ⚠️ 100株換算は【通常スケール】(_profitGradeFromPnl・S=2501円〜)で判定する。上段の実額は実額スケール(10倍)なので、
+  // 2026-08-05 下段（1000株換算）を主表示と同じ文字サイズ・同じ色に。バッジも付ける。
+  // ⚠️ 1000株換算は【通常スケール】(_profitGradeFromPnl・S=2501円〜)で判定する。上段の実額は実額スケール(10倍)なので、
   //    同じ金額でもランクは別物になる＝それぞれの土俵の凡例と一致する。単位の「100株」だけ小さい灰色で添える。
   return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", whiteSpace: "nowrap" } },
     main,
     React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", marginTop: 1 } },
       _elLane(_elGradeBadge18(_profitGradeFromPnl(sub, 1)), 22),
-      React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "100株"),
+      React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "1000株"),
       React.createElement("span", { style: { fontWeight: 600, color: _elPnlColor(sub) } }, _elPnlFmt(sub))));
 }
 // 合計表示: 全体値のみ（無ければAB値）にランクを付けて表示（旧: _esRPnlDispABAll/_trRPnlDispABAll/_rPnlDispABAllPb/_rPnlDispABAllSv）
@@ -6042,8 +6042,8 @@ function _elFillEqMiniNode(signals, cutLine, exclFn, itemOf) {
     cnt ? React.createElement("span", { style: { color: _elPnlColor(sum) } }, "参考" + _elPnlFmt(sum)) : null);
 }
 // 合計行の共通集計: EP損益(AB込み)・H1(_elHold1TotParts)・H2(_elHoldFinalParts)・実現損益。
-// get={signal,alpha,cut,real?,realPair?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
-// realPair(it)→_elRealPnlPair の戻り{real,per100,shares}（null可）2026-08-04。渡すと t.real（100株換算合計＝従来値）に加えて
+// get={signal,alpha,cut,real?,realPair?,norm?,excluded?}。norm=値の正規化（株数→1000株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
+// realPair(it)→_elRealPnlPair の戻り{real,per100,shares}（null可）2026-08-04。渡すと t.real（1000株換算合計＝従来値）に加えて
 // t.realRaw（実額合計＝実額スケールのグレード用）と t.realHasShares（株数入りが1件でもあるか＝下段を出すか）も埋まる。realPair指定時はrealを見ない。
 function _elTotAccum(items, get) {
   var nm = get.norm || function(it, v) { return v; };
@@ -6454,7 +6454,7 @@ function _elH1HeldBase(s, alpha, cutLine) {
   }
   return hres;
 }
-// H2合計（結果損益）用の1記録あたりの寄与（raw値・100株換算）。【合計損益システム 2026-06-16改】（）外＝○のみ／（）内＝○△／×は一切算入しない:
+// H2合計（結果損益）用の1記録あたりの寄与（raw値・1000株換算）。【合計損益システム 2026-06-16改】（）外＝○のみ／（）内＝○△／×は一切算入しない:
 //  ・EP×（×見送り）→ 完全に算入無し。
 //  ・H1期待度×/損切り済/未設定（H1で撤退＝H2まで保有しない）→ 本合計は1段下(_elH1HeldBase=EP損益)。×/未設定は参考も無し（損切り済は従来どおり参考）。
 //  ・H2期待度×/未設定 → 本合計はH1損益(1段下)へフォールバック・参考も無し（未設定=×扱い・「H1損益を算入」）。
@@ -6626,15 +6626,51 @@ function _elBSumNode(sp, vertical, big, badge, fs) {
   return React.createElement("span", { title: _tt, style: { display: "inline-flex", alignItems: "baseline", gap: 5, flexWrap: "wrap" } }, _y(sp.a, "①"), _op("＋"), _y(sp.b, "②"), _op("＝"), _tot);
 }
 
+// ===== 1000株換算 2026-11-20s（ユーザー決定「すべて1000株換算」・計算と保存は100株のまま・表示だけ10倍）=====
+//   損益の正本関数（下のリスト）の「いちばん外側の呼び出し」だけ結果を _SN_K 倍する＝内側の入れ子呼び出しは100株のまま（_EL_K_IN）。
+//   ＝表・合計・分析・ホーム・カレンダーの想定損益はすべて1000株換算になる。保存値（plannedPnl/holdPnl/hold2Pnl・設定）は100株のまま。
+//   ⚠️記録フォームが保存する値（fPlan/fHoldPnlVal/fHold2PnlVal）は _snK100(fn) で100株のまま計算する。
+//   ⚠️株数で実額へ直す所（理論値・按分）は ÷100 → ÷1000（_snShareMul・_kbConvParts）。実現損益の換算額も ×1000（_elPer100Of）。
+var _SN_K = 10, _SN_KSH = 1000, _EL_K_IN = 0;
+function _snKv(v) { return (v == null || isNaN(v)) ? v : Math.round(v * _SN_K); }
+function _snK100(fn) { _EL_K_IN++; try { return fn(); } finally { _EL_K_IN--; } }
+function _elKWrap(fn, kind) {
+  return function() {
+    if (_EL_K_IN) return fn.apply(null, arguments);
+    _EL_K_IN++;
+    var v;
+    try { v = fn.apply(null, arguments); } finally { _EL_K_IN--; }
+    if (v == null) return v;
+    if (kind === "num") return (typeof v === "number") ? _snKv(v) : v;
+    if (kind === "parts") return Object.assign({}, v, { main: v.main == null ? v.main : _snKv(v.main), ref: v.ref == null ? v.ref : _snKv(v.ref) });
+    if (kind === "ladder") return Object.assign({}, v, { stopPnl: _snKv(v.stopPnl), maxPnl: _snKv(v.maxPnl), finalPnl: _snKv(v.finalPnl),
+      items: (v.items || []).map(function(it) { return Object.assign({}, it, { pnl: _snKv(it.pnl) }); }) });
+    return v;
+  };
+}
+_elDynPlanned = _elKWrap(_elDynPlanned, "num");
+_elDynHold = _elKWrap(_elDynHold, "num");
+_elDynHold2 = _elKWrap(_elDynHold2, "num");
+_elDynHoldAt = _elKWrap(_elDynHoldAt, "num");
+_elDynHoldNoStop = _elKWrap(_elDynHoldNoStop, "num");
+_elHoldWidthPnl = _elKWrap(_elHoldWidthPnl, "num");
+_elH1HeldBase = _elKWrap(_elH1HeldBase, "num");
+_elRuleHoldPnl = _elKWrap(_elRuleHoldPnl, "num");
+_elHold1TotParts = _elKWrap(_elHold1TotParts, "parts");
+_elHold2TotPartsFixed = _elKWrap(_elHold2TotPartsFixed, "parts");
+_elHoldFinalParts = _elKWrap(_elHoldFinalParts, "parts");
+_elHoldFinalParts0 = _elKWrap(_elHoldFinalParts0, "parts");
+_epHoldLadder = _elKWrap(_epHoldLadder, "ladder");
+
 // ===== 日別損益マップ（ホーム/カレンダー/早見パネルの単一源）2026-08-17 =====
 // 【なぜ作ったか】ホームの月次チップ(_mAgg)とカレンダーの日次バッジ(gradeByDate)が、それぞれ独自に
 //   `signal.realizedPnl` **だけ**を集計していた。実現損益はほぼ未記録なので両方ともほぼ0円で出ており、
 //   さらに `item.pnl`（取引テーブル側の損益）も拾っていなかった＝アプリ内でここだけ基準が違っていた。
-// 【基準】記録帳・💰全体損益と同じ「想定損益」_elHoldFinalParts(...).main。**単位は元から100株換算**なので
+// 【基準】記録帳・💰全体損益と同じ「想定損益」_elHoldFinalParts(...).main。**単位は元から1000株換算**なので
 //   換算処理は不要（グレードは通常スケール _profitGradeFromPnl＝S:2501円〜。実額スケールの_profitGradeFromPnlRealと混ぜないこと）。
 // 【除外規約】_elFinalPnlOf（app-06 L6387）と完全に同一: データ算入外(_elInclTotalAmt)・時間かぶり除外(_elCollExcluded)・
 //   EP×見送り(_epIsXSkip)。ここを変えると記録帳の🏷銘柄別/🎯グレード別と黙ってずれるので、直すときは両方直すこと。
-// 【実現損益】real(100株換算)/realRaw(実額)を別建てで持つ＝早見パネルの併記用。_elRealPnlPairと同じ規約（item.pnl優先）。
+// 【実現損益】real(1000株換算)/realRaw(実額)を別建てで持つ＝早見パネルの併記用。_elRealPnlPairと同じ規約（item.pnl優先）。
 // 【キャッシュ】単一スロット・data参照の同一性判定（_epnCollectSignals app-04 L3376 と同じ手口）。
 //   dataはsaveで必ず新オブジェクトになる＝参照が変われば自動失効。純粋関数なので結果は不変。
 //   ホーム(app-08)とカレンダー(app-05)が同じ描画で2回呼ぶため、これが無いと全チャート走査が毎回2回走る。
@@ -6791,9 +6827,9 @@ function _SnMonthPnlPanel(_refSnMp) {
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#1a1a1a" } }, "📊 " + ttl + "の損益"),
       React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#4338CA", background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 4, padding: "1px 6px" } },
         _snBizDaysLabel(agg, year, month)),
-      React.createElement("span", { title: "記録帳・💰全体損益と同じ基準です。実現損益（実際に約定した額）ではなく、記録から出した想定損益（100株換算）を主に出しています",
+      React.createElement("span", { title: "記録帳・💰全体損益と同じ基準です。実現損益（実際に約定した額）ではなく、記録から出した想定損益（1000株換算）を主に出しています",
         style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "1px 6px" } },
-        "基準: 想定損益・100株換算"),
+        "基準: 想定損益・1000株換算"),
       // 旧ルール期間を含む月の明示 2026-08-17j。記録帳側は薄く表示して合計から外しているが、ここでは外さずに注意書きだけ出す。
       agg.oldRuleCnt > 0 ? React.createElement("span", {
         title: "この月には集計ルールが変わる前（" + (typeof _EL_RULE_SINCE === "string" ? _EL_RULE_SINCE : "2026-06-29") + "より前）の記録が " + agg.oldRuleCnt + "件 含まれています。\n記録帳の💰全体損益ではこの期間を薄く表示して合計・平均から外しているため、そちらとは数字が一致しません。",
@@ -6806,11 +6842,11 @@ function _SnMonthPnlPanel(_refSnMp) {
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(128px,1fr))", gap: 12, alignItems: "start" } },
           _cell("想定損益", _amt(agg.final),
             agg.finalCnt + "件 / " + agg.tradedDays + "日",
-            "想定損益の合計（100株換算）。母数 " + agg.finalCnt + "件・記録のあった日 " + agg.tradedDays + "日"),
+            "想定損益の合計（1000株換算）。母数 " + agg.finalCnt + "件・記録のあった日 " + agg.tradedDays + "日"),
           agg.eqCnt > 0 ? _cell("指値同値",
             agg.eqPnlCnt > 0 ? _amt(agg.eqPnl) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
             React.createElement(React.Fragment, null, agg.eqCnt + "件・未約定扱い" + (agg.eqPnlCnt > 0 ? " / 合計 " + _snYen(eqTot) : "") + " ", (eqPerDay != null) ? _elHoldGradeBadge(_profitGradeFromPnl(eqPerDay, agg.finalCnt + agg.eqPnlCnt)) : null, (eqPerDay != null) ? "1日 " + _snYen(eqPerDay) : null),
-            "OS最大＝採用α/VAPちょうど＝最終EPに触れただけで上抜けなかった記録 " + agg.eqCnt + "件。未約定として想定損益には入れていません。金額は『もし約定していたら』の想定損益（手じまい基準・100株換算）の合計です。合計＝想定損益＋この金額。バッジと1日あたりは合計を経過営業日で割った額（同値分だけの1日平均は出しません）") : null,
+            "OS最大＝採用α/VAPちょうど＝最終EPに触れただけで上抜けなかった記録 " + agg.eqCnt + "件。未約定として想定損益には入れていません。金額は『もし約定していたら』の想定損益（手じまい基準・1000株換算）の合計です。合計＝想定損益＋この金額。バッジと1日あたりは合計を経過営業日で割った額（同値分だけの1日平均は出しません）") : null,
           _cell("1日あたり",
             perDay == null ? React.createElement("span", { style: { color: "#bbb" } }, "—")
               : React.createElement(React.Fragment, null, _elHoldGradeBadge(_profitGradeFromPnl(perDay, agg.finalCnt)), _amt(perDay)),
@@ -6820,7 +6856,7 @@ function _SnMonthPnlPanel(_refSnMp) {
             agg.realCnt > 0 ? _amt(agg.real) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
             agg.realCnt > 0 ? (agg.realCnt + "件 / 実額 " + _snYen(agg.realRaw)) : "未記録",
             agg.realCnt > 0
-              ? ("実際に約定した損益。上段は100株換算 " + _snYen(agg.real) + "、下段が実額 " + _snYen(agg.realRaw) + "（" + agg.realCnt + "件）"
+              ? ("実際に約定した損益。上段は1000株換算 " + _snYen(agg.real) + "、下段が実額 " + _snYen(agg.realRaw) + "（" + agg.realCnt + "件）"
                 + (agg.realHasShares ? "" : "\n⚠ 株数が入っていない記録があります（換算できないぶんは実額のまま足しています）"))
               : "この月は実現損益が1件も入っていません。上の想定損益は記録から出した値です"),
           _cell("勝率",
@@ -7257,7 +7293,7 @@ function _elCalcStats(records, data, simResolve) {
   var ok = 0, ng = 0, draw = 0, miss = 0;
   var win = 0, tri = 0, even = 0, loss = 0, stop = 0;
   var sumPnl = 0, sumPlanned = 0, sumMax = 0, sumHold = 0;
-  var sumPnlRaw = 0, realHasShares = false;   // 2026-08-04 実現損益の実額合計（sumPnlは100株換算）。バッジの_profitGradeFromPnlRealは実額スケールなのでこちらを渡す。
+  var sumPnlRaw = 0, realHasShares = false;   // 2026-08-04 実現損益の実額合計（sumPnlは1000株換算）。バッジの_profitGradeFromPnlRealは実額スケールなのでこちらを渡す。
   var sumPlannedRef = 0, plannedRefCnt = 0;  // EP-OS△（△の確信度でエントリー）→ EP損益は（）内（参考）のみ・（）外は0（2026-06-16）
   var wins = [], losses = [];
   var plannedWins = [], plannedLosses = [];
@@ -7280,7 +7316,7 @@ function _elCalcStats(records, data, simResolve) {
     var _wb = _elWinBucket(s, _liveA ? _ai.alpha : null, _liveA ? _ai.cutLine : null);
     if (_wb === "win") win++; else if (_wb === "tri") tri++; else if (_wb === "even") even++; else if (_wb === "loss") loss++; else if (_wb === "stop") stop++;
     var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
-    var _per100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
+    var _per100 = function(v) { return _sh > 0 ? Math.round(v / _sh * _SN_KSH) : Math.round(v); };   // 2026-11-20s 1000株換算
     var pn = (r.item && r.item.pnl != null)
       ? Number(r.item.pnl)
       : _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign);
@@ -7431,14 +7467,14 @@ function _profitGradeFromPnl(pnl, enteredCount) {
   // キリのいい額（2500・2000・1000とその負数）が下のグレードに入る形で統一。プラス側とマイナス側は
   // 0を挟んで対称（Sが2501〜ならG+は-2501〜）。帯の幅は C/E が1円ぶん広がる以外そのまま。
   if (!enteredCount) return "Z";
-  if (pnl >= 2501)  return "S";
-  if (pnl >= 2001)  return "A";
-  if (pnl >= 1001)  return "B";
+  if (pnl >= 25001)  return "S";   // 2026-11-20s 1000株換算＝境目も10倍
+  if (pnl >= 20001)  return "A";
+  if (pnl >= 10001)  return "B";
   if (pnl >= 1)     return "C";
   if (pnl === 0)    return "D";
-  if (pnl >= -1000) return "E";
-  if (pnl >= -2000) return "F";
-  if (pnl >= -2500) return "G-";
+  if (pnl >= -10000) return "E";
+  if (pnl >= -20000) return "F";
+  if (pnl >= -25000) return "G-";
   return "G+";
 }
 
@@ -7468,7 +7504,7 @@ function _snBaseShares(data, ym) {
 }
 // 記録1件ぶんの株数倍率（その記録の日付が属する月の基礎株数÷100）。
 // ⚠️**記録ごとに引く**こと＝週が月をまたいでも各記録が自分の月の株数で換算される。週合計を後から1つの株数で割ると月境界で狂う。
-function _snShareMul(data, date) { return _snBaseShares(data, (date || "").slice(0, 7)) / 100; }
+function _snShareMul(data, date) { return _snBaseShares(data, (date || "").slice(0, 7)) / _SN_KSH; }   // 2026-11-20s 想定損益は1000株換算
 // 「見送り」記録か 2026-08-12＝実エントリー4択のうち あり/スルー/要審議 のどれでもない既定状態（フォームの判定式と同じ）。
 // 無エントリーだが合計損益・分析母数には仮想損益で算入される＝×見送り(_epIsXSkip・足の×宣言)とは別物。混同しないこと。
 // 2026-10-18 見送り＋要審議の併用（signal.reviewSkip＝要審議に見送りも付いている）も見送りとして扱う＝見送り理由の表示・未達タグの対象。表示・集計の区分は要審議のまま。
@@ -7710,8 +7746,8 @@ var _GRADE_STYLE = {
 };
 
 var _GRADE_DESC = {
-  S: "2501円~", A: "2001~2500円", B: "1001~2000円", C: "1~1000円",
-  D: "0円", E: "-1~-1000円", F: "-1001~-2000円", "G-": "-2001~-2500円", "G+": "-2501円~",
+  S: "25001円~", A: "20001~25000円", B: "10001~20000円", C: "1~10000円",
+  D: "0円", E: "-1~-10000円", F: "-10001~-20000円", "G-": "-20001~-25000円", "G+": "-25001円~",
   Z: "取引なし", DNF: "ノーシグナル"
 };
 
@@ -10508,7 +10544,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     // v3(OS1〜5固定欄): H1結果損益はαで解決した役割の足（EPの次）から共通ヘルパーで算出（表と同一基準）。
     if (isV2Form) {
-      var _hpV = _elDynHold(_fVSig, _fAlpha, _fCutLine);
+      var _hpV = _snK100(function() { return _elDynHold(_fVSig, _fAlpha, _fCutLine); });   // 保存値は100株のまま 2026-11-20s
       if (_hpV == null) { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
       setFHoldPnlSign(_hpV === 0 ? null : _hpV > 0 ? "+" : "-");
       setFHoldPnlVal(String(Math.abs(Math.round(_hpV))));
@@ -10605,7 +10641,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     // v3(OS1〜5固定欄): H2結果損益はαで解決した役割の足（EPの2本後）から共通ヘルパーで算出（損切りルール非適用条件等も表と同一）。
     if (isV2Form) {
-      var _hp2V = _elDynHold2(_fVSig, _fAlpha, _fCutLine);
+      var _hp2V = _snK100(function() { return _elDynHold2(_fVSig, _fAlpha, _fCutLine); });   // 保存値は100株のまま 2026-11-20s
       if (_hp2V == null) { setFHold2PnlSign(null); setFHold2PnlVal(""); return; }
       setFHold2PnlSign(_hp2V === 0 ? null : _hp2V > 0 ? "+" : "-");
       setFHold2PnlVal(String(Math.abs(Math.round(_hp2V))));
@@ -12277,7 +12313,7 @@ function EntryRecordForm(_ref_erf) {
           //   旧式。_elDynPlanned が「旧実装の分岐は廃止」として捨てた式）を使っていたため、入力中にこの欄が出す額と
           //   保存後に表・集計が出す額（撤退足の終値ベース）が必ず食い違っていた。終値(epConf)基準に一本化する。
           //   終値が未入力のときだけ、旧式を保守的なフォールバックとして残す（_elRideVals と同じ倒し方）。
-          var _pnl = (_ef.epConf != null) ? Math.round((_ef.px - _ef.epConf) * 100) : (_df >= _cl ? -Math.round(_df * 100) : null);
+          var _pnl = (_ef.epConf != null) ? Math.round((_ef.px - _ef.epConf) * 100 * _SN_K) : (_df >= _cl ? -Math.round(_df * 100 * _SN_K) : null);   // 1000株換算 2026-11-20s
           if (_ef.ce) _df = 0;   // 確定足エントリー＝EP足では損切りしない
           if (_pnl == null) return null;
           return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: _pnl > 0 ? "#C0392B" : _pnl < 0 ? "#1E8449" : "#888" } },
@@ -12507,7 +12543,7 @@ function EntryRecordForm(_ref_erf) {
       ),
       React.createElement("div", { style: { flex: 1, marginBottom: 0, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" } },
       React.createElement("div", { style: { marginBottom: 0 } },
-        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "EP損益（100株換算）"),
+        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "EP損益（1000株換算）"),
         _fMiss ? _fMissEl : (function() {
           // v2はEP足から直接計算した値を表示（fPlan経由にしない＝上のEPチップと同じ単一の式）。
           // 2026-07-29d 条件を epIdx>0（EP=OS2/3のみ）→ epIdx>=0 へ。EP=OS1だけがfPlanフォールバックのままで、
@@ -12518,14 +12554,14 @@ function EntryRecordForm(_ref_erf) {
             var _dfV2 = _epFormState.epHigh - _fAlpha;
             // 2026-07-29 上のEPチップと同じく終値(epConf)基準へ一本化。旧式 -(高値−α)×100 は
             //   ラインで約定する前提で、保存後の表・集計（撤退足の終値ベース）と必ずズレていた。
-            _pvV2 = (_epFormState.epConf != null) ? Math.round((_epFormState.px - _epFormState.epConf) * 100) : (_dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100) : null);
+            _pvV2 = (_epFormState.epConf != null) ? Math.round((_epFormState.px - _epFormState.epConf) * 100 * _SN_K) : (_dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100 * _SN_K) : null);   // 表示は1000株換算 2026-11-20s
           }
           var _bspP = (_useV2P && fKakudo === "B") ? _elBSplit(_elDynPlanned, _fVSig, _fAlpha, _fCutLine) : null;   // 2026-11-20n Bは ①＋②＝合計
           if (_bspP) return _elBSumNode(_bspP, "hissan", true);
           var _sgnP = _useV2P ? (_pvV2 == null ? null : _pvV2 > 0 ? "+" : _pvV2 < 0 ? "-" : null) : fPlanSign;
           var _txtP = _useV2P
             ? (_pvV2 == null ? "—" : _pvV2 === 0 ? "0円" : (_pvV2 > 0 ? "+" : "−") + Math.abs(_pvV2).toLocaleString() + "円")
-            : (fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—");
+            : (fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + (Number(fPlan) * _SN_K).toLocaleString() + "円" : "—");
           return React.createElement("span", {
             style: {
               display: "inline-block", padding: "5px 14px",
@@ -12551,7 +12587,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
-              React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
+              React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "1000株換算")),
             _fMiss ? _fMissEl : _fPlanStopNow ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHoldExp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine), "hissan", true) : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
@@ -12561,7 +12597,7 @@ function EntryRecordForm(_ref_erf) {
                 borderRadius: 6, border: "1px solid " + (fHoldPnlSign === "+" ? "#F5B7B1" : fHoldPnlSign === "-" ? "#A9DFBF" : "#ddd"),
                 minWidth: 80, textAlign: "right"
               }
-            }, fHoldPnlVal === "0" ? "0円" : fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + Number(fHoldPnlVal).toLocaleString() + "円" : "—")
+            }, fHoldPnlVal === "0" ? "0円" : fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + (Number(fHoldPnlVal) * _SN_K).toLocaleString() + "円" : "—")
           ),
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
@@ -12597,7 +12633,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
-              React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
+              React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "1000株換算")),
             _fMiss ? _fMissEl : (_fPlanStopNow || _fH1StopNow) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHold2Exp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine), "hissan", true) : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
@@ -12607,7 +12643,7 @@ function EntryRecordForm(_ref_erf) {
                 borderRadius: 6, border: "1px solid " + (fHold2PnlSign === "+" ? "#F5B7B1" : fHold2PnlSign === "-" ? "#A9DFBF" : "#ddd"),
                 minWidth: 80, textAlign: "right"
               }
-            }, fHold2PnlVal === "0" ? "0円" : fHold2PnlVal ? (fHold2PnlSign === "-" ? "−" : "+") + Number(fHold2PnlVal).toLocaleString() + "円" : "—")
+            }, fHold2PnlVal === "0" ? "0円" : fHold2PnlVal ? (fHold2PnlSign === "-" ? "−" : "+") + (Number(fHold2PnlVal) * _SN_K).toLocaleString() + "円" : "—")
           ),
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化", React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（H１比）")),

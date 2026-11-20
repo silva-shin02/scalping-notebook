@@ -773,7 +773,7 @@ function _dtsSimulate(cfg) {
     //   行を足しても「何も変わっていない」ように見える最大の原因。生活費と同じ作法で節目に出す。
     //   特に⑦は方式Aだと株数・損益に影響しない（余力の列だけが動く）ので、ここに出ないと本当に無反応に見える。
     if (j > 0 && r.perDay !== rows[j - 1].perDay) {
-      marks.push({ ym: r.ym, kind: "cost", text: _dtsYmLbl(r.ym) + "  1日あたり " + Math.round(rows[j - 1].perDay).toLocaleString() + " → " + Math.round(r.perDay).toLocaleString() + "円/100株" });
+      marks.push({ ym: r.ym, kind: "cost", text: _dtsYmLbl(r.ym) + "  1日あたり " + Math.round(rows[j - 1].perDay * _SN_K).toLocaleString() + " → " + Math.round(r.perDay * _SN_K).toLocaleString() + "円/1000株" });   // 表示は1000株換算 2026-11-20s
     }
     if (j > 0 && r.price !== rows[j - 1].price) {
       marks.push({ ym: r.ym, kind: "cost", text: _dtsYmLbl(r.ym) + "  メイン株価 " + Math.round(rows[j - 1].price).toLocaleString() + " → " + Math.round(r.price).toLocaleString() + "円" });
@@ -877,7 +877,7 @@ function _dtsDefaultCfg(actual) {
   return {
     startYm: ym, endYm: _dtsIdxToYm(_dtsYmToIdx(ym) + 11), businessDays: 20,
     initialCapital: 1300000, initialLiving: 200000, initialShares: 600,
-    dailyPer100: (actual && actual.perDay != null) ? Math.round(actual.perDay) : 2000,
+    dailyPer100: (actual && actual.perDay != null) ? Math.round(actual.perDay / _SN_K) : 2000,   // 実績は1000株換算で来る＝保存は100株 2026-11-20s
     taxRate: 0.20315,
     livingCost: [{ from: ym, amount: 100000 }],
     drip: [{ from: ym, mode: "drip", amount: 50000, target: null }],
@@ -1377,13 +1377,13 @@ function DaytradeProjection(props) {
       //   計算できない時は赤字にせず灰色で理由を出す。
       _dtsRecShares(cfg, eff)
     )),
-    _dtsSec("③ 収益の前提", "記録帳と同じ単位（1日あたり・100株換算）", React.createElement("div", null,
+    _dtsSec("③ 収益の前提", "記録帳と同じ単位（1日あたり・1000株換算）", React.createElement("div", null,
       // 1日あたりは期間別テーブル 2026-08-06M。★「月初取引株数が◯株以上なら◯円」で**逓減**が書ける
       //   （枚数を増やすと100株あたりの取れ高が落ちる、という現実をユーザーが前提として置けるようにした）。
       _rowsEditor("perDayRows", {}, function(r, i) {
-        var g = (typeof _profitGradeFromPnl === "function") ? _profitGradeFromPnl(Math.round(_dtsNumOrNull(r.amount) || 0), 1) : null;
+        var g = (typeof _profitGradeFromPnl === "function") ? _profitGradeFromPnl(Math.round((_dtsNumOrNull(r.amount) || 0) * _SN_K), 1) : null;
         return [React.createElement("span", { key: "l", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, "1日あたり"),
-          React.createElement(DtsNum, { key: "a", value: r.amount, width: 68, suffix: "円/100株", step: 100, onChange: function(v) { setRow("perDayRows", i, "amount", v); } }),
+          React.createElement(DtsNum, { key: "a", value: (r.amount == null || r.amount === "") ? r.amount : Math.round(Number(r.amount) * _SN_K), width: 76, suffix: "円/1000株", step: 1000, onChange: function(v) { setRow("perDayRows", i, "amount", (v == null || v === "" || isNaN(Number(v))) ? v : Number(v) / _SN_K); } }),   // 保存は100株のまま・表示と入力は1000株換算 2026-11-20s
           React.createElement("span", { key: "g" }, badge(g))];
       }, function(ym, prev) { return { trig: "ym", from: ym, amount: prev ? (+prev.amount || 0) : 2000 }; }),
       _dtsRow([
@@ -1394,7 +1394,7 @@ function DaytradeProjection(props) {
         //   おかないと、旧版の端末が読んだ時に古い値のまま動く（後方互換のため両方書く）。
         (actual && actual.perDay != null) ? React.createElement("button", {
           key: "af", onClick: function() {
-            var pv = Math.round(actual.perDay);
+            var pv = Math.round(actual.perDay / _SN_K);   // 実績は1000株換算＝保存は100株 2026-11-20s
             edit(function(p) {
               var c = clone(p); var arr = (p.perDayRows || []).slice();
               arr[0] = Object.assign({}, arr[0] || { trig: "ym", from: p.startYm }, { amount: pv });
@@ -1423,7 +1423,7 @@ function DaytradeProjection(props) {
             + (actual.mons ? " / " + actual.mons + "ヶ月＝月あたり " + (Math.round((actual.daysPerMon || 0) * 10) / 10) + "日" : "") + "）。"
             + "母数は" + (actual.sinceOnly ? "集計ルール統一後の記録" : "全期間の記録") + "。"
             + "月次は 1日あたり × ①の月間営業日 で内部換算します（先頭行なら "
-            + _dtsFmtYen(_dtsHeadAmt(cfg.perDayRows, 0) * (eff ? eff.days : 20)) + "円/月/100株）。";
+            + _dtsFmtYen(_dtsHeadAmt(cfg.perDayRows, 0) * _SN_K * (eff ? eff.days : 20)) + "円/月/1000株）。";
           if (!actual.daysPerMon) return t;
           var d1 = Math.round(actual.daysPerMon * 10) / 10, d2 = (eff ? eff.days : 20);
           if (Math.abs(d1 - d2) < 0.5) return t + "①の月間営業日（" + d2 + "日）は実績の月あたり記録日数（" + d1 + "日）とほぼ同じです。";

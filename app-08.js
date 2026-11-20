@@ -1081,7 +1081,7 @@ function App() {
     setSelTab("news");
   };
   
-  // 2026-08-17 ホームの月次チップを想定損益（100株換算）基準へ。
+  // 2026-08-17 ホームの月次チップを想定損益（1000株換算）基準へ。
   //   旧＝ signal.realizedPnl だけを見ていた＝実現損益がほぼ未記録のこのデータでは過去月でもほぼ0円で出ており、
   //   さらに item.pnl（取引テーブル側の損益）も拾っていなかった。集計は _snMonthPnlAgg / _snDailyPnlMap（app-05）へ一本化＝
   //   カレンダーの日次バッジ・📊今月の損益パネル・このチップの3か所が同じ1つの関数を見る＝数字が食い違いようがない。
@@ -1110,14 +1110,14 @@ function App() {
   var _mEqTotPerDay = (_mAgg.bizDone > 0 && _mAgg.eqPnlCnt > 0) ? Math.round(_mEqTot / _mAgg.bizDone) : null;
   var _mWinPct = _mAgg.finalCnt > 0 ? Math.round(_mAgg.win / _mAgg.finalCnt * 100) : null;
   var _mRealTxt = _mAgg.realCnt > 0
-    ? (_snYen(_mAgg.real) + "（100株換算・" + _mAgg.realCnt + "件 / 実額 " + _snYen(_mAgg.realRaw) + "）")
+    ? (_snYen(_mAgg.real) + "（1000株換算・" + _mAgg.realCnt + "件 / 実額 " + _snYen(_mAgg.realRaw) + "）")
     : "未記録";
   var _homeChips = [
     { la: "損益", v: _snYen(_mAgg.final), c: _snPnlCol(_mAgg.final),
       big: true,
       sub: _mPerDay != null ? ("1日 " + _snYen(_mPerDay)) : null,
       subGrade: _mPerDay != null ? _profitGradeFromPnl(_mPerDay, _mAgg.finalCnt) : null,
-      title: "想定損益の合計（100株換算）。記録帳・💰全体損益と同じ基準です"
+      title: "想定損益の合計（1000株換算）。記録帳・💰全体損益と同じ基準です"
         + (_mAgg.eqCnt > 0 ? ("\n指値同値 " + _mAgg.eqCnt + "件（未約定扱い・この損益には入っていません。約定していたら " + _snYen(_mAgg.eqPnl) + "）") : "")
         + "\n母数 " + _mAgg.finalCnt + "件 / 記録のあった日 " + _mAgg.tradedDays + "日"
         + "\n実現損益 " + _mRealTxt
@@ -1131,21 +1131,21 @@ function App() {
       sub2Grade: _mEqTotPerDay != null ? _profitGradeFromPnl(_mEqTotPerDay, _mAgg.finalCnt + _mAgg.eqPnlCnt) : null,
       sub3: _mAgg.eqCnt + "件・未約定扱い",
       title: "EP＝OS最大（ちょうど同値）の記録 " + _mAgg.eqCnt + "件。最終EPに触れただけで上抜けなかったので未約定として損益に入れていません"
-        + "\n上段＝『もし約定していたら』の想定損益（100株換算）の合計 " + (_mAgg.eqPnlCnt > 0 ? _snYen(_mAgg.eqPnl) : "（確定した記録なし）")
+        + "\n上段＝『もし約定していたら』の想定損益（1000株換算）の合計 " + (_mAgg.eqPnlCnt > 0 ? _snYen(_mAgg.eqPnl) : "（確定した記録なし）")
         + "\n合計＝損益 " + _snYen(_mAgg.final) + " ＋ 同値分 " + _snYen(_mAgg.eqPnl) + " ＝ " + _snYen(_mEqTot)
         + (_mEqTotPerDay != null ? ("\n1日あたり " + _snYen(_mEqTotPerDay) + " ＝ 合計 ÷ 経過営業日 " + _mAgg.bizDone + "日（同値分だけの1日平均は出しません）") : "") } : null,
     // 2026-08-17b 実現損益を独立チップへ（ユーザー要望）。見送りの仮想損益も入る想定損益と違い、これだけが「実際に約定した額」。
-    // 2026-08-17f 3段化（ユーザー要望「実額を上・100株換算を下・1営業日換算も」）:
-    //   主値＝**実額**（実際に動いたお金＝一番知りたい額）／2段目＝100株換算（他の欄と単位を揃えた比較用）／3段目＝1日あたり。
-    //   ⚠️1日あたりは**実額基準**（主値と単位を揃える）。損益チップの「1日」は想定損益＝100株換算基準なので、2つは単位が違う。
+    // 2026-08-17f 3段化（ユーザー要望「実額を上・1000株換算を下・1営業日換算も」）:
+    //   主値＝**実額**（実際に動いたお金＝一番知りたい額）／2段目＝1000株換算（他の欄と単位を揃えた比較用）／3段目＝1日あたり。
+    //   ⚠️1日あたりは**実額基準**（主値と単位を揃える）。損益チップの「1日」は想定損益＝1000株換算基準なので、2つは単位が違う。
     //   分母はどちらも経過営業日(bizDone)で共通＝日数の取り方だけは食い違わない。
     { la: "実現", big: true, v: _mAgg.realCnt > 0 ? _snYen(_mAgg.realRaw) : "—", c: _mAgg.realCnt > 0 ? _snPnlCol(_mAgg.realRaw) : "#bbb",
-      sub: _mAgg.realCnt > 0 ? ("100株 " + _snYen(_mAgg.real)) : "未記録",
+      sub: _mAgg.realCnt > 0 ? ("1000株 " + _snYen(_mAgg.real)) : "未記録",
       sub2: (_mAgg.realCnt > 0 && _mRealPerDay != null) ? ("1日 " + _snYen(_mRealPerDay)) : null,
       title: _mAgg.realCnt > 0
         ? ("実際に約定した損益（" + _mAgg.realCnt + "件）"
           + "\n上段＝実額 " + _snYen(_mAgg.realRaw) + "（実際に動いたお金）"
-          + "\n中段＝100株換算 " + _snYen(_mAgg.real) + "（株数の違いをならした比較用）"
+          + "\n中段＝1000株換算 " + _snYen(_mAgg.real) + "（株数の違いをならした比較用）"
           + (_mRealPerDay != null ? ("\n下段＝1日あたり " + _snYen(_mRealPerDay) + " ＝ 実額 ÷ 経過営業日 " + _mAgg.bizDone + "日") : "")
           + (_mAgg.realHasShares ? "" : "\n⚠ 株数が入っていない記録があります（換算できないぶんは実額のまま足しています）"))
         : "この月は実現損益が1件も入っていません。左の損益は記録から計算した値です" },
