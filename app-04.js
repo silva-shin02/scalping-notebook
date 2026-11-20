@@ -5261,7 +5261,7 @@ function _EpnCalcForm(_p) {
         ? ("合計α値" + effA + "円＝" + (nUkiSpecial ? "浮応" : "浮") + ukiAddV + (rnAddV ? "＋RN" + rnAddV : "") + "（浮き足〇＝基本α/応用α無し）")
         : ("合計α値" + effA + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (ukiAddV ? "＋浮" + ukiAddV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : "")))
         : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? (_epnVap ? "VAP値を入力" : "記録が無い銘柄は基本αを手入力") : "EP基準ラインを入力")),
-    React.createElement(_EpnKakudoBox, { kakudo: nKakudo, bRatio: nBRatio, ceTopPx: nCeTopPx, ep: epV, def: _bRatioDef(data),
+    React.createElement(_EpnKakudoBox, { kakudo: nKakudo, bRatio: nBRatio, ceTopPx: nCeTopPx, ep: epV, def: _bRatioDef(data), data: data, save: save,
       onKakudo: setNKakudo, onBRatio: setNBRatio, onCeTopPx: setNCeTopPx }),
     React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
       style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? (editId ? "#B45309" : "#1D4ED8") : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, editId ? "💾 更新保存" : "💾 保存（早見に追加）"), _spModal);
@@ -5282,7 +5282,7 @@ function _EpnKakudoBox(p) {
     k === "B" ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } },
       React.createElement("div", { style: { color: c.fg, fontWeight: 700 } }, "EP①（基準ライン） " + (p.ep != null ? p.ep + "円" : "—")),
       React.createElement(_BRatioCtl, { value: p.bRatio, onChange: p.onBRatio, def: p.def, small: true }),
-      React.createElement("div", null, React.createElement(_BSplitLinkBtn, { small: true }))) : null,
+      React.createElement("div", null, React.createElement(_BSplitLinkBtn, { small: true, data: p.data, save: p.save }))) : null,
     (k === "B" || k === "C") ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
       React.createElement("span", { style: { color: "#0E7490", fontWeight: 800 } }, (k === "B" ? "EP②（確定待ちor直上VAP）" : "確定待ちor直上VAP")),
       React.createElement("input", { type: "text", inputMode: "decimal", value: p.ceTopPx, placeholder: "直上VAP（株価）", onChange: function(ev) { p.onCeTopPx(_toHankakuDecimal(ev.target.value)); },

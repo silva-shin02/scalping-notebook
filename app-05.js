@@ -4578,9 +4578,28 @@ function _BRatioCtl(p) {
 var _snBSplitReq = false;
 function _snOpenBSplit() { _snBSplitReq = true; try { window.dispatchEvent(new Event("sn-open-bsplit")); } catch (e) {} }
 function _BSplitLinkBtn(p) {
-  return React.createElement("button", { type: "button", title: p.title || "記録帳 → 📊集計 → ⏳ → ⚖ Bの割合（過去の全記録で ①:② の割合ごとの合計・勝率・最大負けなど）を開きます",
-    onClick: function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); if (p.onBefore) p.onBefore(); _snOpenBSplit(); },
+  // 2026-11-20u 画面を移らず上に重ねて開く（ユーザー指示「入力中の記録画面から別画面に移らない」）。中身は記録帳の ⚖ Bの割合（app-06 _ElBSplitSection）と同じ。
+  //   母数＝記録帳の「全体・全期間」と同じ（v2・合計算入・VAP値あり・データのみ/仮/算入外銘柄/時間かぶり除外を除く）。data が無いときは従来どおり記録帳へ移る。
+  var _uo = useState(false), open = _uo[0], setOpen = _uo[1];
+  var data = p.data;
+  var btn = React.createElement("button", { type: "button", title: p.title || "過去の全記録で ①:② の割合ごとの合計・勝率・最大負けなどを見ます（この画面の上に開きます）",
+    onClick: function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); if (!data) { if (p.onBefore) p.onBefore(); _snOpenBSplit(); return; } setOpen(true); },
     style: { padding: "1px 8px", fontSize: p.small ? 9.5 : 10.5, fontWeight: 800, lineHeight: 1.6, border: "1px solid #FDBA74", background: "#fff", color: "#C2410C", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap" } }, "⚖ 割合のデータを見る");
+  if (!open || !data) return btn;
+  var recs = _elCollectAllSignals(data).filter(function(r) {
+    var d = (r && r.date) || "";
+    return r && r.signal && !_elIsEmaRefPeriod(d) && _vapWorld(d) && _epIsV2(r.signal) && _elInclTotal(r.signal) && _vapOf(r.signal) != null
+      && !_isDataOnly(data, r) && !_elIsProvisional(r.signal) && _elAmtRecOk(r) && !_elCollExcluded(data, r, null);
+  });
+  var close = function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); setOpen(false); };
+  return React.createElement(React.Fragment, null, btn,
+    ReactDOM.createPortal(React.createElement("div", { onClick: close, style: { position: "fixed", inset: 0, zIndex: 120000, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 12px", overflowY: "auto", boxSizing: "border-box" } },
+      React.createElement("div", { onClick: function(ev) { ev.stopPropagation(); }, style: { background: "#fff", borderRadius: 12, padding: "14px 16px", width: "100%", maxWidth: 980, boxShadow: "0 10px 30px rgba(0,0,0,0.3)", boxSizing: "border-box", position: "relative" } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 } },
+          React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: "#C2410C" } }, "⚖ Bの割合（全記録・" + recs.length + "件）"),
+          React.createElement("button", { type: "button", onClick: close, title: "閉じる", style: { fontSize: 18, lineHeight: 1, padding: "4px 10px", border: "1px solid #ddd", background: "#fff", borderRadius: 8, cursor: "pointer", color: "#555" } }, "×")),
+        (typeof _ElBSplitSection === "function") ? React.createElement(_ElBSplitSection, { recs: recs, aiOf: function(r) { return _elAlphaInfo(r, data); }, data: data, save: p.save || null }) : null)),
+      document.body));
 }
 // 一覧・カード用の小さな印（A/B 50:50/C）。s＝記録 or EPナビの保存EP
 function _kakudoBadge(s, key) {
@@ -12424,7 +12443,7 @@ function EntryRecordForm(_ref_erf) {
                 React.createElement("div", { style: _rowS },
                   React.createElement("span", { style: { fontWeight: 700, color: "#78716C" } }, "割合"),
                   React.createElement(_BRatioCtl, { value: fBRatio, onChange: setFBRatio, def: _bRatioDef(data) }),
-                  React.createElement(_BSplitLinkBtn, { onBefore: onClose, title: "記録帳 → 📊集計 → ⏳ → ⚖ Bの割合 を開きます（この記録フォームは閉じます・入力中の内容は保存されません）" }),
+                  React.createElement(_BSplitLinkBtn, { data: data, save: save}),
                   React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "想定損益＝EP①の損益×①の割合＋EP②の損益×②の割合（EP②が入らなければ0円）"),
                 React.createElement("div", { style: { borderTop: "1px dashed " + c.bd, alignSelf: "stretch", width: "100%", height: 0 } }),   // 2026-11-20i 割合はEP①の上・点線で区切る（ユーザー指示）
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
