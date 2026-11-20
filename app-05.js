@@ -6633,7 +6633,7 @@ function _elBSumNode(sp, vertical, big, badge, fs) {
     React.createElement("span", { style: { fontSize: "0.8em", color: "#9A3412", fontWeight: 800, marginRight: 1 } }, lbl),
     React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _f(v))); };
   var _op = function(t) { return React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, t); };
-  var _tot = React.createElement("span", { style: { fontWeight: 900, fontSize: big ? "1.35em" : "1.2em", color: _elPnlColor(sp.t), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _f(sp.t));
+  var _tot = React.createElement("span", { style: { fontWeight: 900, fontSize: big ? "1.35em" : (vertical === "hissan" ? "1em" : "1.2em"), color: _elPnlColor(sp.t), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _f(sp.t));
   var _tt = "エントリー確度B（割合 " + _bRatioLbl(Math.round(sp.w * 100)) + "）：①基準ラインの分＋②確定待ちor直上VAPの分＝合計";
   if (vertical === "hissan") {   // 2026-11-20q 記録フォーム：ひっ算の形（①／＋②／線／合計）ユーザー指示
     var _r = function(op, node, extra) { return React.createElement("div", { style: Object.assign({ display: "flex", justifyContent: "flex-end", alignItems: "baseline", gap: 6, whiteSpace: "nowrap" }, extra || {}) }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, minWidth: 12 } }, op), node); };
@@ -7288,9 +7288,9 @@ function _elHold2AmtNode(s, alpha, cutLine) {
     : React.createElement("span", { style: { color: "#ccc" } }, "—");
   var g = _profitGradeFromPnl(p.main, 1);
   var _bsp = _elBSplit(_elHoldFinalParts0, s, alpha, cutLine);   // 2026-11-20n Bは ①＋②＝合計 を縦に
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
     (g && !_bsp) ? _elHoldGradeBadge(g) : null,
-    _bsp ? _elBSumNode(_bsp, "hissan", true, g ? _elHoldGradeBadge(g) : null, 12.5) :   /* 2026-11-20r 表もひっ算の形・①②を大きく（ユーザー指示） */ React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(p.main) } }, _elPnlFmt(p.main)),
+    _bsp ? _elBSumNode(_bsp, "hissan", false, g ? _elHoldGradeBadge(g) : null, 11) :   /* 2026-11-20x 表は1件の額と同じ大きさ（合計も）・セルの中央に（ユーザー指示） */   /* 2026-11-20r 表もひっ算の形・①②を大きく（ユーザー指示） */ React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(p.main) } }, _elPnlFmt(p.main)),
     _elHold2RefSuffix(p.main, p.ref, p.ref != null ? 1 : 0));
 }
 // 集計/早見表用: 「H１合計」td と「H２合計」td の2セル。集計表はH列を統合しない（2列のまま）。
