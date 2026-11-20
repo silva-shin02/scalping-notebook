@@ -12430,7 +12430,7 @@ function EntryRecordForm(_ref_erf) {
             var _vp = _vapInOs ? _vapParts() : null;
             var _epTx = _hasLv ? String(Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100) + "円" : "—";
             var _rowS = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
-            var _lvRow = React.createElement("div", { style: _rowS }, _lvPriceBox("lv_os"), _vp ? null : React.createElement("div", {
+            var _lvRow = React.createElement("div", { style: _rowS }, _lvPriceBox("lv_os"), _vp ? _vp.vap /* 2026-11-20z2 VAP値はEP基準ラインの右（ユーザー指示・全確度） */ : React.createElement("div", {
               style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
             },
               React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, "最終EP"),
@@ -12441,7 +12441,7 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("span", { style: { fontSize: 9, color: "#93C5FD", fontWeight: 700 } }, "自動")
             ));
             var _common = _vp ? React.createElement("div", { style: _rowS }, _vp.adj, _vp.rn, _vp.ana) : null;   // 2026-11-20f VAP分析は補正の右に横並び
-            var _vapRow = _vp ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 5 } }, _vp.vap, _vp.ep) : null;   // 2026-11-20k 最終EPはVAP値の下
+            var _vapRow = _vp ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 5 } }, _vp.ep) : null;   // 2026-11-20z2 VAP値は _lvRow へ（EP基準ラインの右）・最終EPは下   // 2026-11-20k 最終EPはVAP値の下
             var _ceRow = function(num) {   // 2026-11-20k 1段目＝名前＋直上VAPオンオフ／2段目＝直上VAP入力（＋OS時刻）／3段目＝最終EP②・基準ライン+〇円
               var _r = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
               return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5 } },
@@ -12462,6 +12462,7 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                 React.createElement("span", { style: { fontWeight: 800, color: "#44403C" } }, "エントリー確度"),
                 React.createElement(_KakudoSeg, { value: fKakudo, onChange: _pickKakudo, letters: true }),
+                fKakudo === "D" ? React.createElement(_DSharesCtl, { value: fDShares, onChange: setFDShares, def: _dSharesDef(data), onSetDef: _dSharesSetDefFn(save) }) : null,   // 2026-11-20z2 株数は確度の右（枠・説明なし）
                 !fKakudo ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (isEdit && fCeOn) ? "#0E7490" : "#DC2626" } }, (isEdit && fCeOn) ? "未設定（確定待ちオン）" : isEdit ? "未設定" : "必須（選ぶとEP基準ラインの欄が出ます）") : null),
               _reasonEl,   // 2026-11-20j B・Cにした理由はエントリー確度の直下（ユーザー指示）
               _kdOpen ? _common : null,   // 2026-11-20l EP基準ラインはVAP値のすぐ上へ（Bはオレンジの箱のEP①の中）・VAP欄があるときの右の最終EPは撤去（ユーザー指示）
@@ -12499,9 +12500,6 @@ function EntryRecordForm(_ref_erf) {
                     React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, _a2 != null ? "①②両方入った前提・許容 " + _SN_STOP_ALLOW_YEN.toLocaleString() + "円/" + _SN_STOP_ALLOW_SH + "株" : "直上VAPなし＝①だけ入った前提・許容 " + _SN_STOP_ALLOW_YEN.toLocaleString() + "円/" + _SN_STOP_ALLOW_SH + "株"));
                 })()))
               : React.createElement(React.Fragment, null,
-                  fKakudo === "D" ? React.createElement("div", { style: _boxS(_KAKUDO_COL.D.bd, "#EFF6FF") },
-                    React.createElement(_DSharesCtl, { value: fDShares, onChange: setFDShares, def: _dSharesDef(data), onSetDef: _dSharesSetDefFn(save) }),
-                    React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "想定損益＝Aと同じ計算を株数の分だけ（1000株換算ではなく " + fDShares + "株ぶん）")) : null,
                   _lvRow,
                   _vapRow,
                   fCeOn ? React.createElement("div", { style: _boxS("#67E8F9", "#F0FDFF") }, _ceRow(false)) : null),
