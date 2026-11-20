@@ -11167,7 +11167,7 @@ function EntryRecordForm(_ref_erf) {
             key: val,
             onClick: function() { setFTradeType(val); },
             style: {
-              flex: "1 1 90px", minWidth: 80, padding: "10px 12px", fontSize: 14, fontWeight: 700,
+              flex: "1 1 90px", minWidth: 80, minHeight: 26, padding: "0 12px", fontSize: 12, lineHeight: 1.2, fontWeight: 700, boxSizing: "border-box",   /* 2026-11-20j 高さをEP基準ライン欄に揃える（行は stretch＝欄の高さに伸びる）*/
               border: on ? "1.5px solid " + col : "1px solid #ddd",
               background: on ? bg : "#fff",
               color: on ? col : "#888",
