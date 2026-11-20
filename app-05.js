@@ -10287,7 +10287,11 @@ function EntryRecordForm(_ref_erf) {
   var _fCeActive = !isEdit || typeof initSig.ceOn === "boolean" || fCeOn;
   var _useStateKD = useState(_kakudoOf(initSig)), fKakudo = _useStateKD[0], setFKakudo = _useStateKD[1];   // エントリー確度 A/B/C 2026-11-20（新規は未選択＝保存時に必須）
   var _useStateBR = useState(initSig.bRatio != null ? _bRatioOf(initSig) : _bRatioDef(data)), fBRatio = _useStateBR[0], setFBRatio = _useStateBR[1];   // Bの①の割合%（初期値＝設定 custom.bRatioDef）
-  var _pickKakudo = function(k) { setFKakudo(k); setFCeOn(k !== "A" && k !== "D"); };   // D もAと同じく確定待ちしない 2026-11-20z
+  var _pickKakudo = function(k) {
+    var _was = fKakudo === "B" || fKakudo === "C";
+    setFKakudo(k); setFCeOn(k !== "A" && k !== "D");   // D もAと同じく確定待ちしない 2026-11-20z
+    if ((k === "B" || k === "C") && !_was) setFCeTopOn(true);   // 2026-11-20z5 B・Cに切り替えたら直上VAPは初期オン（既存記録を開いてBにしたときもオフにならない・ユーザー指摘）
+  };
   var _useStateDS = useState(initSig.dShares != null ? _dSharesOf(initSig) : _dSharesDef(data)), fDShares = _useStateDS[0], setFDShares = _useStateDS[1];   // Dの株数（初期値＝設定 custom.dSharesDef）2026-11-20z
   var _useStateCER = useState(Array.isArray(initSig.ceReasons) ? initSig.ceReasons.slice() : []),   // 確定待ちの理由（選択肢）2026-10-19
     fCeReasons = _useStateCER[0], setFCeReasons = _useStateCER[1];
