@@ -2156,8 +2156,8 @@ function _ElBSplitSection(props) {
   });
   var ok = rows.filter(function(o) { return !o.x.skip; });
   var skipN = {}; rows.forEach(function(o) { if (o.x.skip) skipN[o.x.skip] = (skipN[o.x.skip] || 0) + 1; });
-  var kN = { top: 0, up: 0, later: 0, miss: 0 }, caN = 0, topN = 0;
-  ok.forEach(function(o) { kN[o.x.kind]++; if (o.x.src === "ca") caN++; if (o.x.hasTop) topN++; });
+  var kN = { top: 0, up: 0, later: 0, miss: 0 }, caN = 0, topN = 0, kdN = { A: 0, B: 0, C: 0, none: 0 };
+  ok.forEach(function(o) { kN[o.x.kind]++; if (o.x.src === "ca") caN++; if (o.x.hasTop) topN++; var _k = _kakudoOf(o.r.signal); kdN[_k || "none"]++; });
   var need = {}, needKeys = [];
   rows.forEach(function(o) {
     if (o.x.skip !== "noconf") return;
@@ -2216,6 +2216,13 @@ function _ElBSplitSection(props) {
       "差（②だけ − ①だけ） " + _elPnlFmt(Math.round(a0.sum - a10.sum)), "k3"),
     _card("目安", React.createElement("span", { style: { fontSize: 11.5 } }, "合計最大 " + (best ? _lbl(best.k) : "—") + "・最大負けが最も浅い " + (safe ? _lbl(safe.k) : "—")),
       "割合は ①基準ライン:②確定待ちor直上VAP", "k4"));
+  var _defW = _bRatioDef(data);
+  var _setDef = function(v) { if (!props.save) return; v = _bRatioClamp(v); props.save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { bRatioDef: v }) }); }); };
+  var defRow = React.createElement("div", { key: "d", style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "6px 9px", border: "1px solid #FDBA74", background: "#FFF7ED", borderRadius: 8, fontSize: 11 } },
+    React.createElement("span", { style: { fontWeight: 800, color: "#C2410C" } }, "新規記録・EPナビの B の割合の初期値"),
+    props.save ? React.createElement(_BRatioCtl, { value: _defW, onChange: _setDef }) : React.createElement("span", { style: { fontWeight: 800 } }, _bRatioLbl(_defW)),
+    React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "下の表の行の「これにする」でも変えられます。保存済みの記録の割合は変わりません。"),
+    React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "確度を付けた記録：A " + kdN.A + "・B " + kdN.B + "・C " + kdN.C + "・未設定 " + kdN.none + "件"));
   var noteParts = _ALLCE_SKIP.filter(function(o) { return skipN[o[0]]; }).map(function(o) { return o[1] + " " + skipN[o[0]] + "件"; });
   var note = React.createElement("div", { key: "n", style: { fontSize: 10, color: "#78716C", marginBottom: 8, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
     noteParts.length ? React.createElement("span", null, "対象外：" + noteParts.join("・")) : null,
@@ -2229,13 +2236,15 @@ function _ElBSplitSection(props) {
   var table = React.createElement("div", { key: "t", style: { marginBottom: 10 } },
     React.createElement("div", { style: { overflowX: "auto" } },
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
-        React.createElement("thead", null, React.createElement("tr", null, _th("①:②"), _th("合計"), _th("1件平均"), _th("勝ち/負け"), _th("勝率"), _th("負けの平均"), _th("最大負け(1件)"), _th("月のぶれ"), _th("一番悪い月"))),
+        React.createElement("thead", null, React.createElement("tr", null, _th("①:②"), _th("合計"), _th("1件平均"), _th("勝ち/負け"), _th("勝率"), _th("負けの平均"), _th("最大負け(1件)"), _th("月のぶれ"), _th("一番悪い月"), _th(""))),
         React.createElement("tbody", null, aggs.map(function(g) {
           var a = g.a, isB = best && best.k === g.k, isS = safe && safe.k === g.k;
           return React.createElement("tr", { key: "w" + g.k, style: (g.k === 10 || g.k === 0) ? { background: "#FAFAF9" } : null },
             _td(React.createElement("span", null, _lbl(g.k), isB ? React.createElement("span", { title: "合計が最大", style: { color: "#B45309", marginLeft: 3 } }, "★") : null, isS ? React.createElement("span", { title: "最大負けが最も浅い", style: { color: "#0E7490", marginLeft: 3 } }, "◆") : null), { textAlign: "left", fontWeight: 800 }),
             _td(_amt(a.sum)), _td(_amt(a.avg)), _td(a.win + "/" + a.loss), _td(_pct(a.winRate)), _td(_amt(a.lossAvg)), _td(_amt(a.maxLoss)),
-            _td(a.monSd == null ? "—" : "±" + Math.round(a.monSd).toLocaleString() + "円"), _td(_amt(a.worstMon)));
+            _td(a.monSd == null ? "—" : "±" + Math.round(a.monSd).toLocaleString() + "円"), _td(_amt(a.worstMon)),
+            _td(g.k * 10 === _defW ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#C2410C" } }, "初期値") : props.save ? React.createElement("button", { type: "button", onClick: function() { _setDef(g.k * 10); }, title: "新規記録・EPナビの B の割合の初期値をこの割合にする",
+              style: { padding: "0 6px", fontSize: 10, fontWeight: 700, border: "1px solid #FDBA74", background: "#fff", color: "#C2410C", borderRadius: 4, cursor: "pointer" } }, "これにする") : null));
         })))),
     React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginTop: 3, lineHeight: 1.6 } }, "★＝合計が最大　◆＝1件の最大負けが最も浅い。月のぶれ＝月ごとの合計の標準偏差（2か月以上あるとき）。1件ごとの損益＝①の割合×①だけの損益＋②の割合×②だけの損益。"));
   var xOf = function(r) { for (var i = 0; i < ok.length; i++) if (ok[i].r === r) return ok[i].x; return null; };
@@ -2257,7 +2266,7 @@ function _ElBSplitSection(props) {
       _pill(fil === "all", "全て " + ok.length, function() { setFil("all"); }, "f_all"),
       _BSPLIT_KIND.map(function(o) { return _pill(fil === o[0], o[1] + " " + kN[o[0]], function() { setFil(o[0]); }, "f_" + o[0]); })),
     listRecs.length ? props.recTable(listRecs, extra) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
-  return React.createElement("div", null, head, kpi, note, table, list);
+  return React.createElement("div", null, head, defRow, kpi, note, table, list);
 }
 var _CE_SUBTABS = [["five", "⏳ 5分確定待ち"], ["good", "✅ 待つべき場面"], ["bad", "⛔ 待たない場面"], ["detail", "📊 条件ごとの内訳"], ["bsplit", "⚖ Bの割合"]];
 function _ElCeTabs(props) {
@@ -10320,7 +10329,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     // ⏳ 5分確定待ち 2026-11-12b（旧「全部確定待ち」を作り替え・ユーザー要望）。母数＝📊集計の合計損益と同じ線引き（期間選択・算入・データのみ・仮シグナル・算入銘柄・時間かぶり除外）。計算は app-05 _elAllCeRow。
     var _ceRecs = v2recs.filter(function(r) { return r && r.signal && !_isDataOnly(data, r) && !_elIsProvisional(r.signal) && _elAmtRecOk(r) && !_elCollExcluded(data, r, _collScope); });
     _tabBody = _cardify([
-      _elCard(React.createElement(_ElCeTabs, { recs: _ceRecs, aiOf: _ai, data: data, recTable: function(rs, ex) { return _recTable(rs, "full", "allce_", null, null, ex); } }))
+      _elCard(React.createElement(_ElCeTabs, { recs: _ceRecs, aiOf: _ai, data: data, save: save, recTable: function(rs, ex) { return _recTable(rs, "full", "allce_", null, null, ex); } }))
     ]);
   } else if (view === "proj" && _isAllStock) {
     // 📈 損益推移シミュレーター 2026-08-05（💰損益タブ・🧮シミュの右）: 本体は app-09.js の DaytradeProjection。

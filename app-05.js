@@ -4534,6 +4534,52 @@ function _elAllCeAgg(rows) {
   o.downAvg = o.down ? o.downAmt / o.down : null;
   return o;
 }
+// ===== エントリー確度（A/B/C）2026-11-20（ユーザー要望・記録フォームの「確定待ちor直上VAP」欄と統合＝案1・EPナビにも表示）=====
+//   A＝このラインこそが最終天井→全株ここ（確定待ちオフ）／B＝基準ライン＋さらにOSも否定できない→①基準ライン（α値）＋②確定待ちor直上VAP に分割／C＝自信なし→確定待ちor直上VAPのみ（確定待ちオン）。
+//   保存: signal.kakudo（"A"/"B"/"C"・既存記録は未設定のまま＝読み替えない）・signal.bRatio（Bのときだけ＝①の割合%・10%刻み）。ceOn は A→false・B/C→true。
+//   Bの想定損益＝①の割合×（確定待ちを外した損益）＋②の割合×（確定待ちの損益・入らなければ0円）＝ _elHoldFinalParts の入口で混ぜる（⚖ Bの割合 と同じ計算）。
+//   割合の初期値＝設定 custom.bRatioDef（既定50・⚖ Bの割合 タブで変更）。株数は扱わない（ユーザー決定）。
+//   EPナビ（app-04 _EpnCalcForm / 早見カード）も同じ部品で選ぶ：保存EP item.kakudo / item.bRatio / item.ceTopPx（直上VAP＝株価）。記録とはつながない（ユーザー決定）。
+var _KAKUDO = [["A", "A 最終天井", "このラインこそが最終天井＝全株ここでエントリー（確定待ちしない）"], ["B", "B 分割", "このラインが基準・さらにOSする可能性も否定できない＝①基準ライン＋②確定待ちor直上VAP に分割"], ["C", "C 自信なし", "自信なし＝確定待ちor直上VAPのみ"]];
+var _KAKUDO_COL = { A: { fg: "#15803D", bg: "#DCFCE7", bd: "#86EFAC" }, B: { fg: "#C2410C", bg: "#FFEDD5", bd: "#FDBA74" }, C: { fg: "#57534E", bg: "#E7E5E4", bd: "#A8A29E" } };
+function _kakudoOf(s) { var k = s && s.kakudo; return (k === "A" || k === "B" || k === "C") ? k : null; }
+function _bRatioClamp(v) { v = Number(v); if (isNaN(v)) return 50; return Math.max(0, Math.min(100, Math.round(v / 10) * 10)); }
+function _bRatioDef(data) { var v = data && data.custom ? data.custom.bRatioDef : null; return (v == null || v === "") ? 50 : _bRatioClamp(v); }
+function _bRatioOf(s) { return (s && s.bRatio != null && s.bRatio !== "") ? _bRatioClamp(s.bRatio) : 50; }
+function _bRatioLbl(w) { return w + ":" + (100 - w); }
+// A/B/C の3択ボタン。props: value, onChange(k), small, title
+function _KakudoSeg(p) {
+  var sm = !!p.small;
+  return React.createElement("span", { style: { display: "inline-flex", border: "1px solid #D6D3D1", borderRadius: 7, overflow: "hidden", verticalAlign: "middle", flexShrink: 0 } },
+    _KAKUDO.map(function(o, i) {
+      var on = p.value === o[0], c = _KAKUDO_COL[o[0]];
+      return React.createElement("button", { key: o[0], type: "button", title: o[2], onClick: function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); if (p.onChange) p.onChange(o[0]); },
+        style: { padding: sm ? "1px 6px" : "2px 9px", fontSize: sm ? 10 : 11, fontWeight: 800, whiteSpace: "nowrap", border: "none", borderLeft: i ? "1px solid #D6D3D1" : "none", cursor: "pointer",
+          background: on ? c.bg : "#fff", color: on ? c.fg : "#78716C", minHeight: (typeof IS_TOUCH !== "undefined" && IS_TOUCH) ? (sm ? 24 : 30) : null } }, sm ? o[0] : o[1]);
+    }));
+}
+// Bの割合（①:②）を10%ずつ動かす部品。props: value(①%), onChange(v), def(設定の初期値), small
+function _BRatioCtl(p) {
+  var w = _bRatioClamp(p.value), sm = !!p.small, c = _KAKUDO_COL.B;
+  var btn = function(lbl, d, k) {
+    return React.createElement("button", { key: k, type: "button", onClick: function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); p.onChange(_bRatioClamp(w + d)); }, disabled: (d < 0 ? w <= 0 : w >= 100),
+      style: { padding: "0 6px", fontSize: sm ? 10 : 11, fontWeight: 800, lineHeight: 1.5, border: "1px solid " + c.bd, background: "#fff", color: c.fg, borderRadius: 4, cursor: "pointer" } }, lbl);
+  };
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
+    React.createElement("span", { style: { fontSize: sm ? 10 : 11, fontWeight: 800, color: c.fg, fontVariantNumeric: "tabular-nums" } }, "①" + w + "%：②" + (100 - w) + "%"),
+    React.createElement("span", { style: { display: "inline-flex", width: sm ? 50 : 70, height: 6, borderRadius: 3, overflow: "hidden", background: "#E7E5E4" } },
+      React.createElement("span", { style: { width: w + "%", background: "#FDBA74" } }), React.createElement("span", { style: { width: (100 - w) + "%", background: c.fg } })),
+    btn("−", -10, "m"), btn("＋", 10, "p"),
+    (p.def != null && w !== p.def) ? React.createElement("button", { key: "d", type: "button", onClick: function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); p.onChange(p.def); }, title: "設定の初期値に戻す（⚖ Bの割合 タブで変更）",
+      style: { padding: "0 6px", fontSize: 9.5, fontWeight: 700, lineHeight: 1.5, border: "1px solid #D6D3D1", background: "#fff", color: "#78716C", borderRadius: 4, cursor: "pointer" } }, "↺ " + _bRatioLbl(p.def)) : null);
+}
+// 一覧・カード用の小さな印（A/B 50:50/C）。s＝記録 or EPナビの保存EP
+function _kakudoBadge(s, key) {
+  var k = _kakudoOf(s); if (!k) return null;
+  var c = _KAKUDO_COL[k];
+  return React.createElement("span", { key: key, title: (_KAKUDO.filter(function(o) { return o[0] === k; })[0] || [0, 0, ""])[2], style: { fontSize: 9.5, fontWeight: 800, color: c.fg, background: c.bg, border: "1px solid " + c.bd, borderRadius: 4, padding: "0 5px", whiteSpace: "nowrap", lineHeight: 1.5 } },
+    "確度" + k + (k === "B" ? " " + _bRatioLbl(_bRatioOf(s)) : ""));
+}
 // ===== ⚖ エントリー確度B の割合（反実仮想）2026-11-20（ユーザー要望「Bの分割割合を過去記録から算出してから決める」）=====
 // B＝①基準ライン（α値）で先に入る分＋②確定待ちor直上VAPで入る分。割合ごとの比較は app-06 _ElBSplitSection。
 //   p1＝①だけで入った想定損益（確定待ちを外した記録＝α値に最初に届いた足でα値約定）。
@@ -4551,7 +4597,7 @@ function _elBSplitRow(s, alpha, cutLine, caRel) {
   if (!r0 || r0.epIdx < 0) return { skip: "noep" };
   if (r0.judge !== "ok") return { skip: "x", k0: r0.epIdx };
   var k0 = r0.epIdx, lg = r0.legs[k0], src = "rec", v;
-  var p1p = _elHoldFinalParts(base, A, cut), p1 = p1p ? p1p.main : null;
+  var p1p = _elHoldFinalParts0(base, A, cut), p1 = p1p ? p1p.main : null;
   if (already && s.ceIdx === k0) v = s;
   else {
     var c = lg.c;
@@ -4560,7 +4606,7 @@ function _elBSplitRow(s, alpha, cutLine, caRel) {
     v = Object.assign({}, s, { ceOn: true, ceIdx: k0 });
     if (src === "ca") _epCeWriteLeg(v, { h: lg.h, c: Number(c), role: lg.role });
   }
-  var rr = _epResolve(v, A), p2p = _elHoldFinalParts(v, A, cut), p2 = p2p ? p2p.main : null;
+  var rr = _epResolve(v, A), p2p = _elHoldFinalParts0(v, A, cut), p2 = p2p ? p2p.main : null;
   var kind = (rr && rr.ce) ? (rr.top ? "top" : "up") : (rr && rr.epIdx >= 0 && rr.judge === "ok") ? "later" : "miss";
   if (kind === "miss") p2 = 0;
   if (p1 == null && p2 == null) return { skip: "noamt", k0: k0 };
@@ -4582,7 +4628,14 @@ function _elCeCand(s, alpha) {
 // 記録一覧の目印「確定待ち」＋α約定比の差額 2026-10-19（旧「5分確定」）。
 // 2026-11-04 ユーザー要望「一覧で確定待ちがわかるように（Eの欄・直上VAPと同じ所・『確定待ち』だけ）」:
 //   確定待ちを付けた記録（ceOn===true）は、直上VAPで約定したときも・この足でα値に届かず計算に効かないときも、必ず「確定待ち」の印を出す。
+// 2026-11-20 エントリー確度の印（確度A/B 50:50/C）を確定待ちの印の上に出す。
 function _elCeBadge(s, alpha, cutLine) {
+  var _x = _elCeBadge0(s, alpha, cutLine), _k = _kakudoBadge(s, "kd");
+  if (!_k) return _x;
+  if (!_x) return _k;
+  return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2 } }, _k, _x);
+}
+function _elCeBadge0(s, alpha, cutLine) {
   var ci = _elCeInfo(s, alpha, cutLine != null ? cutLine : 15);
   var _ceMark = (_epCeOn(s) && s.ceOn === true) ? React.createElement("span", { title: "確定待ちを付けた記録", style: { fontSize: 9, fontWeight: 800, color: "#0E7490", background: "#ECFEFF", border: "1px solid #67E8F9", borderRadius: 4, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 } }, "確定待ち") : null;
   if (!ci) return _ceMark;
@@ -6411,7 +6464,19 @@ function _elHold2TotPartsFixed(s, alpha, cutLine) {
 // 1段ぶんの規約は _elHold2TotPartsFixed（H1→H2）と同型:
 //   保有判断が ×/損切り済/未設定 → 1段下をそのまま（手じまい済み）／その足で損切り → **その足の終値で確定してそこで打ち切り**（2026-08-02n・旧＝1段下をそのまま＝×と同一視）
 //   △ → （）外=1段下・（）内=そこまで保有した差／○ → 完全○チェーンなら（）外を自分の損益に更新・チェーンが切れていれば（）内へ
+// エントリー確度B 2026-11-20: ①（確定待ちを外した損益）と②（確定待ちの損益・入らなければ0円）を割合で混ぜる。①が入らない記録（×見送り・未達）は②のまま。
 function _elHoldFinalParts(s, alpha, cutLine) {
+  if (s && !s._ceV && s.kakudo === "B" && s.ceOn === true && alpha != null && _epIsV2(s)) {
+    var _w = _bRatioOf(s) / 100;
+    var _c = _elHoldFinalParts0(s, alpha, cutLine), _b = _elHoldFinalParts0(Object.assign({}, s, { ceOn: undefined }), alpha, cutLine);
+    if (!_b || _b.main == null) return _c;
+    var _cm = (_c && _c.main != null) ? _c.main : 0, _br = _b.ref, _cr = _c ? _c.ref : null;
+    var _rf = (_br == null && _cr == null) ? null : Math.round(_w * (_br || 0) + (1 - _w) * (_cr || 0));
+    return { main: Math.round(_w * _b.main + (1 - _w) * _cm), ref: _rf ? _rf : null };
+  }
+  return _elHoldFinalParts0(s, alpha, cutLine);
+}
+function _elHoldFinalParts0(s, alpha, cutLine) {
   s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   var parts = _elHold2TotPartsFixed(s, alpha, cutLine);
   if (!s || !_epIsV2(s) || alpha == null) return parts;
@@ -9955,6 +10020,9 @@ function EntryRecordForm(_ref_erf) {
   var _useStateCE = useState(isEdit ? initSig.ceOn === true : false),
     fCeOn = _useStateCE[0], setFCeOn = _useStateCE[1];
   var _fCeActive = !isEdit || typeof initSig.ceOn === "boolean" || fCeOn;
+  var _useStateKD = useState(_kakudoOf(initSig)), fKakudo = _useStateKD[0], setFKakudo = _useStateKD[1];   // エントリー確度 A/B/C 2026-11-20（新規は未選択＝保存時に必須）
+  var _useStateBR = useState(initSig.bRatio != null ? _bRatioOf(initSig) : _bRatioDef(data)), fBRatio = _useStateBR[0], setFBRatio = _useStateBR[1];   // Bの①の割合%（初期値＝設定 custom.bRatioDef）
+  var _pickKakudo = function(k) { setFKakudo(k); setFCeOn(k !== "A"); };
   var _useStateCER = useState(Array.isArray(initSig.ceReasons) ? initSig.ceReasons.slice() : []),   // 確定待ちの理由（選択肢）2026-10-19
     fCeReasons = _useStateCER[0], setFCeReasons = _useStateCER[1];
   var _useStateCETF = useState(initSig.ceTf === "1" || initSig.ceTf === "5" || initSig.ceTf === "1,5" ? initSig.ceTf : ""), fCeTf = _useStateCETF[0], setFCeTf = _useStateCETF[1];   // 確定待ちの理由の分足（"1"/"5"・どちらか1つ）2026-10-31
@@ -10068,6 +10136,7 @@ function EntryRecordForm(_ref_erf) {
   var _fVSig = {
     stopHold: _fStopHoldOn ? true : undefined,   // 損切り接触でも次足期待度○なら持ち続ける（保存後の表と同じ判定に揃える）
     ceOn: _fCeActive ? !!fCeOn : undefined, ceIdx: (_fCeActive && _fK0 >= 0) ? _fK0 : null, time: fTime || "",   // 5分足確定足エントリー（保存値と同じ）
+    kakudo: fKakudo || undefined, bRatio: fKakudo === "B" ? fBRatio : undefined,   // エントリー確度（保存値と同じ＝Bは損益を混ぜる）2026-11-20
     ceTopPx: (fCeOn && fCeTopOn && fCeTopPx !== "" && !isNaN(Number(fCeTopPx))) ? Number(fCeTopPx) : null,   // 直上VAP（保存値と同じ）2026-10-28
     levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
     scheme: 3, alphaVal: _fAlpha, difficulty: fDifficulty || null,
@@ -10560,6 +10629,7 @@ function EntryRecordForm(_ref_erf) {
       //   選択肢に無い理由のときは、その場で「＋追加」して選べる（UI側）。
       if (_skipMemoReq && _fSkipOn && (fSkipReasons || []).filter(Boolean).length === 0) _vm.push("見送りの理由（選択肢）");
       if (!isEdit && fThru === true && (fThruReasons || []).filter(Boolean).length === 0) _vm.push("スルーの理由（選択肢）");   // 新規のスルーは必須 2026-10-17
+      if (!isEdit && !fKakudo && fThru !== true) _vm.push("エントリー確度（A/B/C）");   // 新規のみ必須（スルーは除く）2026-11-20
       if (!isEdit && fCeOn && (fCeReasons || []).filter(Boolean).length === 0) _vm.push("確定待ちの理由（選択肢）");
       if (!isEdit && fCeOn && !fCeTf) _vm.push("確定待ちの理由の分足");   // 新規のみ必須（理由と同じ・ユーザー決定）2026-10-31
       // 直上VAP 2026-10-28（ユーザー決定）: 確定待ちを付けたら新規・編集とも必須／計算に水準線値が要る／VAPより上の株価であること。
@@ -10645,6 +10715,7 @@ function EntryRecordForm(_ref_erf) {
       time: fTime || "",
       ceOn: _fCeActive ? !!fCeOn : undefined,   // 確定待ち（旧5分足確定足 2026-10-17→10-19改称・手動のみ）: boolean＝導入後の記録
       ceIdx: (_fCeActive && _fK0 >= 0) ? _fK0 : null,   // チェック欄が指していた足（α値に届いた最初の足・0=OS1）
+      kakudo: fKakudo || null, bRatio: fKakudo === "B" ? fBRatio : null,   // エントリー確度 A/B/C・Bの①の割合% 2026-11-20
       ceReasons: (fCeOn && (fCeReasons || []).filter(Boolean).length) ? (fCeReasons || []).filter(Boolean) : null,   // 確定待ちの理由（選択肢）2026-10-19
       ceTf: (fCeOn && fCeTf) ? fCeTf : null,   // 確定待ちの理由の分足 2026-10-31
       ceTopPx: (fCeOn && fCeTopOn && fCeTopPx !== "" && !isNaN(Number(fCeTopPx))) ? Number(fCeTopPx) : null,   // 直上VAP（株価）2026-10-28
@@ -12103,9 +12174,10 @@ function EntryRecordForm(_ref_erf) {
               ];
             }
             return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 0 4px 2px", fontSize: 11 } },
-              React.createElement("label", { title: "α値に届いた足（OS足）の確定を待つべき足なら付ける＝その足の終値でエントリーした扱いにする。終値がα以下ならその足では入らず、次の足からは通常どおり（α値で約定）。", style: { display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", fontWeight: 700, color: fCeOn ? "#0E7490" : "#475569" } },
-                React.createElement("input", { type: "checkbox", checked: !!fCeOn, onChange: function(e) { setFCeOn(e.target.checked); } }),
-                "確定待ちor直上VAP"),
+              React.createElement("span", { style: { fontWeight: 800, color: "#44403C" } }, "エントリー確度"),
+              React.createElement(_KakudoSeg, { value: fKakudo, onChange: _pickKakudo }),
+              !fKakudo ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (isEdit && fCeOn) ? "#0E7490" : "#DC2626" } }, (isEdit && fCeOn) ? "未設定（確定待ちオン）" : isEdit ? "未設定" : "必須") : null,
+              fCeOn ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0E7490" } }, fKakudo === "B" ? "②確定待ちor直上VAP" : "確定待ちor直上VAP") : null,
               // 直上VAP（株価）2026-10-28: チェックの右。確定を待つ間にこの株価まで上がったら、その値で即エントリーした扱い。
               fCeOn ? React.createElement("span", { role: "switch", "aria-checked": !!fCeTopOn, onClick: function() { setFCeTopOn(!fCeTopOn); }, title: "オン：確定を待つ間に直上VAPまで上がったら、その値でエントリーした扱い。オフ：終値エントリーだけ（直上VAPは使わない）。",
                 style: { display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", fontSize: 11, fontWeight: 700, color: fCeTopOn ? "#0E7490" : "#94A3B8" } },
@@ -12126,6 +12198,20 @@ function EntryRecordForm(_ref_erf) {
               _k0 >= 0 ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "OS" + (_k0 + 1) + (_tAt ? "＝" + _tAt : "")) : null,
               _ciNode);
           })(),
+          fKakudo === "B" ? (function() {
+            var _lv = parseFloat(fLevelPrice), _hasLv = fLevelPrice !== "" && !isNaN(_lv);
+            var _ep = _hasLv ? String(Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100) + "円" : "—";
+            var _tp = (fCeTopOn && fCeTopPx !== "") ? fCeTopPx + "円" : null;
+            var c = _KAKUDO_COL.B;
+            return React.createElement("div", { style: { margin: "0 0 6px 2px", padding: "5px 8px", border: "1px solid " + c.bd, background: "#FFF7ED", borderRadius: 7, display: "flex", flexDirection: "column", gap: 4, fontSize: 11 } },
+              React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+                React.createElement("span", { style: { fontWeight: 800, color: c.fg } }, "① 基準ライン（予定EP）"), React.createElement("span", { style: { fontWeight: 800, fontVariantNumeric: "tabular-nums" } }, _ep),
+                React.createElement("span", { style: { fontWeight: 800, color: c.fg, marginLeft: 6 } }, "② 確定待ちor直上VAP"), React.createElement("span", { style: { fontWeight: 800, fontVariantNumeric: "tabular-nums" } }, _tp ? "終値 or 直上VAP " + _tp : "終値")),
+              React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+                React.createElement("span", { style: { fontWeight: 700, color: "#78716C" } }, "割合"),
+                React.createElement(_BRatioCtl, { value: fBRatio, onChange: setFBRatio, def: _bRatioDef(data) }),
+                React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "想定損益＝①の損益×①の割合＋②の損益×②の割合（②が入らなければ0円）")));
+          })() : null,
           // 確定待ちの理由（選択肢）2026-10-19: チェックを付けたときだけ。新規は必須（スルー・要審議の理由と同じ規約）。
           // 2026-10-21 チェックした瞬間に出す（ユーザー指摘）＝旧条件の「OS高値がα値に届いている(k0>=0)」を外した。OSを入れる前に理由を選べる。
           fCeOn ? React.createElement("div", { style: { margin: "0 0 6px 2px" } },
