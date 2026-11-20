@@ -6609,11 +6609,12 @@ function _elBSplit(fn, s, alpha) {
 }
 // 内訳の表示。vertical＝表（〇円／＋／〇円／＝〇円）・横＝フォーム（〇円 ＋ 〇円 ＝ 〇円）。合計は太く大きく。
 function _elBSumNode(sp, vertical, big) {
+  var _f = function(v) { return v == null ? "—" : (v < 0 ? "−" : "") + Math.abs(v).toLocaleString() + "円"; };   // 2026-11-20o 利益に「+」を付けない（①+〇円が紛らわしい・ユーザー指示）
   var _y = function(v, lbl) { return React.createElement("span", { style: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
     React.createElement("span", { style: { fontSize: "0.8em", color: "#9A3412", fontWeight: 800, marginRight: 1 } }, lbl),
-    React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v))); };
+    React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _f(v))); };
   var _op = function(t) { return React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, t); };
-  var _tot = React.createElement("span", { style: { fontWeight: 900, fontSize: big ? "1.35em" : "1.2em", color: _elPnlColor(sp.t), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _elPnlFmt(sp.t));
+  var _tot = React.createElement("span", { style: { fontWeight: 900, fontSize: big ? "1.35em" : "1.2em", color: _elPnlColor(sp.t), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _f(sp.t));
   var _tt = "エントリー確度B（割合 " + _bRatioLbl(Math.round(sp.w * 100)) + "）：①基準ラインの分＋②確定待ちor直上VAPの分＝合計";
   if (vertical) return React.createElement("div", { title: _tt, style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.2 } },
     _y(sp.a, "①"), _op("＋"), _y(sp.b, "②"), React.createElement("span", { style: { whiteSpace: "nowrap", borderTop: "1px solid #FDBA74", paddingTop: 1, marginTop: 1 } }, _op("＝"), _tot));
