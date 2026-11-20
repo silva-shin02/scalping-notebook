@@ -8965,3 +8965,37 @@ function Pill(_ref8) {
     }
   }, label);
 }
+// ===== 再読み込みの直前の画面に戻す 2026-11-20（ユーザー要望「更新する直前の画面にちゃんと帰ってくる？」）=====
+// sessionStorage（このタブの間だけ残る）に、表示中の画面の状態（開いている画面・タブ・開いた記録の行・スクロール位置）を書き続け、
+// 「再読み込み」で開いたときだけ1回だけ戻す（_snSessTake で取り出したら消える）。ふつうに開いた・画面を移った時は戻さない。
+// 部品が閉じたら（unmount）その状態は消す＝再読み込みのときに開いていた画面の分だけが残る。入力途中のフォームは対象外。
+var _SN_SESS_KEY = "sn_sess_v1";
+var _snSessBoot = (function() {
+  try {
+    var nav = (performance.getEntriesByType && performance.getEntriesByType("navigation")[0]) || null;
+    var isReload = nav ? nav.type === "reload" : !!(performance.navigation && performance.navigation.type === 1);
+    var o = JSON.parse(sessionStorage.getItem(_SN_SESS_KEY) || "{}");
+    return (isReload && o && typeof o === "object") ? o : {};
+  } catch (e) { return {}; }
+})();
+var _snSessCur = {};
+try { if (window.history && "scrollRestoration" in window.history) window.history.scrollRestoration = "manual"; } catch (e) {}
+setTimeout(function() { _snSessBoot = {}; }, 90000);   // 戻しきれなかった分は90秒で捨てる（あとで開いた画面に古い状態が出ないように）
+function _snSessSet(k, v) {
+  try {
+    if (v === undefined) delete _snSessCur[k]; else _snSessCur[k] = v;
+    sessionStorage.setItem(_SN_SESS_KEY, JSON.stringify(_snSessCur));
+  } catch (e) {}
+}
+function _snSessTake(k, dflt) {
+  if (Object.prototype.hasOwnProperty.call(_snSessBoot, k)) { var v = _snSessBoot[k]; delete _snSessBoot[k]; return v; }
+  return dflt;
+}
+// useState の代わり（key＝画面ごとに一意）。再読み込みなら直前の値・それ以外は init。
+function _snUseSess(k, init) {
+  var st = useState(function() { var d = (typeof init === "function") ? init() : init; return _snSessTake(k, d); });
+  var v = st[0];
+  useEffect(function() { _snSessSet(k, v); }, [v]);
+  useEffect(function() { return function() { _snSessSet(k, undefined); }; }, []);
+  return st;
+}

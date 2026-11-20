@@ -2379,7 +2379,7 @@ function SettingsModal(_ref54) {
   var _nadInitDays = (function(){ var x = data && data.custom && data.custom.newsImgAutoDelete; return (x && typeof x.periodDays === "number" && x.periodDays > 0) ? x.periodDays : 7; })();
   var _saNdU = useState(_nadInitDays % 7 === 0 ? "week" : "day"), _stNdU = _saNdU[0], _setStNdU = _saNdU[1];
   var _saNdV = useState(_nadInitDays % 7 === 0 ? String(_nadInitDays / 7) : String(_nadInitDays)), _stNdV = _saNdV[0], _setStNdV = _saNdV[1];
-  var _saTab = useState("sync"), _stTab = _saTab[0], _setStTab = _saTab[1];
+  var _saTab = _snUseSess("set.tab", "sync"), _stTab = _saTab[0], _setStTab = _saTab[1];
   var _saTh = useState(_snGetTheme()), _thMode = _saTh[0], _setThMode = _saTh[1];
   var _stFmtMB = function(b) { return (b >= 1048576) ? (b / 1048576).toFixed(2) + " MB" : Math.round(b / 1024) + " KB"; };
   var _runStAudit = function() {
@@ -5794,17 +5794,17 @@ function DayView(_ref57) {
     tradeEditTarget = _useStateTETA[0],
     setTradeEditTarget = _useStateTETA[1];
   
-  var _useStatePTE = useState({}),
+  var _useStatePTE = _snUseSess("dv.pnlTblExp", {}),
     _useStatePTEA = _slicedToArray(_useStatePTE, 2),
     pnlTableExpandSet = _useStatePTEA[0],
     setPnlTableExpandSet = _useStatePTEA[1];
   
-  var _useStatePRS = useState({}),
+  var _useStatePRS = _snUseSess("dv.pnlRecExp", {}),
     _useStatePRSA = _slicedToArray(_useStatePRS, 2),
     pnlRecordExpandSet = _useStatePRSA[0],
     setPnlRecordExpandSet = _useStatePRSA[1];
   
-  var _useStateTTRE = useState({}),
+  var _useStateTTRE = _snUseSess("dv.trRecExp", {}),
     _useStateTTREA = _slicedToArray(_useStateTTRE, 2),
     trTableRecExp = _useStateTTREA[0],
     setTrTableRecExp = _useStateTTREA[1];

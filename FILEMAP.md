@@ -3322,3 +3322,4 @@ HomeEventFormModal, App
 - 2026-11-20 v703：明細表（6表）の時間欄から「スルー」の札を外す（エントリー欄に出るため）。不算入・データのみ・VAP未設定の札は残す。app-06 `_recTable` の day モードは残す。
 - 2026-11-20 v704：明細表の合計の行（app-02 日・週、app-04 本日/今週）：想定損益欄の「想定損益」の小見出しを撤去。OS・損益詳細の合計セルは中央ぞろえ・EP：/H１：/H２：の見出しを幅26pxにそろえてバッジを縦ぞろえ（週の明細は元から grid）。
 - 2026-11-20 v705：日の画面で再読み込みするとニュースのタブへ飛ぶ不具合を修正。app-08 の selTab 初期値を scalping_view_v1.tab（app-04 DayView が開いているタブを保存）優先に。
+- 2026-11-20 v706：再読み込みの直前の画面に戻す（ユーザー要望）。app-01 末尾 `_snUseSess(key, init)`（useState の代わり・sessionStorage "sn_sess_v1" に書き続け、navigation が reload のときだけ1回戻す・unmount で消す・90秒で捨てる）/`_snSessSet`/`_snSessTake`。対象：app-08 の画面（設定 app.settings・記録帳 app.entrylog・銘柄履歴/ニュース一覧/メモ一覧）とスクロール位置（"__scrollY"・読み込み後に最大8秒かけて戻す・触ったらやめる・scrollRestoration=manual）、app-06 記録帳のタブ類 elv.*（view/stockFil/expKey/gran/ovExp/mwGran/mwSel/sumMode/listStk/alphaSub/sigSub/rnSub/ukiSub/selSig/ceSub）、app-04 設定のタブ set.tab・本日/今週の開いた行 dv.*、app-02 日の記録・週の明細の開いた行 cs.*。入力途中のフォームは戻さない。
