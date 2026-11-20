@@ -6699,10 +6699,14 @@ function _elBSumNode(sp, vertical, big, badge, fs) {
   var _tot = React.createElement("span", { style: { fontWeight: 900, fontSize: big ? "1.35em" : (vertical === "hissan" ? "1em" : "1.2em"), color: _elPnlColor(sp.t), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _f(sp.t));
   var _tt = "エントリー確度B（割合 " + _bRatioLbl(Math.round(sp.w * 100)) + "）：①基準ラインの分＋②確定待ちor直上VAPの分＝合計";
   if (vertical === "hissan") {   // 2026-11-20q 記録フォーム：ひっ算の形（①／＋②／線／合計）ユーザー指示
-    var _r = function(op, node, extra) { return React.createElement("div", { style: Object.assign({ display: "flex", justifyContent: "flex-end", alignItems: "baseline", gap: 6, whiteSpace: "nowrap" }, extra || {}) }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, minWidth: 12 } }, op), node); };
-    return React.createElement("div", { title: _tt, style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", lineHeight: 1.35, fontSize: fs || 14 } },
-      _r("", _y(sp.a, "①")), _r("＋", _y(sp.b, "②")),
-      _r("", React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } }, badge || null, _tot), { borderTop: "2px solid #57534E", paddingTop: 2, marginTop: 2 }));
+    // 2026-11-20z6 ①②の印は左の列・金額は右の列でそろえる（ユーザー指示「①②はきれいに縦並び・金額が無くても ー円」）
+    var _opS = { color: "#9CA3AF", fontWeight: 700, minWidth: 12 };
+    var _lbS = { fontSize: "0.8em", color: "#9A3412", fontWeight: 800 };
+    var _amt = function(v) { return React.createElement("span", { style: { fontWeight: 700, color: v == null ? "#9CA3AF" : _elPnlColor(v), textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, v == null ? "ー円" : _f(v)); };
+    var _g = function(op, lbl, v) { return [React.createElement("span", { key: "o" + lbl, style: _opS }, op), React.createElement("span", { key: "l" + lbl, style: _lbS }, lbl), React.createElement("span", { key: "a" + lbl, style: { textAlign: "right" } }, _amt(v))]; };
+    return React.createElement("div", { title: _tt, style: { display: "inline-grid", gridTemplateColumns: "auto auto auto", columnGap: 6, alignItems: "baseline", lineHeight: 1.35, fontSize: fs || 14 } },
+      _g("", "①", sp.a), _g("＋", "②", sp.b),
+      React.createElement("div", { key: "tot", style: { gridColumn: "1 / span 3", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 3, whiteSpace: "nowrap", borderTop: "2px solid #57534E", paddingTop: 2, marginTop: 2 } }, badge || null, _tot));
   }
   if (vertical) return React.createElement("div", { title: _tt, style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.2 } },
     _y(sp.a, "①"), _op("＋"), _y(sp.b, "②"), React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", borderTop: "1px solid #FDBA74", paddingTop: 1, marginTop: 1 } }, badge || null, _op("＝"), _tot));   // グレードは合計の行に 2026-11-20p
