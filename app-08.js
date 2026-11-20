@@ -234,7 +234,7 @@ function App() {
     sel = _useState158[0],
     setSel = _useState158[1],
     _useState159 = useState(function(){
-      try { var _v=JSON.parse(localStorage.getItem("scalping_view_v1")||"{}"); return _v.selTab||"news"; } catch(e){ return "news"; }
+      try { var _v=JSON.parse(localStorage.getItem("scalping_view_v1")||"{}"); return (_v.tab && _v.tab !== "indicators") ? _v.tab : (_v.selTab||"news"); } catch(e){ return "news"; }   // 2026-11-20 再読み込みは日の画面で最後に開いていたタブ（DayView が保存する tab）を優先＝旧は selTab（日付移動で news）が勝ってニュースへ飛んでいた
     }),
     _useState160 = _slicedToArray(_useState159, 2),
     selTab = _useState160[0],
