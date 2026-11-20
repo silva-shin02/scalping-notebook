@@ -12232,7 +12232,7 @@ function EntryRecordForm(_ref_erf) {
                 null
               ];
             }
-            var _topFrag = React.createElement(React.Fragment, null,
+            var _topP = [   // 2026-11-20k [0]直上VAPオンオフ [1]直上VAP入力 [2]OS時刻 [3]最終EP②・基準ライン+〇円
               fCeOn ? React.createElement("span", { role: "switch", "aria-checked": !!fCeTopOn, onClick: function() { setFCeTopOn(!fCeTopOn); }, title: "オン：確定を待つ間に直上VAPまで上がったら、その値でエントリーした扱い。オフ：終値エントリーだけ（直上VAPは使わない）。",
                 style: { display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", fontSize: 11, fontWeight: 700, color: fCeTopOn ? "#0E7490" : "#94A3B8" } },
                 React.createElement("span", { style: { position: "relative", display: "inline-block", width: 34, height: 18, borderRadius: 9, background: fCeTopOn ? "#0E7490" : "#CBD5E1", transition: "background .15s", flexShrink: 0 } },
@@ -12250,7 +12250,7 @@ function EntryRecordForm(_ref_erf) {
                   "＝EP基準ライン" + (_fCeTopRel >= 0 ? "+" : "") + _fCeTopRel + (_fAlpha != null && !(_fCeTopRel > _fAlpha) ? "（VAP以下）" : ""))
                   : (fCeTopPx !== "" && (fLevelPrice === "" || fLevelPrice == null)) ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B91C1C" } }, "EP基準ラインが必要") : null) : null,
               _k0 >= 0 ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "OS" + (_k0 + 1) + (_tAt ? "＝" + _tAt : "")) : null,
-              _ciNode);
+              _ciNode];
             var c = _KAKUDO_COL.B;
             // 2026-11-20d EP基準ライン（旧 水準線値）と予定EPは確度を選んでから出す（既存記録を開いたときは出す）。VAP補正・RN補正・VAP分析は共通＝上、VAP値と→予定EPはEP①（A・Cは単独の行）。
             var _kdOpen = !!fKakudo || isEdit;
@@ -12268,8 +12268,13 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("span", { style: { fontSize: 9, color: "#93C5FD", fontWeight: 700 } }, "自動")
             ));
             var _common = _vp ? React.createElement("div", { style: _rowS }, _vp.adj, _vp.rn, _vp.ana) : null;   // 2026-11-20f VAP分析は補正の右に横並び
-            var _vapRow = _vp ? React.createElement("div", { style: _rowS }, _vp.vap, _vp.ep) : null;
-            var _ceRow = function(num) { return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, React.createElement("span", { style: { fontWeight: 800, color: "#0E7490" } }, num ? "EP②（確定待ちor直上VAP）" : "確定待ちor直上VAP"), _topFrag); };
+            var _vapRow = _vp ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 5 } }, _vp.vap, _vp.ep) : null;   // 2026-11-20k 最終EPはVAP値の下
+            var _ceRow = function(num) {   // 2026-11-20k 1段目＝名前＋直上VAPオンオフ／2段目＝直上VAP入力（＋OS時刻）／3段目＝最終EP②・基準ライン+〇円
+              var _r = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
+              return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5 } },
+                React.createElement("div", { style: _r }, React.createElement("span", { style: { fontWeight: 800, color: "#0E7490" } }, num ? "EP②（確定待ちor直上VAP）" : "確定待ちor直上VAP"), _topP[0]),
+                (_topP[1] || _topP[2]) ? React.createElement("div", { style: _r }, _topP[1], _topP[2]) : null,
+                _topP[3] ? React.createElement("div", { style: _r }, _topP[3]) : null); };
             var _boxS = function(bd, bg) { return { padding: "6px 8px", border: "1px solid " + bd, background: bg, borderRadius: 7, display: "flex", flexDirection: "column", gap: 6 }; };
             // 2026-11-20i 確定待ちの理由はEP②（Cは確定待ちの箱）の中へ・名前は「Bにした理由」「Cにした理由」（ユーザー指示）
           var _reasonEl = fCeOn ? React.createElement("div", { style: { padding: "5px 8px", border: "1px solid #A5F3FC", background: "#F0FDFF", borderRadius: 7, alignSelf: "stretch", boxSizing: "border-box" } },
