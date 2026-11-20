@@ -4546,7 +4546,7 @@ function _kakudoOf(s) { var k = s && s.kakudo; return (k === "A" || k === "B" ||
 function _bRatioClamp(v) { v = Number(v); if (isNaN(v)) return 50; return Math.max(0, Math.min(100, Math.round(v / 10) * 10)); }
 function _bRatioDef(data) { var v = data && data.custom ? data.custom.bRatioDef : null; return (v == null || v === "") ? 50 : _bRatioClamp(v); }
 function _bRatioOf(s) { return (s && s.bRatio != null && s.bRatio !== "") ? _bRatioClamp(s.bRatio) : 50; }
-function _bRatioLbl(w) { return w + ":" + (100 - w); }
+function _bRatioLbl(w) { return (w / 10) + ":" + ((100 - w) / 10); }   // 表示は10を基準に「3:7」（保存は①の%のまま）2026-11-20g
 // A/B/C の3択ボタン。props: value, onChange(k), small, title
 function _KakudoSeg(p) {
   var sm = !!p.small;
@@ -4566,7 +4566,7 @@ function _BRatioCtl(p) {
       style: { padding: "0 6px", fontSize: sm ? 10 : 11, fontWeight: 800, lineHeight: 1.5, border: "1px solid " + c.bd, background: "#fff", color: c.fg, borderRadius: 4, cursor: "pointer" } }, lbl);
   };
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
-    React.createElement("span", { style: { fontSize: sm ? 10 : 11, fontWeight: 800, color: c.fg, fontVariantNumeric: "tabular-nums" } }, "①" + w + "%：②" + (100 - w) + "%"),
+    React.createElement("span", { style: { fontSize: sm ? 10 : 11, fontWeight: 800, color: c.fg, fontVariantNumeric: "tabular-nums" } }, (w / 10) + "：" + ((100 - w) / 10)),
     React.createElement("span", { style: { display: "inline-flex", width: sm ? 50 : 70, height: 6, borderRadius: 3, overflow: "hidden", background: "#E7E5E4" } },
       React.createElement("span", { style: { width: w + "%", background: "#FDBA74" } }), React.createElement("span", { style: { width: (100 - w) + "%", background: c.fg } })),
     btn("−", -10, "m"), btn("＋", 10, "p"),
@@ -12170,17 +12170,16 @@ function EntryRecordForm(_ref_erf) {
               var _epPx = _ef.top ? _ef.px : _ef.epConf, _epLbl = _ef.top ? "直上VAP" : "終値";   // 直上VAPに届いたら直上VAPが約定値 2026-10-28
               _ciNode = [
                 React.createElement("span", { key: "px", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#ECFEFF", border: "1px solid #67E8F9" } },
-                  React.createElement("span", { style: { color: "#0E7490", fontWeight: 700 } }, "実EP（" + _epLbl + "）"),
+                  React.createElement("span", { title: _epLbl + "で約定", style: { color: "#0E7490", fontWeight: 700 } }, fKakudo === "B" ? "最終EP②" : "最終EP"),
                   React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#155E75", fontVariantNumeric: "tabular-nums" } }, _pxTxt(_epPx))),
-                _dv != null ? React.createElement("span", { key: "df", title: "想定損益の差（" + _epLbl + "エントリー − α値で約定した場合）", style: { fontWeight: 700, color: _dv > 0 ? "#C0392B" : _dv < 0 ? "#1E8449" : "#888" } },
-                  "α約定比 " + (_dv > 0 ? "+" : _dv < 0 ? "−" : "±") + Math.abs(_dv).toLocaleString() + "円") : null
+                (_fAlpha != null && !isNaN(_fAlpha) && _epPx != null) ? React.createElement("span", { key: "df", title: "最終EP" + (fKakudo === "B" ? "①" : "") + "（EP基準ライン＋VAP）から何円上でエントリーになったか（損益ではありません）", style: { fontWeight: 700, color: "#0E7490" } },
+                  (function() { var _d = Math.round((_epPx - _fAlpha) * 100) / 100; return "基準ライン" + (_d >= 0 ? "+" : "−") + Math.abs(_d) + "円"; })()) : null
               ];
             } else if (_ef.skipIdx != null && _ef.skipIdx >= 0) {
               var _ci2 = _elCeInfo(_fVSig, _fAlpha, _fCutLine);
               _ciNode = [
                 React.createElement("span", { key: "sk", style: { color: "#B45309", fontWeight: 700 } }, "OS" + (_ef.skipIdx + 1) + ((fCeTopOn && fCeTopPx !== "") ? "で直上VAPに届かず、終値もα以下" : "の終値がα以下") + " → この足では入らず（次の足からα値で約定）"),
-                (_ci2 && _ci2.diff != null) ? React.createElement("span", { key: "df", style: { fontWeight: 700, color: _ci2.diff > 0 ? "#C0392B" : _ci2.diff < 0 ? "#1E8449" : "#888" } },
-                  "α約定比 " + (_ci2.diff > 0 ? "+" : _ci2.diff < 0 ? "−" : "±") + Math.abs(_ci2.diff).toLocaleString() + "円") : null
+                null
               ];
             }
             var _topFrag = React.createElement(React.Fragment, null,
