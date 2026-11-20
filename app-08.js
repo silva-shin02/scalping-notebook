@@ -1113,7 +1113,7 @@ function App() {
     ? (_snYen(_mAgg.real) + "（1000株換算・" + _mAgg.realCnt + "件 / 実額 " + _snYen(_mAgg.realRaw) + "）")
     : "未記録";
   var _homeChips = [
-    { la: "損益", v: _snYen(_mAgg.final), c: _snPnlCol(_mAgg.final),
+    { la: "損益（1000株換算）", v: _snYen(_mAgg.final), c: _snPnlCol(_mAgg.final),
       big: true,
       sub: _mPerDay != null ? ("1日 " + _snYen(_mPerDay)) : null,
       subGrade: _mPerDay != null ? _profitGradeFromPnl(_mPerDay, _mAgg.finalCnt) : null,
@@ -1125,7 +1125,7 @@ function App() {
         + (_mPerDay != null ? ("\n1日あたり " + _snYen(_mPerDay) + " ＝ 想定損益 ÷ 経過営業日 " + _mAgg.bizDone + "日") : "") },
     // 指値同値チップ 2026-10-04（ユーザー指定「指値同値記録が何件あったか・何円になっていたか」）。EPとOS最大がちょうど同値＝未約定扱いで損益に入らない記録の件数と、
     //   「もし約定していたら」の想定損益。該当0件の月は出さない。バッジは損益チップと同じ通常スケール・1日あたり（÷bizDone）。
-    _mAgg.eqCnt > 0 ? { la: "指値同値", big: true, v: _mAgg.eqPnlCnt > 0 ? _snYen(_mAgg.eqPnl) : "—", c: _mAgg.eqPnlCnt > 0 ? _snPnlCol(_mAgg.eqPnl) : "#bbb",
+    _mAgg.eqCnt > 0 ? { la: "指値同値（1000株換算）", big: true, v: _mAgg.eqPnlCnt > 0 ? _snYen(_mAgg.eqPnl) : "—", c: _mAgg.eqPnlCnt > 0 ? _snPnlCol(_mAgg.eqPnl) : "#bbb",
       sub: _mAgg.eqPnlCnt > 0 ? ("合計 " + _snYen(_mEqTot)) : null,
       sub2: _mEqTotPerDay != null ? ("1日 " + _snYen(_mEqTotPerDay)) : null,
       sub2Grade: _mEqTotPerDay != null ? _profitGradeFromPnl(_mEqTotPerDay, _mAgg.finalCnt + _mAgg.eqPnlCnt) : null,
