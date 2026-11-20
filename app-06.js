@@ -283,7 +283,7 @@ function _elOsChainSection(_ref_osc) {
     var bestWin = null;
     agg.rows.forEach(function(ri) { var b = agg.bands[ri], t = b.ok + b.ng; if (t && (bestWin == null || b.ok / t > bestWin.v)) bestWin = { v: b.ok / t, ri: ri }; });
     if (bestWin) items.push(React.createElement("span", null, "勝率が最も高いのはOS" + curNo + "＝", _elInsightEmV2(bLab(bestWin.ri), bCol(bestWin.ri)), "（", _elInsightEmV2(Math.round(bestWin.v * 100) + "%"), "）。"));
-    insight = _elInsightBoxV2(items, { note: "OS" + curNo + "＝" + (curNo <= 3 ? curNo + "本目" : curNo === 4 ? "EP後H1" : "EP後H2") + "の高値（水準線比）。E到達率＝3本以内にα到達（×見送り含む）。E後の勝率＝取引（E成立）後にEP損益が利益だった割合。EP損益/H1/見切り率/損切り率は取引（E成立）分のみ。" });
+    insight = _elInsightBoxV2(items, { note: "OS" + curNo + "＝" + (curNo <= 3 ? curNo + "本目" : curNo === 4 ? "EP後H1" : "EP後H2") + "の高値（EP基準ライン比）。E到達率＝3本以内にα到達（×見送り含む）。E後の勝率＝取引（E成立）後にEP損益が利益だった割合。EP損益/H1/見切り率/損切り率は取引（E成立）分のみ。" });
   }
 
   var _bw = gran === "each" ? "値" : "帯";
@@ -811,7 +811,7 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
     var o930 = _elMedian(c930.osv), oLate = _elMedian(late.osv);
     if (o930 != null && oLate != null) items.push(React.createElement("span", null, "OS中央値は 〜9:30=", _elInsightEmV2(o930 + "円"), "・9:31以降=", _elInsightEmV2(oLate + "円"), o930 > oLate ? "＝早い時間ほどOSが深い（強い初動）。" : "。"));
   }
-  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "OS値=寄り足の高値（水準線比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切りラインに触れ、その足の終値で撤退した結果が損だったもの（2026-07-27 終値撤退方式・_elIsStopFinal。触れても終値が利益側なら損切りに数えない）。EP/H1損益はE成立（エントリーできた）分のみの平均＋合計。未達（α未到達）・×見送りは母数に含めない。採用α基準。" }) : null);
+  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "OS値=寄り足の高値（EP基準ライン比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切りラインに触れ、その足の終値で撤退した結果が損だったもの（2026-07-27 終値撤退方式・_elIsStopFinal。触れても終値が利益側なら損切りに数えない）。EP/H1損益はE成立（エントリーできた）分のみの平均＋合計。未達（α未到達）・×見送りは母数に含めない。採用α基準。" }) : null);
 }
 // シグナル別の成功度ランキング: 「損失が出なかった割合(損失なし率)」と勝率で並べ替え＝どのシグナルが成功しやすいか。
 // 複数タグの記録は各タグに算入。損失=損切り or EP損益<0（未達/×見送りは取引なし=損失なし扱い）。採用α基準・aiOf(r)→{alpha,cutLine}。
@@ -1074,12 +1074,12 @@ function _ElLineSnapBoard(_p) {
       React.createElement("select", { value: sig, onChange: function(e) { setSig(e.target.value); setSel(null); }, style: { marginLeft: 8, fontSize: 11, padding: "3px 6px", border: "1px solid #ddd", borderRadius: 6 } },
         [React.createElement("option", { key: "", value: "" }, "全シグナル（" + withSnap.length + "件）")].concat(Object.keys(sigs).sort(function(a, b) { return sigs[b] - sigs[a]; }).map(function(t) { return React.createElement("option", { key: t, value: t }, stripCat(t) + "（" + sigs[t] + "件）"); })))),
     !pool.length ? React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "並びが記録された記録がまだありません（記録フォームで CA のチャートが読めた記録を保存すると入ります）") : React.createElement(React.Fragment, null,
-      _tbl("above", "① EPライン（水準線）の上にある指標線の本数（EMA4本＋VWAP）", aboveKeys),
+      _tbl("above", "① EP基準ラインの上にある指標線の本数（EMA4本＋VWAP）", aboveKeys),
       _tbl("po", "② EMAのパーフェクトオーダー", poKeys),
       _tbl("up", "③ EPラインのすぐ上の線", byCnt("up")),
       _tbl("dn", "③ EPラインのすぐ下の線", byCnt("dn")),
       _tbl("pat", "④ 並びの上位パターン（EMA4本＋VWAP＋EP・件数の多い順に10まで）", byCnt("pat").slice(0, 10))),
-    React.createElement("div", { style: { fontSize: 9.5, color: "#9A9186", marginTop: 6, lineHeight: 1.5 } }, "並び＝シグナルの1つ前の確定足での各線の値（CA の足データ・EMA は前日から連続）。EPライン＝水準線。損失なし率・E後の勝率は🎯シグナル別 成功度と同じ判定。行を押すと記録の一覧が開きます。"));
+    React.createElement("div", { style: { fontSize: 9.5, color: "#9A9186", marginTop: 6, lineHeight: 1.5 } }, "並び＝シグナルの1つ前の確定足での各線の値（CA の足データ・EMA は前日から連続）。EPライン＝EP基準ライン。損失なし率・E後の勝率は🎯シグナル別 成功度と同じ判定。行を押すと記録の一覧が開きます。"));
 }
 // 期待度×（×見送り）の分析: ×宣言後にα到達したが取引を見送った記録について、もし取引していたらのEP/H1損益と、
 // 見送り判断の精度（取引EPがマイナス=損失回避=正解／プラス=機会損失=逃した利益）をシグナル別に集計。
@@ -1722,7 +1722,7 @@ function _ElRnAdjBoard(props) {
   var head = React.createElement("div", { style: { marginBottom: 8 } },
     React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "🔢 RN補正 ― EPがちょうどRNのとき、何円足すとよいか"),
     React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
-      "EP＝水準線＋採用VAP（読み値＋VAP補正。RN補正は足す前）が、ちょうど …50円＝中RN／…00円＝大RN／…000円＝特大RN の記録を区分ごとに集め、EPを −5〜+5円 動かして判定し直した成績です。" +
+      "EP＝EP基準ライン＋採用VAP（読み値＋VAP補正。RN補正は足す前）が、ちょうど …50円＝中RN／…00円＝大RN／…000円＝特大RN の記録を区分ごとに集め、EPを −5〜+5円 動かして判定し直した成績です。" +
       "★＝合計損益が最大の補正（想定損益が確定した件数が10件以上の行のみ・10件未満は「参考」）。保存した値は、新規の記録フォームでEPがRNのとき自動で足され、EPナビにも補正後のEPが出ます（過去の記録は変わりません）。母数＝VAP値タブと同じ（期間は上の選択どおり）。"));
   var rowsOf = {};
   var sumRows = _RN_ADJ_TIERS.map(function(t) {
@@ -1775,7 +1775,7 @@ function _ElRnAdjBoard(props) {
     React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#1A1714", margin: "4px 0 6px" } }, "📋 " + _rnTierLabel(sel) + "の記録"),
     props.recTable(g, extra)) : null;
   var total = groups.mid.length + groups.big.length + groups.top.length;
-  if (!total) return React.createElement("div", null, head, summary, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, "EPがちょうどRNの記録がありません（水準線値とVAP値が入った記録が対象です）"));
+  if (!total) return React.createElement("div", null, head, summary, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, "EPがちょうどRNの記録がありません（EP基準ラインとVAP値が入った記録が対象です）"));
   return React.createElement("div", null, head, summary, detail, list);
 }
 // ===== ⏳ 5分確定待ち タブ 2026-11-12（💰損益タブ・全銘柄）2026-11-12b 「全部確定待ち」から作り替え＝エントリー足が5分確定足の記録だけ =====
@@ -2790,7 +2790,7 @@ function _vapBoardV2(recs, aiOf, onEdit) {
   // 「記録ごとの余地」は2026-10-19に撤去（ユーザー指示「不要」）。
   return React.createElement("div", null,
     React.createElement("div", { style: Object.assign({ background: "#F5F3FF", border: "1px solid #DDD6FE", color: "#5B21B6", lineHeight: 1.5 }, box) },
-      "EP\uff1d\u6c34\u6e96\u7dda\uff0bVAP\u5024\u3002\u5404\u8a18\u9332\u306eEP\u3092VAP\u304b\u3089\u300c\u8ffd\u52a0\u300d\u5186\u3060\u3051\u4e0a\u3052\uff08\u30de\u30a4\u30ca\u30b9\u306f\u4e0b\u3052\uff09\u3066\u6307\u3057\u76f4\u3057\u305f\u3068\u3057\u3066\u518d\u5224\u5b9a\u3002\u540c\u5024\uff08OS\u6700\u5927\uff1dEP\uff09\u306f\u672a\u7d04\u5b9a\uff08\u4e0a\u629c\u3051\u305f\u3068\u304d\u3060\u3051\u7d04\u5b9a\uff09\u3002\u2605\u306f\u5408\u8a08\u640d\u76ca\u6700\u5927\uff08\u60f3\u5b9a\u640d\u76ca\u78ba\u5b9a" + _VAP_STAR_MIN + "\u4ef6\u4ee5\u4e0a\u306e\u884c\u306e\u307f\uff09\u3002\u6bcd\u6570 " + pool.length + "\u4ef6\u3002"),
+      "EP\uff1dEP\u57fa\u6e96\u30e9\u30a4\u30f3\uff0bVAP\u5024\u3002\u5404\u8a18\u9332\u306eEP\u3092VAP\u304b\u3089\u300c\u8ffd\u52a0\u300d\u5186\u3060\u3051\u4e0a\u3052\uff08\u30de\u30a4\u30ca\u30b9\u306f\u4e0b\u3052\uff09\u3066\u6307\u3057\u76f4\u3057\u305f\u3068\u3057\u3066\u518d\u5224\u5b9a\u3002\u540c\u5024\uff08OS\u6700\u5927\uff1dEP\uff09\u306f\u672a\u7d04\u5b9a\uff08\u4e0a\u629c\u3051\u305f\u3068\u304d\u3060\u3051\u7d04\u5b9a\uff09\u3002\u2605\u306f\u5408\u8a08\u640d\u76ca\u6700\u5927\uff08\u60f3\u5b9a\u640d\u76ca\u78ba\u5b9a" + _VAP_STAR_MIN + "\u4ef6\u4ee5\u4e0a\u306e\u884c\u306e\u307f\uff09\u3002\u6bcd\u6570 " + pool.length + "\u4ef6\u3002"),
     table);
 }
 // ===== VAP分析ボード（シグナル別）2026-10-04 =====
@@ -2975,7 +2975,7 @@ function _elRnBoardV2(recs, aiOf, holiSet, kind) {   // kind 2026-09-02: "all"�
   // ---- ④ 中RN／大RN 別（種別トグルで絞る前の全RN〇が母数＝常に両方を並べて比べられる）2026-09-02 ----
   var _byKind = { "50": [], "00": [], "na": [] };
   _allPool.forEach(function(r) { var k = _kindOf(r); (_byKind[k] || _byKind.na).push(r); });
-  var _kindRows = [["50", _elRnKindLabel("50") + "（…50へ寄せた）"], ["00", _elRnKindLabel("00") + "（…00＝100・1000台へ寄せた）"], ["na", "種別不明（水準線値なし）"]].map(function(_kk) {
+  var _kindRows = [["50", _elRnKindLabel("50") + "（…50へ寄せた）"], ["00", _elRnKindLabel("00") + "（…00＝100・1000台へ寄せた）"], ["na", "種別不明（EP基準ラインなし）"]].map(function(_kk) {
     var g = _byKind[_kk[0]], _ki = _elRnKindInfo(_kk[0]);
     if (!g.length) return null;
     var e = _elH2EvalByFn(g, aiOf, _aReal, true), ec = _elH2EvalByFn(g, aiOf, _aNone, true);
@@ -3017,7 +3017,7 @@ function _elRnBoardV2(recs, aiOf, holiSet, kind) {   // kind 2026-09-02: "all"�
       React.createElement("tbody", null, valRows))),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "12px 0 4px" } }, "④ 中RN／大RN 別 〜どちらのキリ番が効いているか〜"),
     React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginBottom: 4, lineHeight: 1.5 } },
-      "この表だけは種別トグルで絞らず、RN〇の全記録（" + _allPool.length + "件）を中RN（…50）と大RN（…00＝100・1000台）に分けて並べる＝2つを直接比べるための表。種別はRN加算“前”EPの下二桁から都度導出（下二桁1〜49＝中／51〜99＝大）。水準線値が無い記録は種別不明。"),
+      "この表だけは種別トグルで絞らず、RN〇の全記録（" + _allPool.length + "件）を中RN（…50）と大RN（…00＝100・1000台）に分けて並べる＝2つを直接比べるための表。種別はRN加算“前”EPの下二桁から都度導出（下二桁1〜49＝中／51〜99＝大）。EP基準ラインが無い記録は種別不明。"),
     _kindRows.length
       ? React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
           React.createElement("thead", null, React.createElement("tr", null, ["種別", "件数", "平均RN値", "到達率", "E成立", "Σ現実", "ΣRN無しなら", "寄与（差）", "平均"].map(function(h, i) { return _th2(h, i); }))),
@@ -3082,7 +3082,7 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier, save) {   // save 2026
   if (!pool.length) return React.createElement("div", { style: { color: "#94A3B8", textAlign: "center", padding: "24px 12px", fontSize: 12, border: "1px dashed #e0ddd6", borderRadius: 10 } },
     offTier > 0
       ? React.createElement("span", null, "この種別に該当する記録がありません（" + _tierName(_tier) + "・もう一方の種別に" + offTier + "件）。上の種別トグルを「全体」に戻すと表示されます")
-      : React.createElement("span", null, "母数になる記録がまだありません（水準線値入りが必要・未入力" + noLv + "件" + (onRn ? "／すでに…50・…00ちょうど" + onRn + "件" : "") + "）。記録フォームのOS見出し右／EPナビの分足欄右で水準線値を入れると貯まります"));
+      : React.createElement("span", null, "母数になる記録がまだありません（EP基準ライン入りが必要・未入力" + noLv + "件" + (onRn ? "／すでに…50・…00ちょうど" + onRn + "件" : "") + "）。記録フォームのOS見出し右／EPナビの分足欄右でEP基準ラインを入れると貯まります"));
   // ---- 閾値Tのα関数。T=0＝またぎ無し（素のα）＝_elRnBoardV2の「RN無し」行と同じ式 ----
   var _alphaAtT = function(T) {
     return function(r) {
@@ -3170,8 +3170,8 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier, save) {   // save 2026
   var _tierLbl = _tierName(_tier);
   return React.createElement("div", null,
     React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginBottom: 6, lineHeight: 1.5 } },
-      "母数＝水準線値入りの記録 " + pool.length + "件（RN〇 " + rnYesN + "／RN× " + (pool.length - rnYesN) + "・" + _tierLbl + "）。RN加算“前”のEP（水準線＋基底α＋浮き足加算）の下二桁から直近のキリ番までの距離を測り、距離≤T円なら〇にするルールで採用αを組み直して再判定（EP到達〜想定損益[手じまい・○途切れ]まで推奨α系と同一基準）。",
-      React.createElement("span", { style: { color: "#B08968" } }, "除外＝水準線未入力 " + noLv + "件／すでに…50・…00ちょうど " + onRn + "件" + (offTier ? "／もう一方の種別 " + offTier + "件" : "") + (badPre ? "／採用αよりRN加算が大きい不整合 " + badPre + "件" : "") + "。"),
+      "母数＝EP基準ライン入りの記録 " + pool.length + "件（RN〇 " + rnYesN + "／RN× " + (pool.length - rnYesN) + "・" + _tierLbl + "）。RN加算“前”のEP（EP基準ライン＋基底α＋浮き足加算）の下二桁から直近のキリ番までの距離を測り、距離≤T円なら〇にするルールで採用αを組み直して再判定（EP到達〜想定損益[手じまい・○途切れ]まで推奨α系と同一基準）。",
+      React.createElement("span", { style: { color: "#B08968" } }, "除外＝EP基準ライン未入力 " + noLv + "件／すでに…50・…00ちょうど " + onRn + "件" + (offTier ? "／もう一方の種別 " + offTier + "件" : "") + (badPre ? "／採用αよりRN加算が大きい不整合 " + badPre + "件" : "") + "。"),
       React.createElement("span", { style: { color: "#0F766E", fontWeight: 700 } }, "現行の閾値＝中RN " + _elRnTMidCur + "円／大RN " + _elRnTBigCur + "円" + (_curT == null ? "（値が違うので合算表示では「現行」行を示せません。種別トグルで中RN／大RNを選ぶと出ます）" : "") + "。")),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "2px 0 4px" } }, "① 閾値スイープ 〜何円手前までなら待つ価値があるのか〜"),
     React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
@@ -5722,7 +5722,7 @@ function _elStopMaeSectionV2(entered, aiOf) {
     React.createElement("div", { style: { marginTop: 10 } },
       React.createElement(_SNCollapse, { title: "📋 個別（逆行の深い順・" + rows.length + "件）", render: function() { return React.createElement("div", { style: { maxHeight: 320, overflowY: "auto" } }, detTbl); } })),
     React.createElement("div", { style: { marginTop: 8 } },
-      _elInsightBoxV2(items, { note: "対象＝E成立(judge ok)のEP起算v2記録のうち、採用α・採用損切り値で**損切りラインに触れずに済んだ**もの（" + rows.length + "件／ライン接触 " + stopN + "件）。逆行＝EP足〜手じまい足の高値の最大 − α（水準線比の円・100株換算ではない・**損益ではないので深いほど赤**）。手じまい足＝次足期待度×/未設定で降りた足＝記録表の「想定損益・詳細」「保有」列と同基準。※上の「損切り回数」カードとこの「ライン接触 " + stopN + "件」は基準が違う（カードは終値撤退方式で**損で撤退したものだけ**を数えるので、触れても撤退足の終値が利益側なら損切りに数えない。こちらは触れた時点で母数から外す＝触れた記録はそこで撤退しており逆行の物差しが頭打ちになるため。なお期待度×で先に降りた後の接触は両方とも対象外＝『免れた』側）ため一致しないことがある。損切りになった記録は下の『📐 損切りの上振れ』が担当（そちらの超過幅は全足の非キャップ最高値基準＝母数も物差しも別）。「詰められる下限」はこの標本の実績値＝将来これを超える逆行が出る可能性は排除できない。" })));
+      _elInsightBoxV2(items, { note: "対象＝E成立(judge ok)のEP起算v2記録のうち、採用α・採用損切り値で**損切りラインに触れずに済んだ**もの（" + rows.length + "件／ライン接触 " + stopN + "件）。逆行＝EP足〜手じまい足の高値の最大 − α（EP基準ライン比の円・100株換算ではない・**損益ではないので深いほど赤**）。手じまい足＝次足期待度×/未設定で降りた足＝記録表の「想定損益・詳細」「保有」列と同基準。※上の「損切り回数」カードとこの「ライン接触 " + stopN + "件」は基準が違う（カードは終値撤退方式で**損で撤退したものだけ**を数えるので、触れても撤退足の終値が利益側なら損切りに数えない。こちらは触れた時点で母数から外す＝触れた記録はそこで撤退しており逆行の物差しが頭打ちになるため。なお期待度×で先に降りた後の接触は両方とも対象外＝『免れた』側）ため一致しないことがある。損切りになった記録は下の『📐 損切りの上振れ』が担当（そちらの超過幅は全足の非キャップ最高値基準＝母数も物差しも別）。「詰められる下限」はこの標本の実績値＝将来これを超える逆行が出る可能性は排除できない。" })));
 }
 // recCtx={expKey,setExpKey,onEdit,onGoDate}（2026-07-27追加）: この関数はモジュールスコープで記録帳の state に触れないため、
 // 行タップ→明細カード展開に必要なものを呼び出し側から渡す。_elFloatReasonSectionV2 と同じ作法。未指定なら展開なし。
@@ -5825,7 +5825,7 @@ function _elStopOvershootSectionV2(recs, aiOf, data, recCtx) {
   if (small.length) items.push(React.createElement("span", null, "超過1円以下（損切りラインをほんの少し超えただけ）が", _elInsightEmV2(small.length + "件"), smallHeld.length ? React.createElement("span", null, "。うち保有していれば利益化したのは", _elInsightEmV2(smallProfit + "/" + smallHeld.length + "件"), "＝", (smallHeld.length && smallProfit / smallHeld.length >= 0.5 ? _elInsightEmV2("損切りが早すぎた可能性大", "#B45309") : "損切りは概ね妥当"), "。") : "。"));
   if (heldBase.length) items.push(React.createElement("span", null, "損切りした記録を全て損切りせず最後まで保有していたら、利益化したのは", _elInsightEmV2(profitable + "/" + heldBase.length + "件", profitable / heldBase.length >= 0.5 ? "#B45309" : "#1E8449"), "＝", (profitable / heldBase.length >= 0.5 ? "損切りを我慢する方が良かった場面が多い" : "損切りは機能している（保有しても損が増える方が多い）"), "。"));
   if (avoidN) items.push(React.createElement("span", null, "損切り値を", _elInsightEmV2("15〜20円"), "に上げていれば損切りを回避できたのは", _elInsightEmV2(avoidN + "件"), "。"));
-  return React.createElement("div", null, cards, listTable, _elInsightBoxV2(items, { note: "**2026-07-27 損切り方式を変更**＝損切り値に触れた瞬間ではなく**触れた足の確定値(終値)で撤退**し、損で撤退したものだけを損切りとする。対象＝実現結果が「損切り」のEP起算(v2)記録＝**手じまい足までに損切りラインへ触れ、その足の終値が損側だったもの**（×見送り・E未達・手じまい後の接触は対象外。**終値が利益側に戻った記録は損切りでなくなるのでこの表には出ない**）。実際の損切り額＝撤退足の確定値((α−終値)×100株・採用α基準)。「保有していたら」＝損切りせず実運用ルール（確定値が前の足より悪化したらその足の確定値で手仕舞い・悪化しなければ最後まで保有）で降りた損益＝**足をまたいで先まで持つので撤退足の終値とは別物**。差額＝保有していたら−実際（プラス＝損切りしなければ助かっていた＝損切りが早すぎた疑い）。ベスト＝各足で最も良い手仕舞い(maxPnl)。超過幅＝最高値(水準線比)−(α＋損切り値)＝**全足の最高値基準**なので「損切りした瞬間の行き過ぎ」ではなく「最終的にどこまで逆行したか」。損益色は赤=利益/緑=損失。" }));
+  return React.createElement("div", null, cards, listTable, _elInsightBoxV2(items, { note: "**2026-07-27 損切り方式を変更**＝損切り値に触れた瞬間ではなく**触れた足の確定値(終値)で撤退**し、損で撤退したものだけを損切りとする。対象＝実現結果が「損切り」のEP起算(v2)記録＝**手じまい足までに損切りラインへ触れ、その足の終値が損側だったもの**（×見送り・E未達・手じまい後の接触は対象外。**終値が利益側に戻った記録は損切りでなくなるのでこの表には出ない**）。実際の損切り額＝撤退足の確定値((α−終値)×100株・採用α基準)。「保有していたら」＝損切りせず実運用ルール（確定値が前の足より悪化したらその足の確定値で手仕舞い・悪化しなければ最後まで保有）で降りた損益＝**足をまたいで先まで持つので撤退足の終値とは別物**。差額＝保有していたら−実際（プラス＝損切りしなければ助かっていた＝損切りが早すぎた疑い）。ベスト＝各足で最も良い手仕舞い(maxPnl)。超過幅＝最高値(EP基準ライン比)−(α＋損切り値)＝**全足の最高値基準**なので「損切りした瞬間の行き過ぎ」ではなく「最終的にどこまで逆行したか」。損益色は赤=利益/緑=損失。" }));
 }
 
 // ===== 損切りの分析（記録帳・銘柄別タブ「🛑損切り」／2026-06-22）=====
@@ -6132,7 +6132,7 @@ function _elExecGapSectionV2(recs, aiOf) {
   if (gCnt) items.push(React.createElement("span", null, "実際の建玉OS水準は計画EP高値に対し平均", _elInsightEmV2((gSum / gCnt >= 0 ? "+" : "") + r1(gSum / gCnt) + "円"), gSum / gCnt > 1 ? "＝計画より深い位置で建てている（やや待ちすぎ/追いかけ気味）。" : gSum / gCnt < -1 ? "＝計画より浅い位置で建てている（早めの執行）。" : "＝計画どおりの位置で執行できている。"));
   if (aBase) items.push(React.createElement("span", null, "計画αどおりに取引できた割合（規律遵守率）は", _elInsightEmV2(Math.round(aSame / aBase * 100) + "%"), aDiff ? React.createElement("span", null, "（ズレた" + aDiff + "件は平均", _elInsightEmV2(r1(aDiffSum / aDiff) + "円"), "違う）") : null, "。"));
   if (!gCnt && !aBase) items.push(React.createElement("span", null, "実エントリーのEntry-OS値・取引αが記録されていないため乖離を集計できません。実エントリー欄に建玉/決済のOS水準と取引αを入れると、計画と執行のズレを検証できます。"));
-  return React.createElement("div", null, cards, gTable, _elInsightBoxV2(items, { note: "計画EP高値＝採用αで解決したEP足の高値（水準線比）。実Entry-OS/Exit-OS＝実エントリー欄の建玉・決済OS水準。規律遵守＝取引α(tradeAlpha)が計画α(alphaVal/予想OS度α)と一致。符号は水準線比（↑正/↓負）。" }));
+  return React.createElement("div", null, cards, gTable, _elInsightBoxV2(items, { note: "計画EP高値＝採用αで解決したEP足の高値（EP基準ライン比）。実Entry-OS/Exit-OS＝実エントリー欄の建玉・決済OS水準。規律遵守＝取引α(tradeAlpha)が計画α(alphaVal/予想OS度α)と一致。符号はEP基準ライン比（↑正/↓負）。" }));
 }
 
 // メモ×成績（記録帳・深掘りタブ／2026-06-14）: 根拠/反省/H1/H2メモを書いた記録と書かない記録で成績を比較し、
@@ -6324,7 +6324,7 @@ function _elDowSectionV2(recs, aiOf) {
     var byStop = avail.filter(function(x) { return x.o.cnt >= 2; }).sort(function(a, b) { return (b.o.stop / ((b.o.ok + b.o.ng + b.o.draw) || 1)) - (a.o.stop / ((a.o.ok + a.o.ng + a.o.draw) || 1)); });
     if (byStop.length && byStop[0].o.stop > 0) items.push(React.createElement("span", null, "損切り率が最も高いのは", _elInsightEmV2(byStop[0].d.label + "曜"), "（" + Math.round(byStop[0].o.stop / ((byStop[0].o.ok + byStop[0].o.ng + byStop[0].o.draw) || 1) * 100) + "%）＝この曜日は慎重に。"));
   }
-  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "曜日は記録日付から算出。OS値=寄り足の高値（水準線比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切りラインに触れ、その足の終値で撤退した結果が損だったもの（2026-07-27 終値撤退方式・_elIsStopFinal。触れても終値が利益側なら損切りに数えない）。EP/H1損益はE成立（エントリーできた）分のみの平均＋合計。未達（α未到達）・×見送りは母数に含めない。採用α基準。" }) : null);
+  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "曜日は記録日付から算出。OS値=寄り足の高値（EP基準ライン比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切りラインに触れ、その足の終値で撤退した結果が損だったもの（2026-07-27 終値撤退方式・_elIsStopFinal。触れても終値が利益側なら損切りに数えない）。EP/H1損益はE成立（エントリーできた）分のみの平均＋合計。未達（α未到達）・×見送りは母数に含めない。採用α基準。" }) : null);
 }
 
 // ===== 未達記録の分析（記録帳・銘柄別タブ「未達」／2026-06-22）=====
@@ -6446,7 +6446,7 @@ function _elMissSectionV2(recs, aiOf, hideSig) {
     React.createElement("span", null, "α不足 ", _elInsightEmV2("1円以下 " + Math.round(le1 / anal * 100) + "%"), "・", _elInsightEmV2("2円以下 " + Math.round(le2 / anal * 100) + "%"), "＝その分αを下げていれば届いた水準（下げ過ぎは到達後の損切り増とのトレードオフに注意）。"),
     negN ? React.createElement("span", null, "最高値がマイナス（基準線割れ＝ほぼOSせず）が ", _elInsightEmV2(negN + "件（" + Math.round(negN / anal * 100) + "%）"), "＝α調整では救えない見立て外れ。") : null,
     worst ? React.createElement("span", null, "未達率が高いシグナルは ", _elInsightEmV2("「" + stripCat(worst.tag) + "」（" + Math.round(worst.rate * 100) + "%・" + worst.miss + "/" + worst.tot + "件）"), "＝だまし傾向かα過大の可能性。") : null
-  ], { note: "未達＝OS1〜3の3本以内に高値がαへ一度も届かずエントリーできなかった記録（×見送りは除く・採用α基準）。詳細分析の母数は" + anal + "件（OS値入力あり）。最高値・OS値は水準線比（マイナス＝基準線割れ＝下落）。" });
+  ], { note: "未達＝OS1〜3の3本以内に高値がαへ一度も届かずエントリーできなかった記録（×見送りは除く・採用α基準）。詳細分析の母数は" + anal + "件（OS値入力あり）。最高値・OS値はEP基準ライン比（マイナス＝基準線割れ＝下落）。" });
 
   return React.createElement(React.Fragment, null,
     _cards,
@@ -7356,7 +7356,7 @@ function _elKabuLadderSimV2(props) {
       vap ? null : _optRow("rn", "RN自動加算:", "#0F766E",
         _optChip(rnAuto, "乗せる", function() { setRnAuto(!rnAuto); setAutoExp(null); setMtExp(null); }, "#0F766E", "#F0FDFA", "予定EPの下二桁が中RNバンド（" + (50 - _elRnTMidCur) + "〜49）／大RNバンド（" + (100 - _elRnTBigCur) + "〜99）のとき…50/…00ちょうどまでαを自動で引き上げる（記録フォーム/EPナビと同じキリ番調整）。OFFにすると入力したαがそのまま効く（下二桁に依らず判定が安定）。採用α±X系は元からRN込みのため対象外。"),
         _optNote(rnAuto ? ("予定EP下二桁 中RN" + (50 - _elRnTMidCur) + "〜49→…50／大RN" + (100 - _elRnTBigCur) + "〜99→…00（採用α±X系は元から込み）") : "入力したαをそのまま評価（キリ番調整なし）"),
-        (rnAuto && _noLvN > 0) ? _optBadge("水準線未入力 " + _noLvN + "件（RN自動判定なし）", "#1D4ED8", "#EFF6FF", "#BFDBFE", "水準線値が未入力の記録は予定EPが出せないためRN加算自動判定ができません。RN加算なし（0円）として掃引しています（母数からは外していません）。") : null)) : null);
+        (rnAuto && _noLvN > 0) ? _optBadge("EP基準ライン未入力 " + _noLvN + "件（RN自動判定なし）", "#1D4ED8", "#EFF6FF", "#BFDBFE", "EP基準ラインが未入力の記録は予定EPが出せないためRN加算自動判定ができません。RN加算なし（0円）として掃引しています（母数からは外していません）。") : null)) : null);
   var head = React.createElement(React.Fragment, null,
     allStock ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "母数:"),
@@ -8776,7 +8776,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       style: { padding: "3px 11px", fontSize: 11, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (riskOpen ? "#0F6E56" : "#5DCAA5"), background: riskOpen ? "#0F6E56" : "#E1F5EE", color: riskOpen ? "#fff" : "#0F6E56" } },
       (riskOpen ? "✓ " : "") + "該当のみ表示（" + _riskRecs.length + "件）") : null;
     return [
-      _secH("🎯 同値除外損益（OS値＝α値）", "※ 予定EP（水準線＋採用α）にちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある。実エントリー済み（実現損益あり）は約定した証拠につき対象外。母数＝" + (scopeNote || "上の期間選択（v2記録のみ）") + "・時間かぶり除外は通常側にも適用済み", _btn),
+      _secH("🎯 同値除外損益（OS値＝α値）", "※ 予定EP（EP基準ライン＋採用α）にちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある。実エントリー済み（実現損益あり）は約定した証拠につき対象外。母数＝" + (scopeNote || "上の期間選択（v2記録のみ）") + "・時間かぶり除外は通常側にも適用済み", _btn),
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 } },
         _cell("該当件数", _riskRecs.length + "件", _riskRecs.length > 0 ? "#0F6E56" : "#bbb", "OS高値の最大＝EP（未約定扱い）"),
         _cell("通常の想定損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _frDays), null, t.hold2Cnt + "件"),
@@ -9417,8 +9417,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
             _recTable(_rnListRecs, "full", "rntab_")])
         : (rnSub === "cand")
           ? _cardify([
-              _secH("🎯 RN加算候補の記録一覧（全銘柄・全記録）", "※RN加算×だが予定EPの下2桁が現行の閾値バンド内だった記録＝キリ番をまたげた可能性。中RN＝下二桁 " + (50 - _elRnTMidCur) + "〜49（→…50）／大RN＝" + (100 - _elRnTBigCur) + "〜99（→…00＝100・1000台）。記録フォーム/EPナビの自動判定と同じ範囲・同じ式。スルー・要審議・合計除外も含む全記録が対象。予定EP＝水準線値＋採用α（ライン列に表示）"),
-              _rnCandRecs.length ? _recTable(_rnCandRecs, "full", "rncand_") : _sigKpiEmpty("該当する候補記録がありません（RN加算×かつ予定EP下2桁が中RN " + (50 - _elRnTMidCur) + "〜49／大RN " + (100 - _elRnTBigCur) + "〜99・水準線値入りの記録が対象）")])
+              _secH("🎯 RN加算候補の記録一覧（全銘柄・全記録）", "※RN加算×だが予定EPの下2桁が現行の閾値バンド内だった記録＝キリ番をまたげた可能性。中RN＝下二桁 " + (50 - _elRnTMidCur) + "〜49（→…50）／大RN＝" + (100 - _elRnTBigCur) + "〜99（→…00＝100・1000台）。記録フォーム/EPナビの自動判定と同じ範囲・同じ式。スルー・要審議・合計除外も含む全記録が対象。予定EP＝EP基準ライン＋採用α（ライン列に表示）"),
+              _rnCandRecs.length ? _recTable(_rnCandRecs, "full", "rncand_") : _sigKpiEmpty("該当する候補記録がありません（RN加算×かつ予定EP下2桁が中RN " + (50 - _elRnTMidCur) + "〜49／大RN " + (100 - _elRnTBigCur) + "〜99・EP基準ライン入りの記録が対象）")])
           : _cardify([
               // 2026-09-02 中RN(…50)/大RN(…00)の種別トグル。閾値タブと同じ state(rnTier) を共有＝タブを行き来しても「いま中RNを見ている」がぶれない。
               React.createElement("div", { key: "rnkind", style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _rnTierToggle(rnTier, setRnTier)),
@@ -9482,13 +9482,13 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         _elv2Td(_altT.n ? _altDiff(_altT.diff) : _altDiff(null))));
       var _ukiBody = (ukiSub === "alt")
         ? _cardify([
-            _secH("🔁 応用α換算（" + _ukiScopeLbl + "）", "※ 浮き足%を使わず「株価帯別の応用α＋RN加算」を採用αにしていたら各取引がどうなっていたかを再計算。帯は記録の水準線価格で判定（〜" + _EL_UKI_ALT_BANDS[0].max + "=" + _EL_UKI_ALT_BANDS[0].a + "円／" + (_EL_UKI_ALT_BANDS[0].max + 1) + "〜" + _EL_UKI_ALT_BANDS[1].max + "=" + _EL_UKI_ALT_BANDS[1].a + "円／" + (_EL_UKI_ALT_BANDS[1].max + 1) + "〜=" + _EL_UKI_ALT_BANDS[2].a + "円）。損切り値は記録の採用値のまま。損益は想定損益（手じまいまで）の（）外。エントリー不成立（α未達・スルー・（）外なしの△）は「そのαなら取引しなかった＝0円」として両側とも算入＝差額は全件で計算。水準線未入力（帯不明）の記録だけ換算不可"),
+            _secH("🔁 応用α換算（" + _ukiScopeLbl + "）", "※ 浮き足%を使わず「株価帯別の応用α＋RN加算」を採用αにしていたら各取引がどうなっていたかを再計算。帯は記録のEP基準ライン価格で判定（〜" + _EL_UKI_ALT_BANDS[0].max + "=" + _EL_UKI_ALT_BANDS[0].a + "円／" + (_EL_UKI_ALT_BANDS[0].max + 1) + "〜" + _EL_UKI_ALT_BANDS[1].max + "=" + _EL_UKI_ALT_BANDS[1].a + "円／" + (_EL_UKI_ALT_BANDS[1].max + 1) + "〜=" + _EL_UKI_ALT_BANDS[2].a + "円）。損切り値は記録の採用値のまま。損益は想定損益（手じまいまで）の（）外。エントリー不成立（α未達・スルー・（）外なしの△）は「そのαなら取引しなかった＝0円」として両側とも算入＝差額は全件で計算。EP基準ライン未入力（帯不明）の記録だけ換算不可"),
             _elv2CardRow([
               _elv2Card("浮き足%（実際）", _altT.n ? _altAmt(_altT.cur) : _altAmt(null), null, _altT.n + "件の合計" + (_altT.ne ? "（無エントリー0円 " + _altT.ne + "件込み）" : "")),
               _elv2Card("応用α換算", _altT.n ? _altAmt(_altT.alt) : _altAmt(null), null, "同じ母数で再計算"),
               _elv2Card("差額（換算−実際）", _altT.n ? _altDiff(_altT.diff) : _altDiff(null), null, _altT.n ? ("1件あたり " + Math.round(_altT.diff / _altT.n).toLocaleString() + "円") : null)]),
             (_altRows.length > 1 ? _recSortBar() : null),   // 記録一覧と同じ並び順トグル（_elv2Table製なので_recTableの自動表示に乗らない）2026-07-27
-            _elv2Table(["日付・時刻", "銘柄", "シグナル", "水準線（株価帯）", "実際の採用α", "換算α", "想定損益（実際）", "想定損益（換算）", "差額"], _altBodyRows)])
+            _elv2Table(["日付・時刻", "銘柄", "シグナル", "EP基準ライン（株価帯）", "実際の採用α", "換算α", "想定損益（実際）", "想定損益（換算）", "差額"], _altBodyRows)])
         : (ukiSub === "list")
         ? _cardify([
             _secH("🗂 浮き足〇の記録一覧（" + _ukiScopeLbl + "）", "上の分析の母数そのもの＝浮き足〇（浮き値あり）の記録。行タップで明細カード・カードタップで編集フォーム"),
@@ -9699,7 +9699,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           var _lsRecs = _v2recsAmt.filter(function(r) { return r && r.signal && r.signal.lineSnap; });
           var _lsPnl = function(r) { var v = _elFinalPnlOf(r); if (v == null && r && _elIsProvisional(r.signal)) v = _provPnlOf(r); return v; };
           return [
-            _secH("📏 指標線の並び分析", "シグナルの1つ前の確定足で、指標線とEPライン（水準線）がどう並んでいたか別に、件数・損失なし率・E後の勝率・損益（" + _lsRecs.length + "件）。CA のチャートが読めた状態で保存した記録だけが入ります"),
+            _secH("📏 指標線の並び分析", "シグナルの1つ前の確定足で、指標線とEP基準ラインがどう並んでいたか別に、件数・損失なし率・E後の勝率・損益（" + _lsRecs.length + "件）。CA のチャートが読めた状態で保存した記録だけが入ります"),
             React.createElement(_ElLineSnapBoard, { key: "linesnap", recs: _lsRecs, aiOf: _ai, data: data, pnlOf: _lsPnl, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate })];
         })(),
         _v2recsAmt.length ? _fillRiskSection(_v2recsAmt) : null,
@@ -9756,7 +9756,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   } else if (view === "alpha") {
     if (!legacy) {   // 2026-10-04 新システム(8/20以降)ではα値タブをVAP分析ボードに置換。旧システム枠(〜8/19)は従来のα分析
       _tabBody = _cardify([
-        _secH("📐 VAP値の分析", "8/20以降の記録。EP＝水準線＋VAP値。VAPから追加円数ごとの損益"),
+        _secH("📐 VAP値の分析", "8/20以降の記録。EP＝EP基準ライン＋VAP値。VAPから追加円数ごとの損益"),
         (function() { var _vp = _v2recsAll.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, _collScope); });
           // VAP補正の一括反映 2026-10-19（★＝全記録・今の絞りでの損益最大の追加円数を初期値に）
           var _sugg = null; if (_isAllStock) { var _rrS = _vapRowsOf(_vp.filter(function(r) { return _vapPoolOk(r.signal); }), _ai); var _bS = _rrS.best || _rrS.ref; _sugg = _bS ? _bS.k : null; }
