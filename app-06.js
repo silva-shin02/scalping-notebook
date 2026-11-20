@@ -2156,7 +2156,7 @@ function _ElBSplitSection(props) {
   });
   var ok = rows.filter(function(o) { return !o.x.skip; });
   var skipN = {}; rows.forEach(function(o) { if (o.x.skip) skipN[o.x.skip] = (skipN[o.x.skip] || 0) + 1; });
-  var kN = { top: 0, up: 0, later: 0, miss: 0 }, caN = 0, topN = 0, kdN = { A: 0, B: 0, C: 0, none: 0 };
+  var kN = { top: 0, up: 0, later: 0, miss: 0 }, caN = 0, topN = 0, kdN = { A: 0, B: 0, C: 0, D: 0, none: 0 };
   ok.forEach(function(o) { kN[o.x.kind]++; if (o.x.src === "ca") caN++; if (o.x.hasTop) topN++; var _k = _kakudoOf(o.r.signal); kdN[_k || "none"]++; });
   var need = {}, needKeys = [];
   rows.forEach(function(o) {
@@ -2222,7 +2222,7 @@ function _ElBSplitSection(props) {
     React.createElement("span", { style: { fontWeight: 800, color: "#C2410C" } }, "新規記録・EPナビの B の割合の初期値"),
     props.save ? React.createElement(_BRatioCtl, { value: _defW, onChange: _setDef }) : React.createElement("span", { style: { fontWeight: 800 } }, _bRatioLbl(_defW)),
     React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "下の表の行の「これにする」でも変えられます。保存済みの記録の割合は変わりません。"),
-    React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "確度を付けた記録：A " + kdN.A + "・B " + kdN.B + "・C " + kdN.C + "・未設定 " + kdN.none + "件"));
+    React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "確度を付けた記録：A " + kdN.A + "・B " + kdN.B + "・C " + kdN.C + "・D " + kdN.D + "・未設定 " + kdN.none + "件"));
   var noteParts = _ALLCE_SKIP.filter(function(o) { return skipN[o[0]]; }).map(function(o) { return o[1] + " " + skipN[o[0]] + "件"; });
   var note = React.createElement("div", { key: "n", style: { fontSize: 10, color: "#78716C", marginBottom: 8, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
     noteParts.length ? React.createElement("span", null, "対象外：" + noteParts.join("・")) : null,
