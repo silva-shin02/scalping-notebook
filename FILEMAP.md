@@ -3300,3 +3300,4 @@ HomeEventFormModal, App
 - 2026-11-19 v660：app-04 `_dsFreezeAfter(prev, date)`（_dsTodayStr の直前）＝選定銘柄方式の日の変更前に、後〜今日の未選択日を現在の引き継ぎ値で dailyStock/seed に書く。_dsTrioSet・_dailyStockSet・_dailyStockToggle から使用。
 - 2026-11-19 v661：app-01 migrateData（_migBHide1109 の直後）で 大RN-OS（表記ゆれ含む）の sigSecLabels.bHide=true を毎回補う。
 - 2026-11-19 v662：v661 の毎回 bHide 付与を撤去し、一回性 `_migDaiRnOsB1119`＝大RN-OS の bHide 削除＋sigDetails2[名].b に 大RN・中RN を追加。
+- 2026-11-20 v663：⚖ Bの割合（📊集計の⏳タブのサブタブ `_CE_SUBTABS` に "bsplit"）。エントリー確度B＝①基準ライン(α値)＋②確定待ちor直上VAP の割合を過去記録で比較。app-05 `_elBSplitRow`（`_elAllCeAgg` の直後・p1＝確定待ちを外した損益・p2＝エントリー足に確定待ちを付けた損益＝記録の直上VAPも使う・入らずは0）・app-06 `_BSPLIT_KIND`/`_bSplitAgg(list,w)`/`_ElBSplitSection`（`_CE_SUBTABS` の直前・10%刻み11行：合計/平均/勝敗/勝率/負け平均/最大負け/月のぶれ/最悪月・★合計最大◆最大負け最浅・CA終値補完は _allCeCa を共用）。A/B/C の記録欄は未実装（割合を決めてから）。
