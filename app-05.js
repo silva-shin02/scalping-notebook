@@ -9246,11 +9246,31 @@ function EntryRecordForm(_ref_erf) {
     fDetOrder = _useStateSGOA[0], setFDetOrder = _useStateSGOA[1];
   var _useStateDTF = useState({}), fDetTf = _useStateDTF[0], setFDetTf = _useStateDTF[1];
   // ①EP基準ラインの分足（指標線底抜けだけ・_elBTfOne）2026-10-29m: {シグナル: "1"/"5"}。記録の tf に b がある分足から復元
+  // 2026-11-20h ①EP基準ラインの分足は線ごと（ユーザー要望「確定待ちの理由と同じ形」・全シグナルの共通①）: {シグナル: {線: "1"/"5"/"1,5"}}。記録の tf[分足].b から復元。
   var _useStateBTF = useState(function() {
     var _o = {}, _src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {};
-    Object.keys(_src).forEach(function(_k) { var _v = _src[_k]; if (!_v || typeof _v !== "object" || !_v.tf) return; var _tf = _elSigDetailTf(initSig, _k); if (_tf["1"].b.length) _o[_k] = "1"; else if (_tf["5"].b.length) _o[_k] = "5"; });
+    Object.keys(_src).forEach(function(_k) { var _v = _src[_k]; if (!_v || typeof _v !== "object" || !_v.tf) return; var _tf = _elSigDetailTf(initSig, _k), _m = {};
+      _EL_TFS.forEach(function(tf) { _tf[tf].b.forEach(function(ln) { _m[ln] = _m[ln] ? _m[ln] + "," + tf : tf; }); });
+      if (Object.keys(_m).length) _o[_k] = _m; });
     return _o;
-  }), fBTf = _useStateBTF[0], setFBTf = _useStateBTF[1];   // 詳細の分足タブ（シグナルごと・既定1分）2026-10-29l
+  }), fBTfMap = _useStateBTF[0], setFBTfMap = _useStateBTF[1];
+  var _bLineTfRows = function(_dt, _sc, _tf, _curArr) {
+    if (_sc.key !== "b" || _tf || !_elBShared(custom, _dt)) return null;
+    var _ls = (_curArr || []).filter(Boolean); if (!_ls.length) return null;
+    var _m = (fBTfMap && fBTfMap[_dt]) || {};
+    return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3, margin: "4px 0 2px", paddingLeft: 6, borderLeft: "2px solid #FDBA74" } },
+      _ls.map(function(ln) {
+        var _cur = _m[ln] ? String(_m[ln]).split(",") : [];
+        return React.createElement("div", { key: ln, style: { display: "flex", alignItems: "center", gap: 6, fontSize: 11 } },
+          React.createElement("span", { style: { fontWeight: 700, color: "#92400E", minWidth: 70 } }, ln),
+          React.createElement("span", { style: { display: "inline-flex", border: "1px solid #FDBA74", borderRadius: 6, overflow: "hidden" } },
+            _EL_TFS.map(function(tf, i) { var on = _cur.indexOf(tf) >= 0; return React.createElement("button", { key: tf, type: "button", onClick: function() {
+              var nx = _EL_TFS.filter(function(x) { return x === tf ? !on : _cur.indexOf(x) >= 0; }).join(",");
+              setFBTfMap(function(prev) { var o = Object.assign({}, prev); var mm = Object.assign({}, o[_dt] || {}); if (nx) mm[ln] = nx; else delete mm[ln]; o[_dt] = mm; return o; }); },
+              style: { padding: "1px 8px", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap", border: "none", borderLeft: i ? "1px solid #FDBA74" : "none", cursor: "pointer", background: on ? "#B45309" : "#fff", color: on ? "#fff" : "#B45309" } }, tf + "分足"); })),
+          (!_cur.length && !isEdit) ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#DC2626" } }, "分足を選ぶ") : null);
+      }));
+  };
   var _detDragRef = useRef(null);
   var _detMovedRef = useRef(false);
   // ＋追加をインライン入力欄に変更（2026-07-06d）: iPadのホーム画面起動(standalone)ではwindow.prompt/confirmが無反応（即null）になるため、詳細まわりのネイティブダイアログを廃止。
@@ -10685,7 +10705,7 @@ function EntryRecordForm(_ref_erf) {
       if (!isEdit && fReview === true && (fReviewReasons || []).filter(Boolean).length === 0) _vm.push("要審議の理由（選択肢）");   // 新規の要審議も必須 2026-10-17
       // ①EP基準ライン・②起点は必須 2026-10-29（新規・編集とも・ユーザー決定）。選んだシグナルごとに1つ以上。②の名前はシグナルごとの表示名。
       // 2026-10-29h 1分足・5分足の両方の段で必須（ユーザー決定）。
-      fTags.forEach(function(_t) { var _sb = fSigDetail && fSigDetail[_t]; if (_elBTfOne(custom, _t) && !(fBTf && fBTf[_t])) _vm.push("①EP基準ラインの分足（" + _t + "）");   // 指標線底抜け 2026-10-29m
+      fTags.forEach(function(_t) { var _sb = fSigDetail && fSigDetail[_t]; if (!isEdit && _elBShared(custom, _t)) ((_sb && _sb.b) || []).filter(Boolean).forEach(function(_ln) { if (!((fBTfMap && fBTfMap[_t]) || {})[_ln]) _vm.push("①EP基準ラインの分足（" + _ln + "・" + _t + "）"); });   // 線ごとの分足・新規は必須 2026-11-20h   // 指標線底抜け 2026-10-29m
         if (!isEdit && _elSigSecs(data, _t).some(function(_sc) { return _sc.key === _elKitenKey(custom, _t); })) _EL_TFS.forEach(function(tf) {   // 起点の足の時刻（無しなら株価も）新規は必須 2026-11-05
           var _ka = ((fKitenAt || {})[_t] || {})[tf] || {};
           if (!_snlTm(_ka.t)) _vm.push("起点の足（" + tf + "分・" + _t + "）");
@@ -10722,8 +10742,8 @@ function EntryRecordForm(_ref_erf) {
           if (_s && _secAny(_s)) {
             var _tfO = {};
             _EL_TFS.forEach(function(tf) { var x = {}; ["b", "k", "p", "f"].forEach(function(sk) { if (sk === "b" && _elBShared(custom, _t)) return; var a = (_s[sk + tf] || []).filter(Boolean); if (a.length) x[sk] = a.slice(); }); if (Object.keys(x).length) _tfO[tf] = x; });
-            var _bt1 = _elBTfOne(custom, _t) && fBTf && fBTf[_t];   // 指標線底抜け＝①は選んだ分足だけに入れる 2026-10-29m
-            if (_bt1) { var _bl = (_s.b || []).filter(Boolean); if (_bl.length) { _tfO[_bt1] = Object.assign({}, _tfO[_bt1] || {}, { b: _bl.slice() }); } }
+            if (_elBShared(custom, _t)) { var _bm = (fBTfMap && fBTfMap[_t]) || {};   // ①は線ごとに選んだ分足へ入れる 2026-11-20h（旧：指標線底抜けだけ共通の1分/5分）
+              (_s.b || []).filter(Boolean).forEach(function(_ln) { String(_bm[_ln] || "").split(",").forEach(function(tf) { if (tf !== "1" && tf !== "5") return; var _x = Object.assign({}, _tfO[tf] || {}); _x.b = (_x.b || []).concat([_ln]); _tfO[tf] = _x; }); }); }
             _e.tf = _tfO;
             var _ub = _secUnion(_s, "b"), _uk = _secUnion(_s, "k"), _up = _secUnion(_s, "p"), _uf = _secUnion(_s, "f");
             if (_ub.length) { _e.b = _ub[0]; if (_ub.length >= 2) _e.bs = _ub; }
@@ -10797,8 +10817,7 @@ function EntryRecordForm(_ref_erf) {
           _EL_TFS.forEach(function(tf) {
             if (_s && ["b", "k", "p", "f"].some(function(sk) { if (sk === "b" && _elBShared(custom, _t)) return false; return ((_s[sk + tf] || []).filter(Boolean)).length > 0; })) _got[tf] = 1;
           });
-          var _bt = _elBTfOne(custom, _t) && fBTf && fBTf[_t];
-          if (_bt && _s && ((_s.b || []).filter(Boolean)).length) _got[_bt] = 1;
+          if (_s && _elBShared(custom, _t)) { var _bm2 = (fBTfMap && fBTfMap[_t]) || {}; (_s.b || []).filter(Boolean).forEach(function(_ln) { String(_bm2[_ln] || "").split(",").forEach(function(tf) { if (tf === "1" || tf === "5") _got[tf] = 1; }); }); }
         });
         var _auto = _EL_TFS.filter(function(tf) { return _got[tf]; });
         var _use = _auto.length ? _auto : (fMinBars || []);
@@ -11244,10 +11263,8 @@ function EntryRecordForm(_ref_erf) {
                   if (_sc.key === "p") _cands = _cands.filter(function(x) { return x !== _EL_PASS_NONE; });   // 「無し」は専用チップ＝リストに入っていても重ねて出さない 2026-10-29l
                   var _curArr = _curSec[_rk] || [];
                   var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0 && !(_sc.key === "p" && _x === _EL_PASS_NONE); }));   // 選択済みのマスター外(孤児)も末尾に表示（通過ラインの「無し」は専用チップ）
-                  return React.createElement("div", { key: _rk, style: { display: "flex", alignItems: "flex-start", gap: 6, marginTop: 3 } },
-                  (!_tf || _sc.key === "p") ? React.createElement("div", { style: { flexShrink: 0, width: (_tf || _elBTfOne(custom, _dt)) ? "auto" : 50, paddingTop: _tf ? 1 : 4, fontSize: 10, fontWeight: 800, color: "#B45309" } }, _tf ? null : (_elBTfOne(custom, _dt) ? React.createElement("span", { style: { display: "inline-flex", border: "1px solid #FDBA74", borderRadius: 6, overflow: "hidden" } },   // 指標線底抜け＝分足をどちらか1つ 2026-10-29m
-                    _EL_TFS.map(function(tf, i) { var on = fBTf && fBTf[_dt] === tf; return React.createElement("button", { key: tf, type: "button", onClick: function() { setFBTf(function(p) { var o = Object.assign({}, p); o[_dt] = tf; return o; }); },
-                      style: { padding: "2px 7px", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap", border: "none", borderLeft: i ? "1px solid #FDBA74" : "none", cursor: "pointer", background: on ? "#B45309" : "#fff", color: on ? "#fff" : "#B45309" } }, tf + "分"); })) : "1・5分"),
+                  return React.createElement(React.Fragment, { key: _rk }, React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 6, marginTop: 3 } },
+                  (!_tf || _sc.key === "p") ? React.createElement("div", { style: { flexShrink: 0, width: "auto", paddingTop: _tf ? 1 : 4, fontSize: 10, fontWeight: 800, color: "#B45309" } }, null,
                     _sc.key === "p" ? React.createElement("button", {   // 通過ラインのリセット（その分足の段だけ・確認なし・ユーザー決定）2026-10-29f/h
                       type: "button",
                       onClick: function() { setFSigDetail(function(prev) { var _pe = prev[_dt]; if (!_pe || !(_pe[_rk] || []).length) return prev; var _o = Object.assign({}, prev); var _ne = _secClone(_pe); _ne[_rk] = []; _o[_dt] = _ne; return _o; }); },
@@ -11458,7 +11475,7 @@ function EntryRecordForm(_ref_erf) {
                     onClick: function() { _detAddValRef.current = ""; setFDetAdd(null); },
                     style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, background: "#fff", color: "#888", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" }
                   }, "✕")
-                ) : null));
+                ) : null)), _bLineTfRows(_dt, _sc, _tf, _curArr));
                 })
               ));
             };
