@@ -41,6 +41,7 @@
   - v678 で B の損益は「①の分＋②の分＝合計」表示（v679で利益の「+」を外す・表の想定損益は縦・グレードは合計の行・フォームのEP/H1/H2は横。v680でOS・損益詳細の内訳と想定損益欄の「↑〇→↓〇」（全記録・`_elRideMiniNode`）を撤去）＝app-05 `_elBSplit`/`_elBSumNode`（実機未確認）。
   - v681 で 記録フォームの EP・H1・H2 を横並び（狭い画面は折り返し）・Bの額はひっ算の形（`_elBSumNode` の "hissan"・v682で表の想定損益欄も同じ形で①②を大きく）・メモ欄3つを撤去（保存済みの rationale/holdMemo/hold2Memo は消さない）（実機未確認）。
   - v686：VAP補正の例外に中RN（EP基準ラインが50円単位×VAP0円＝マイナス補正なし・app-05 `_vapLvBigRn`・既存は一回性 `_migVapAdjExMid1120` が一括反映の補正だけ外す）。直上VAPにもVAP補正を当てる（`_epCeTopRel`・フォーム `_fCeTopRel`・RN補正は当てない）。最終EP②の右は「EP基準ラインからの差」（実機未確認）。
+  - v687：記録フォームのBの箱に「🛑 推奨損切り値」（目安の表示だけ・損益計算には使わない）＝①の割合×最終EP①＋②の割合×最終EP②（直上VAP）＋15円（許容 `_SN_STOP_ALLOW_YEN`=15000円/`_SN_STOP_ALLOW_SH`=1000株）。直上VAPなしは ①だけ前提＝最終EP①＋15÷①の割合。小数第1位で切り捨て（実機未確認）。
   - v663 の ⚖ Bの割合（app-05 `_elBSplitRow`・app-06 `_ElBSplitSection`）は混ぜる前の値（`_elHoldFinalParts0`）で比較。株数・確度別の集計は未実装（希望が出たら）。
 - 2026-11-19 大RN-OS の①EP基準ライン（v661で外す→v662で戻す・実機未確認）：一回性 `_migDaiRnOsB1119`（app-01 migrateData）が bHide を外し、①の選択肢 sigDetails2[大RN-OS].b に「大RN」「中RN」を追加（「-」の表記ゆれも）。
 - 2026-11-19 選定銘柄は「入れ替えた日だけ変わる」（v660・実機未確認＝聞かれたら確認）：選定を変える直前に app-04 `_dsFreezeAfter` がその日より後〜今日の引き継ぎ日を変更前の銘柄で確定（_dsTrioSet/_dailyStockSet/_dailyStockToggle）。今日より後の日は直前の日を初期値に引き継ぐまま。
