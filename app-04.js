@@ -6136,7 +6136,7 @@ function DayView(_ref57) {
   
   var _trEntryAgg = useMemo(function() {
     var records = [];
-    // 2026-08-04b realSum=100株換算（下段の参考値）／realSumRaw=実額（フッターの主表示・実額スケールのランク用）。
+    // 2026-08-04b realSum=1000株換算（下段の参考値）／realSumRaw=実額（フッターの主表示・実額スケールのランク用）。
     // 勝敗ok/ngは廃止し、利確/同値/損失（うち損切り）を数える。2026-08-04eに判定を【実現損益の符号】へ変更（下のループのコメント参照）。
     var realSum = 0, realSumRaw = 0, realHasSh = false, ok = 0, ng = 0;
     var cWin = 0, cEven = 0, cLoss = 0, cStop = 0;
@@ -6193,7 +6193,7 @@ function DayView(_ref57) {
   }, [data.charts, dd.items, allStocks, date]);
   var _trEntryRecords = _trEntryAgg.records;
   var _trTotRecs = _trEntryAgg.totRecords;  // 合計額算入: 集計専用（除外記録を抜いた版）2026-06-18
-  var _trRealSum = _trEntryAgg.realSum;          // 100株換算（フッターの下段）
+  var _trRealSum = _trEntryAgg.realSum;          // 1000株換算（フッターの下段）
   var _trRealRaw = _trEntryAgg.realSumRaw;       // 実額（フッターの主表示）2026-08-04b
   // 2026-08-04b 「N勝N敗」表示を利確/同値/損失の内訳に置き換えたため _trSuccessCount/_trFailCount は撤去。
   // 集計側の ok/ng（_elDynResult基準）は他で使うかもしれないので _trEntryAgg には残してある。
@@ -6762,7 +6762,7 @@ function DayView(_ref57) {
       var _trRPnlFmt = _elPnlFmt;
       var _trBadge = _elGradeBadge18;
       var _trLane = _elLane;
-      var _trRPnlDisp = function(v, grade, sub) { return _elRPnlDispW(v, grade, 72, false, sub); };   // sub=100株換算の下段（実現損益欄だけ渡す）2026-08-04
+      var _trRPnlDisp = function(v, grade, sub) { return _elRPnlDispW(v, grade, 72, false, sub); };   // sub=1000株換算の下段（実現損益欄だけ渡す）2026-08-04
       var _trRPnlDispABAll = _elRPnlDispABAll;
       var _trTh = function(label, extra) {
         return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" }, extra || {}) }, label);
@@ -6774,7 +6774,7 @@ function DayView(_ref57) {
         alpha: function(r) { return _elAlphaInfo(r, data).alpha; },
         cut: function(r) { return _elAlphaInfo(r, data).cutLine; },
         excluded: function(r) { return _elCollExcluded(data, r); },
-        realPair: function(r) { return _elRealPnlPair(r.signal, r.item); }   // 2026-08-04 実額と100株換算を両方もらう（従来のrealは100株換算だけだった）
+        realPair: function(r) { return _elRealPnlPair(r.signal, r.item); }   // 2026-08-04 実額と1000株換算を両方もらう（従来のrealは1000株換算だけだった）
       });
       var _trTotReal = _trTT.real, _trTotRealCnt = _trTT.realCnt;
       var _trTotPlan = _trTT.plan, _trTotPlanCnt = _trTT.planCnt;
@@ -6791,7 +6791,7 @@ function DayView(_ref57) {
         var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
         if (mp == null) return;
         var sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
-        var mpN = sh > 0 ? Math.round(mp / sh * 100) : Math.round(mp);
+        var mpN = sh > 0 ? Math.round(mp / sh * _SN_KSH) : Math.round(mp);
         _trTotMax = (_trTotMax || 0) + mpN; _trTotMaxCnt++;
         if (s.difficulty === "A" || s.difficulty === "B") { _trTotMaxAB = (_trTotMaxAB || 0) + mpN; _trTotMaxABCnt++; }
       });
@@ -6832,7 +6832,7 @@ function DayView(_ref57) {
         var rExp = !!trTableRecExp[rKey];
         var s = r.signal, rIt = r.item;
         var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
-        var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
+        var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * _SN_KSH) : Math.round(v); };
         var realPnl = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
         var _aiTr = _elAlphaInfo(r, data);
         var planPnlN = _elDynPlanned(s, _aiTr.alpha, _aiTr.cutLine);
@@ -6938,7 +6938,7 @@ function DayView(_ref57) {
         null
       );
     })(),
-    // 2026-08-04b 縦積みに変更: 1行目=損益合計（実額・下に100株換算）＋ランク凡例／2行目=利確/同値/損失の内訳。
+    // 2026-08-04b 縦積みに変更: 1行目=損益合計（実額・下に1000株換算）＋ランク凡例／2行目=利確/同値/損失の内訳。
     _trEntryRecords.length > 0 && React.createElement("div", {
       style: { display: "flex", flexDirection: "column", gap: 6, marginTop: 12, paddingTop: 10, borderTop: "1px solid #e0ddd6", fontSize: 14 }
     },
@@ -6973,8 +6973,8 @@ function DayView(_ref57) {
               _trEntryAgg.realHasSh ? React.createElement("span", {
                 style: { display: "inline-flex", alignItems: "center", gap: 3, lineHeight: 1.2 }
               },
-                _elGradeBadge18(_profitGradeFromPnl(_trRealSum, 1)),   // 100株換算は通常スケール 2026-08-05
-                React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "100株"),
+                _elGradeBadge18(_profitGradeFromPnl(_trRealSum, 1)),   // 1000株換算は通常スケール 2026-08-05
+                React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "1000株"),
                 React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(_trRealSum) } }, _elPnlFmt(_trRealSum))) : null
             ),
             React.createElement("span", {
@@ -7077,7 +7077,7 @@ function DayView(_ref57) {
         return React.createElement("th", { style: Object.assign({ padding: "1px 3px", fontWeight: 700, borderBottom: "2px solid #FB923C", textAlign: "center", fontSize: 10, lineHeight: 1.15, color: "#9A3412" }, extra || {}) }, label);
       };
       var _lane = _elLane;
-      var _rPnlDisp = function(v, grade, sub) { return _elRPnlDispW(v, grade, 72, false, sub); };   // sub=100株換算の下段。この表の実現損益はもともと実額なので下段を足すだけ 2026-08-04
+      var _rPnlDisp = function(v, grade, sub) { return _elRPnlDispW(v, grade, 72, false, sub); };   // sub=1000株換算の下段。この表の実現損益はもともと実額なので下段を足すだけ 2026-08-04
       var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0", fontWeight: 400 } }, "/"); };
       var _pbSlashCell = function(symObj, grade, pnl, missFlag) {
         var sym = symObj ? React.createElement("span", { style: { fontWeight: 700, color: symObj.col } }, symObj.ch) : React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -7152,7 +7152,7 @@ function DayView(_ref57) {
       // ⚠️**合計ループより前に置くこと**＝var は巻き上げで名前だけ先にできて値は undefined なので、下に置くとループが落ちる。
       var _amtOkPb = function(r) { return amtScope ? (_elInclTotalAmt(data, r) && _elAmtRecOk(r)) : (_elInclTotal(r.signal) && !_elVapUnsetRec(r)); };
       var _totReal = null, _totPlan = null, _totHold = null;
-      var _totRealP100 = null, _totRealHasSh = false;   // 2026-08-04 実現損益の下段（100株換算）用。_totRealは従来どおり実額の合計。
+      var _totRealP100 = null, _totRealHasSh = false;   // 2026-08-04 実現損益の下段（1000株換算）用。_totRealは従来どおり実額の合計。
       var _totRealCnt = 0, _totPlanCnt = 0, _totHoldCnt = 0;
       var _totPlanABpb = null;
       var _totPlanABCntpb = 0;
@@ -7484,7 +7484,7 @@ function DayView(_ref57) {
         var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
         return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border, fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 } }, g);
       };
-      // sub=100株換算の下段（実現損益列だけ渡す）2026-08-04
+      // sub=1000株換算の下段（実現損益列だけ渡す）2026-08-04
       // 2026-08-05b ラベル／グレードバッジ／額を3列gridで縦ぞろえするセル（ユーザー要望
       // 「1日平均 A+ 3367円 みたいな並び」「グレードバッジ・額がきれいに縦ぞろいするように」）。
       // 旧は補助行を [バッジ][ラベル][額] の順でinline-flexに並べていたため、行ごとにラベル幅が
@@ -7514,12 +7514,12 @@ function DayView(_ref57) {
         });
         return React.createElement("span", { style: { display: "inline-grid", gridTemplateColumns: hasRef ? "auto auto auto auto auto auto auto" : "auto auto auto", columnGap: 0, rowGap: 2, alignItems: "center", justifyItems: "start" } }, cells);
       };
-      // 実現損益セル。sub=100株換算（株数がある時だけ）／avg=1日平均（週合計かつ複数営業日の時だけ）。
+      // 実現損益セル。sub=1000株換算（株数がある時だけ）／avg=1日平均（週合計かつ複数営業日の時だけ）。
       // 想定損益と同じく、この列のバッジも「総額÷営業日数」で判定しているので平均額を出して根拠を見せる。
       var _wkPnlCell = function(grade, sum, sub, avg, avgGrade) {
         if (!grade || grade === "Z" || sum == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
         var rows = [{ label: null, grade: grade, amount: sum, refAmount: null }];
-        if (sub != null) rows.push({ label: "100株", grade: _profitGradeFromPnl(sub, 1), amount: sub, refAmount: null });   // 100株換算は通常スケール 2026-08-05
+        if (sub != null) rows.push({ label: "1000株", grade: _profitGradeFromPnl(sub, 1), amount: sub, refAmount: null });   // 1000株換算は通常スケール 2026-08-05
         if (avg != null) rows.push({ label: _wkAvgLabel, grade: avgGrade, amount: avg, refAmount: null });
         return _wkStack(rows);
       };
@@ -7790,7 +7790,7 @@ function DayView(_ref57) {
       );
       if (!allSt.realHasShares) return _allMain;
       return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } },
-        _allMain, React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "100株 " + _elPnlFmt(allSt.sumPnl)));
+        _allMain, React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "1000株 " + _elPnlFmt(allSt.sumPnl)));
     };
     var _pbRow = function(label, st, isTotal, labelColor, gradeReal, gradePlanned, gradeMax, hasEntry, rowKey, tags, recs, exclN) {
       var bb = isTotal ? "2px solid #ddd" : "1px solid #e0ddd6";
@@ -7943,7 +7943,7 @@ function DayView(_ref57) {
       };
       return React.createElement("div", { style: { background: "#f9f8f5", border: "1px solid #e8e5de", borderRadius: 6, padding: "5px 8px", marginBottom: 8, fontSize: 9 } },
         mkRow("実現損益", { S:"25001+", A:"20001～25000", B:"10001～20000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-20000", "G-":"-20001～-25000", "G+":"-25001-" }),
-        mkRow("損益（EP/H1/H2/最終）", { S:"2501+", A:"2001～2500", B:"1001～2000", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2000", "G-":"-2001～-2500", "G+":"-2501-" })
+        mkRow("損益（EP/H1/H2/最終）", { S:"25001+", A:"20001～25000", B:"10001～20000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-20000", "G-":"-20001～-25000", "G+":"-25001-" })
       );
     })();
     
@@ -7961,8 +7961,8 @@ function DayView(_ref57) {
         _pbTh(React.createElement("span", { style: { color: "#DC2626" }, title: "確定損" }, "確損"), { width: 42 }),
         _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達"), { width: 40 }),
         _pbTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）。選外銘柄表ではスルーのみ" }, "除外"), { width: 40 }),
-        _pbTh(React.createElement("span", { title: "○が途切れた所（×/△）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２損益と同一基準（100株換算）" }, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block", whiteSpace: "normal", maxWidth: 76, margin: "0 auto", lineHeight: 1.2 } }, "○途切れで手じまい ()=△")), { width: 100 }),
-        _pbTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／想定損益を縦積み。（）内=△も保有し続けた場合。最終＝○が続く限り手じまい足まで保有した損益＝想定損益列と同値（100株換算）" }, "詳細損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "EP / H1 / H2")), { width: 150 }),
+        _pbTh(React.createElement("span", { title: "○が途切れた所（×/△）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２損益と同一基準（1000株換算）" }, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block", whiteSpace: "normal", maxWidth: 76, margin: "0 auto", lineHeight: 1.2 } }, "○途切れで手じまい ()=△")), { width: 100 }),
+        _pbTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／想定損益を縦積み。（）内=△も保有し続けた場合。最終＝○が続く限り手じまい足まで保有した損益＝想定損益列と同値（1000株換算）" }, "詳細損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "EP / H1 / H2")), { width: 150 }),
         _pbTh("実現損益", { width: 80 }),
         _pbTh("タグ", { width: 120, textAlign: "left" })
       );
