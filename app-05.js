@@ -6509,7 +6509,7 @@ function _elHold2TotPartsFixed(s, alpha, cutLine) {
 //   △ → （）外=1段下・（）内=そこまで保有した差／○ → 完全○チェーンなら（）外を自分の損益に更新・チェーンが切れていれば（）内へ
 // エントリー確度B 2026-11-20: ①（確定待ちを外した損益）と②（確定待ちの損益・入らなければ0円）を割合で混ぜる。①が入らない記録（×見送り・未達）は②のまま。
 function _elHoldFinalParts(s, alpha, cutLine) {
-  if (s && !s._ceV && s.kakudo === "B" && s.ceOn === true && alpha != null && _epIsV2(s)) {
+  if (!_EL_BMIX_IN && s && !s._ceV && s.kakudo === "B" && s.ceOn === true && alpha != null && _epIsV2(s)) {
     var _w = _bRatioOf(s) / 100;
     var _c = _elHoldFinalParts0(s, alpha, cutLine), _b = _elHoldFinalParts0(Object.assign({}, s, { ceOn: undefined }), alpha, cutLine);
     if (!_b || _b.main == null) return _c;
@@ -6558,6 +6558,38 @@ function _elHoldFinalParts0(s, alpha, cutLine) {
   }
   return parts;
 }
+
+// ===== エントリー確度B の段ごとの列も割合で混ぜる 2026-11-20m（ユーザー決定「列も割合で混ぜる」）=====
+//   想定損益（_elHoldFinalParts）だけでなく、EP損益(_elDynPlanned)・H1(_elDynHold/_elHold1TotParts/_elH1HeldBase)・H2(_elDynHold2)・3段目以降(_elDynHoldAt)も
+//   w×①（確定待ちを外した記録）＋(1−w)×②（確定待ちの記録・入らなければ0円）。①が成立しない（×見送り・未達）ときは②のまま（想定損益と同じ規約）。
+//   混ぜる計算の内側（と _elHoldFinalParts0＝混ぜる前の正本）では入れ子で混ぜない（_EL_BMIX_IN）。
+var _EL_BMIX_IN = 0;
+function _elBMixOn(s, alpha) { return !_EL_BMIX_IN && !!(s && !s._ceV && s.kakudo === "B" && s.ceOn === true && alpha != null && _epIsV2(s)); }
+function _elBMixWrap(fn, kind) {
+  return function(s, alpha) {
+    var args = Array.prototype.slice.call(arguments);
+    if (kind === "raw" || !_elBMixOn(s, alpha)) { if (kind !== "raw") return fn.apply(null, args); _EL_BMIX_IN++; try { return fn.apply(null, args); } finally { _EL_BMIX_IN--; } }
+    _EL_BMIX_IN++;
+    try {
+      var w = _bRatioOf(s) / 100, sA = Object.assign({}, s, { ceOn: undefined });
+      var c = fn.apply(null, [s].concat(args.slice(1))), rA = _epResolve(sA, alpha);
+      if (!rA || rA.judge !== "ok") return c;
+      var b = fn.apply(null, [sA].concat(args.slice(1)));
+      if (kind === "num") { if (b == null) return c; return Math.round(w * b + (1 - w) * (c == null ? 0 : c)); }
+      if (!b || b.main == null) return c;
+      var cm = (c && c.main != null) ? c.main : 0, br = b.ref, cr = c ? c.ref : null;
+      var rf = (br == null && cr == null) ? null : Math.round(w * (br || 0) + (1 - w) * (cr || 0));
+      return { main: Math.round(w * b.main + (1 - w) * cm), ref: rf ? rf : null };
+    } finally { _EL_BMIX_IN--; }
+  };
+}
+_elHoldFinalParts0 = _elBMixWrap(_elHoldFinalParts0, "raw");
+_elDynPlanned = _elBMixWrap(_elDynPlanned, "num");
+_elDynHold = _elBMixWrap(_elDynHold, "num");
+_elDynHold2 = _elBMixWrap(_elDynHold2, "num");
+_elDynHoldAt = _elBMixWrap(_elDynHoldAt, "num");
+_elH1HeldBase = _elBMixWrap(_elH1HeldBase, "num");
+_elHold1TotParts = _elBMixWrap(_elHold1TotParts, "parts");
 
 // ===== 日別損益マップ（ホーム/カレンダー/早見パネルの単一源）2026-08-17 =====
 // 【なぜ作ったか】ホームの月次チップ(_mAgg)とカレンダーの日次バッジ(gradeByDate)が、それぞれ独自に
