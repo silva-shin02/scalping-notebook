@@ -5450,12 +5450,10 @@ function _elOsTradeMini(recs, aiOf, opts) {
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#666" } }, s.time || "—"),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
         (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); })); })()),
-      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
-        _elAlphaTypeCell(s, a)),
       _elLineCell(s, a, c, _bb),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } }, _epECell(s, a, c)),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap" } },
-        entered ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇") : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
+        _elTradeLbl(s, entered)),
       _elPnlDetailCells(s, a, c, _bb, "1px 3px", "1px 5px"),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, whiteSpace: "nowrap" } },
         _elRPnlDispW(realPnl, gReal, 72, false, _elPer100Of(realPnl, s)))
@@ -5464,7 +5462,7 @@ function _elOsTradeMini(recs, aiOf, opts) {
   return React.createElement(_HScrollBox, { style: { marginTop: 4 }, plain: !!(opts && opts.plain) },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
-        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th(_elAW() + "値", { width: 34 }), _th("ライン", { width: 1 }), _th("E", { width: 24 }), _th("取引", { width: 26 }), _th("想定損益・詳細", { width: 84 }),
+        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("ライン", { width: 1 }), _th("E", { width: 24 }), _th("取引", { width: 26 }), _th("想定損益・詳細", { width: 84 }),
         React.createElement("th", { colSpan: 2, style: { padding: "2px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", textAlign: "center", fontSize: 10, color: "#9A9186", whiteSpace: "nowrap" } }, "OS・損益詳細"),
         _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有"), { width: 30 }), _th("実現損益", { width: 80 }))),
       React.createElement("tbody", null, rows)));
@@ -8775,7 +8773,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     var _sorted = _recSorted(recs);
     var shown = (limit && _sorted.length > limit) ? _sorted.slice(0, limit) : _sorted;
     var _exN = (extra && extra.head) ? extra.head.length : 0;
-    var colN = (mode === "day" ? 8 : 13) + _exN;   // 2026-11-16 損切り列撤去で14→13   // full: 2026-07-16 損切り・保有列追加で11→13／2026-07-18 ライン列追加で13→14
+    var _exAt = (extra && extra.at != null) ? ((mode !== "day" && extra.at > 4) ? extra.at - 1 : extra.at) : null;   // 2026-11-20 VAP値列（旧4番目）の撤去で、それより右に差し込む列は1つ左へ
+    var colN = (mode === "day" ? 8 : 12) + _exN;   // 2026-11-20 VAP値列の撤去で13→12   // 2026-11-16 損切り列撤去で14→13   // full: 2026-07-16 損切り・保有列追加で11→13／2026-07-18 ライン列追加で13→14
     var body = [];
     shown.forEach(function(r) {
       var s = r.signal, a = _ai(r);
@@ -8784,7 +8783,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       var on = expKey === ek;
       var cells = [
         _td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow(r.date) + ")", { textAlign: "left", paddingLeft: 8, fontWeight: 700 }),
-        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r, _collScope), _elFillRiskNode(r),
+        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, mode === "day" ? _minBarBadge(s) : null), _epIncompleteMark(s), _elCollMarkNode(data, r, _collScope), _elFillRiskNode(r),
           _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s))
             : (_dimLbl ? React.createElement("div", { style: { marginTop: 1 } }, React.createElement("span", { title: "集計に入らない記録（表示のみ）", style: { display: "inline-block", fontSize: 9, fontWeight: 800, color: "#78716C", background: "#F5F5F4", border: "1px solid #D6D3D1", borderRadius: 3, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 } }, _dimLbl)) : null)), { color: "#666" }),
         _td(r.stock, { color: "#9A3412", fontWeight: 700 })
@@ -8803,17 +8802,10 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         var realN = entered ? _elRealPnlPair(s, r.item).real : null;   // 2026-08-17j 実現損益は _elRealPnlPair 経由（item.pnl 優先）へ統一。旧＝signal.realizedPnl 直読みで取引テーブル側の損益を取りこぼしていた
         var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(_t) { return _elTagDisp(s, _t); }).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
         cells = cells.concat([
-          _td(_elSigCell(s, "flex-start"), { textAlign: "left" }),
-          _td(_elAlphaTypeCell(s, a.alpha), { background: _elSpecialUsed(s) ? "#FEF3C7" : null }),
+          _td(_elSigCell(s, "flex-start", true), { textAlign: "left" }),
           _td(_elLineInner(s, a.alpha, a.cutLine), { padding: "1px 2px", width: "1%" }),
           _td(_epECell(s, a.alpha, a.cutLine)),
-          _td(entered
-            ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 13 } }, "〇")
-            : _elIsThru(s)
-              ? _elThruLbl(s)
-              : _elIsReview(s)
-                ? React.createElement("span", { title: "要審議", style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審")
-                : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 13 } }, "×")),
+          _td(_elTradeLbl(s, entered, "#C0392B")),
           _td(React.createElement(React.Fragment, null, _elHold2AmtNode(s, a.alpha, a.cutLine), _elRideMiniNode(s, a.alpha, a.cutLine)), { background: "#FFFBF0" }),
           React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: "4px 6px", textAlign: "left", fontSize: 11, borderTop: "1px solid #f0ede8", background: "#F8FBFE" } }, _elDetailFlowStack(s, a.alpha, a.cutLine)),
           _td(_elHoldMinNode(s, a.alpha, a.cutLine))
@@ -8821,7 +8813,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       }
       if (extra && extra.cells) {
         var _exC = extra.cells(r) || [];
-        if (extra.at != null) { var _cp = cells.slice(); _cp.splice.apply(_cp, [extra.at, 0].concat(_exC)); cells = _cp; }
+        if (extra.at != null) { var _cp = cells.slice(); _cp.splice.apply(_cp, [_exAt, 0].concat(_exC)); cells = _cp; }
         else cells = cells.concat(_exC);
       }
       body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r, _collScope), _dimLbl ? { opacity: 0.6, backgroundColor: "#FAFAF9", borderLeft: "3px solid #D6D3D1" } : null) }, cells));
@@ -8831,10 +8823,10 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     });
     var head = mode === "day"
       ? [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("OS"), _th("E"), _th("OS帯"), _th("H中最高値"), _th("実現結果")]
-      : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th(_elAW() + "値"), _th("ライン"), _th("E"), _th("取引"),
+      : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("ライン"), _th("E"), _th("取引"),
          _th("想定損益・詳細"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, "OS・損益詳細"), _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有")), _th("実現損益")];
     if (_exN) {
-      if (extra.at != null) head.splice.apply(head, [extra.at, 0].concat(extra.head));
+      if (extra.at != null) head.splice.apply(head, [_exAt, 0].concat(extra.head));
       else head = head.concat(extra.head);
     }
     return React.createElement(React.Fragment, null,
