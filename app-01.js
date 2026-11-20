@@ -1603,6 +1603,25 @@ function migrateData(d) {
       d._migVapAdjExLv = true;
     } catch(e) { console.warn("[migrateData] vapAdjExLv error:", e); }
   }
+  // 【一回性 _migVapAdjExMid1120・2026-11-20】VAP補正の例外に中RN（EP基準ラインが50円単位）を追加（ユーザー指示「中RNは大RNと同様」）。
+  //   _migVapAdjExLv の①と同じ付け直し＝新条件に当たる記録の一括反映のマイナス補正（vapAdjBatch===true・vapAdj<0）だけ0円へ。手で入れた補正・実エントリーは触らない。
+  if (!d._migVapAdjExMid1120 && typeof _vapAdjExemptSig === "function" && typeof _vapWorld === "function") {
+    try {
+      var _mdA = 0;
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var c = d.charts[ck], i = ck.lastIndexOf("_"); if (!c || !Array.isArray(c.signals) || i < 0 || !_vapWorld(ck.slice(i + 1))) return;
+          c.signals.forEach(function(s) {
+            if (!s || s.entered === true) return;
+            var v = _vapOf(s); if (v == null) return;
+            if (_vapAdjExemptSig(s) && s.vapAdjBatch === true && _vapAdjOf(s) < 0) { s.vapAdj = null; s.vapAdjBatch = null; s.alphaVal = v + (typeof _rnAdjOf === "function" ? _rnAdjOf(s) : 0); s.baseAlphaVal = s.alphaVal; _mdA++; }
+          });
+        });
+      }
+      if (_mdA) console.log("[migrateData] vapAdjExMid1120: 0円へ " + _mdA + "件（EP基準ラインが中RN×VAP0円）");
+      d._migVapAdjExMid1120 = true;
+    } catch(e) { console.warn("[migrateData] vapAdjExMid1120 error:", e); }
+  }
   // 【一回性 _migRestore1028・2026-10-28】同期の不具合で設定(custom)が古い内容に戻った件の復旧（ユーザー決定）。
   //   ①記録から名前を戻す（app-04 _snRebuildCustom＝シグナル名・仮シグナル・理由・固有材料。足すだけ）
   //   ②銘柄タブ＝フジクラ・SBG の2つだけ　③日替わり候補＝記録のある銘柄・名簿の銘柄すべて（フジクラ・SBG・日経平均株価を除く・今の候補の順＋記録の多い順）
