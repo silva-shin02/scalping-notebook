@@ -6615,6 +6615,12 @@ function _elBSumNode(sp, vertical, big, badge) {
   var _op = function(t) { return React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, t); };
   var _tot = React.createElement("span", { style: { fontWeight: 900, fontSize: big ? "1.35em" : "1.2em", color: _elPnlColor(sp.t), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _f(sp.t));
   var _tt = "エントリー確度B（割合 " + _bRatioLbl(Math.round(sp.w * 100)) + "）：①基準ラインの分＋②確定待ちor直上VAPの分＝合計";
+  if (vertical === "hissan") {   // 2026-11-20q 記録フォーム：ひっ算の形（①／＋②／線／合計）ユーザー指示
+    var _r = function(op, node, extra) { return React.createElement("div", { style: Object.assign({ display: "flex", justifyContent: "flex-end", alignItems: "baseline", gap: 6, whiteSpace: "nowrap" }, extra || {}) }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, minWidth: 12 } }, op), node); };
+    return React.createElement("div", { title: _tt, style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", lineHeight: 1.35, fontSize: 14 } },
+      _r("", _y(sp.a, "①")), _r("＋", _y(sp.b, "②")),
+      _r("", React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } }, badge || null, _tot), { borderTop: "2px solid #57534E", paddingTop: 2, marginTop: 2 }));
+  }
   if (vertical) return React.createElement("div", { title: _tt, style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.2 } },
     _y(sp.a, "①"), _op("＋"), _y(sp.b, "②"), React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", borderTop: "1px solid #FDBA74", paddingTop: 1, marginTop: 1 } }, badge || null, _op("＝"), _tot));   // グレードは合計の行に 2026-11-20p
   return React.createElement("span", { title: _tt, style: { display: "inline-flex", alignItems: "baseline", gap: 5, flexWrap: "wrap" } }, _y(sp.a, "①"), _op("＋"), _y(sp.b, "②"), _op("＝"), _tot);
@@ -12494,11 +12500,13 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
       
+      React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "stretch", flexWrap: "wrap", marginBottom: 8 } },   // 2026-11-20q EP・H1・H2 を横並び（ユーザー指示）
+      React.createElement("div", { style: { flex: "1 1 0", minWidth: 210, display: "flex", flexDirection: "column" } },
       React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
         "EP" + (_epFormState && _epFormState.epIdx >= 0 ? "（＝OS" + (_epFormState.epIdx + 1) + "）" : "")
       ),
-      React.createElement("div", { style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" } },
-      React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement("div", { style: { flex: 1, marginBottom: 0, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" } },
+      React.createElement("div", { style: { marginBottom: 0 } },
         React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "EP損益（100株換算）"),
         _fMiss ? _fMissEl : (function() {
           // v2はEP足から直接計算した値を表示（fPlan経由にしない＝上のEPチップと同じ単一の式）。
@@ -12513,7 +12521,7 @@ function EntryRecordForm(_ref_erf) {
             _pvV2 = (_epFormState.epConf != null) ? Math.round((_epFormState.px - _epFormState.epConf) * 100) : (_dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100) : null);
           }
           var _bspP = (_useV2P && fKakudo === "B") ? _elBSplit(_elDynPlanned, _fVSig, _fAlpha, _fCutLine) : null;   // 2026-11-20n Bは ①＋②＝合計
-          if (_bspP) return _elBSumNode(_bspP, false, true);
+          if (_bspP) return _elBSumNode(_bspP, "hissan", true);
           var _sgnP = _useV2P ? (_pvV2 == null ? null : _pvV2 > 0 ? "+" : _pvV2 < 0 ? "-" : null) : fPlanSign;
           var _txtP = _useV2P
             ? (_pvV2 == null ? "—" : _pvV2 === 0 ? "0円" : (_pvV2 > 0 ? "+" : "−") + Math.abs(_pvV2).toLocaleString() + "円")
@@ -12529,26 +12537,14 @@ function EntryRecordForm(_ref_erf) {
             }
           }, _txtP);
         })()
-      ),
-      React.createElement("div", { style: { marginBottom: 0 } },
-        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "メモ"),
-        React.createElement(FastInput, {
-          multiline: true,
-          autoResize: true,
-          value: fRationale,
-          onChange: function(v) { setFRationale(v); },
-          placeholder: "",
-          rows: 2,
-          style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56 })
-        })
       )
-      ),
+      )),   // メモ欄は撤去 2026-11-20q（保存済みの signal.rationale は消さない）
 
-      _fHideHold ? null : React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
+      _fHideHold ? null : React.createElement("div", { style: { flex: "1 1 0", minWidth: 210, display: "flex", flexDirection: "column" } }, React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
         "H１" + (_epFormState && _epFormState.epIdx >= 0 ? "（＝OS" + (_epFormState.epIdx + 2) + "）" : "")
       ),
-      _fHideHold ? null : React.createElement("div", {
-        style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" }
+      React.createElement("div", {
+        style: { flex: 1, marginBottom: 0, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" }
       },
 
         React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" } },
@@ -12556,7 +12552,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            _fMiss ? _fMissEl : _fPlanStopNow ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHoldExp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine), false, true) : React.createElement("span", {
+            _fMiss ? _fMissEl : _fPlanStopNow ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHoldExp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine), "hissan", true) : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
@@ -12576,8 +12572,8 @@ function EntryRecordForm(_ref_erf) {
                   key: kv[1],
                   onClick: function() { setFHoldProfit(on ? null : kv[1]); },
                   style: {
-                    width: 96, boxSizing: "border-box", textAlign: "center", whiteSpace: "nowrap",
-                    padding: "5px 6px", fontSize: 13, fontWeight: 700, borderRadius: 5, cursor: "pointer",
+                    width: 66, boxSizing: "border-box", textAlign: "center", whiteSpace: "nowrap",
+                    padding: "4px 3px", fontSize: 11, fontWeight: 700, borderRadius: 5, cursor: "pointer",
                     border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
                     background: on ? kv[3] : "#fff",
                     color: on ? kv[2] : "#aaa"
@@ -12586,27 +12582,15 @@ function EntryRecordForm(_ref_erf) {
               })
             )
           )
-        ),
-
-        React.createElement("div", { style: { marginTop: 10 } },
-          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "H１メモ"),
-          React.createElement(FastInput, {
-            multiline: true, autoResize: true,
-            value: fHoldMemo,
-            onChange: function(v) { setFHoldMemo(v); },
-            placeholder: "",
-            rows: 2,
-            style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 48 })
-          })
         )
-      ),
+      )),   // H1メモ欄は撤去 2026-11-20q
 
-      _fH2Hidden ? null : React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }) },
+      _fH2Hidden ? null : React.createElement("div", { style: { flex: "1 1 0", minWidth: 210, display: "flex", flexDirection: "column" } }, React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }) },
         "H２" + (_epFormState && _epFormState.epIdx >= 0 ? "（＝OS" + (_epFormState.epIdx + 3) + "）" : ""),
         _fH2NonConsider ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 5, padding: "2px 8px", whiteSpace: "nowrap" } }, "※H１までE基準未達のため、非考慮") : null
       ),
-      _fH2Hidden ? null : React.createElement("div", {
-        style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F4F6F8", border: "1px solid " + (fHold2Exp === "×" ? "#e3c9c9" : "#cfe0d2") }
+      React.createElement("div", {
+        style: { flex: 1, marginBottom: 0, padding: "8px 10px", borderRadius: 6, background: "#F4F6F8", border: "1px solid " + (fHold2Exp === "×" ? "#e3c9c9" : "#cfe0d2") }
       },
 
         React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" } },
@@ -12614,7 +12598,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            _fMiss ? _fMissEl : (_fPlanStopNow || _fH1StopNow) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHold2Exp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine), false, true) : React.createElement("span", {
+            _fMiss ? _fMissEl : (_fPlanStopNow || _fH1StopNow) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHold2Exp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine), "hissan", true) : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
@@ -12634,8 +12618,8 @@ function EntryRecordForm(_ref_erf) {
                   key: kv[1],
                   onClick: function() { setFHold2Profit(on ? null : kv[1]); },
                   style: {
-                    width: 96, boxSizing: "border-box", textAlign: "center", whiteSpace: "nowrap",
-                    padding: "5px 6px", fontSize: 13, fontWeight: 700, borderRadius: 5, cursor: "pointer",
+                    width: 66, boxSizing: "border-box", textAlign: "center", whiteSpace: "nowrap",
+                    padding: "4px 3px", fontSize: 11, fontWeight: 700, borderRadius: 5, cursor: "pointer",
                     border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
                     background: on ? kv[3] : "#fff",
                     color: on ? kv[2] : "#aaa"
@@ -12644,20 +12628,8 @@ function EntryRecordForm(_ref_erf) {
               })
             )
           )
-        ),
-
-        React.createElement("div", { style: { marginTop: 8 } },
-          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "Hold２メモ"),
-          React.createElement(FastInput, {
-            multiline: true, autoResize: true,
-            value: fHold2Memo,
-            onChange: function(v) { setFHold2Memo(v); },
-            placeholder: "",
-            rows: 2,
-            style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 48 })
-          })
         )
-      ),
+      ))),   // Hold2メモ欄は撤去 2026-11-20q／横並びの行を閉じる
 
 
       React.createElement("div", { style: SH_ }, "実エントリー"),
