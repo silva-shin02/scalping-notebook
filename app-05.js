@@ -5984,7 +5984,7 @@ function _elFillEqFootNode(recsM, aiAlpha, aiCut, days, base) {
   return React.createElement("div", { key: "fqfoot", style: { display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap",
     padding: "4px 10px", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 6, marginTop: 4,
     fontSize: 10.5, fontWeight: 800, color: "#0F6E56" } },
-    React.createElement("span", { title: "EP＝OS最大（ちょうど同値）＝予定EPに触れただけで上抜けなかった記録。未約定として想定損益には入れていません。金額は『もし約定していたら』の想定損益の合計" }, "🎯 指値同値 約定していたら"),
+    React.createElement("span", { title: "EP＝OS最大（ちょうど同値）＝最終EPに触れただけで上抜けなかった記録。未約定として想定損益には入れていません。金額は『もし約定していたら』の想定損益の合計" }, "🎯 指値同値 約定していたら"),
     _amt,
     _pill(_st.n + "件・未約定扱い", "n"));
 }
@@ -6002,7 +6002,7 @@ function _elFillEqMiniNode(signals, cutLine, exclFn, itemOf) {
     if (p != null) { sum += p; cnt++; }
   });
   if (!n) return null;
-  return React.createElement("span", { title: "指値同値＝OS最大が予定EPとちょうど同値＝未約定。想定損益・グレードには入っていません。金額は『もし約定していたら』の想定損益（参考）",
+  return React.createElement("span", { title: "指値同値＝OS最大が最終EPとちょうど同値＝未約定。想定損益・グレードには入っていません。金額は『もし約定していたら』の想定損益（参考）",
     style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 9.5, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px dashed #5DCAA5", borderRadius: 4, padding: "0 5px", whiteSpace: "nowrap", lineHeight: 1.6 } },
     "同値" + n + "件",
     cnt ? React.createElement("span", { style: { color: _elPnlColor(sum) } }, "参考" + _elPnlFmt(sum)) : null);
@@ -6709,7 +6709,7 @@ function _SnMonthPnlPanel(_refSnMp) {
           agg.eqCnt > 0 ? _cell("指値同値",
             agg.eqPnlCnt > 0 ? _amt(agg.eqPnl) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
             React.createElement(React.Fragment, null, agg.eqCnt + "件・未約定扱い" + (agg.eqPnlCnt > 0 ? " / 合計 " + _snYen(eqTot) : "") + " ", (eqPerDay != null) ? _elHoldGradeBadge(_profitGradeFromPnl(eqPerDay, agg.finalCnt + agg.eqPnlCnt)) : null, (eqPerDay != null) ? "1日 " + _snYen(eqPerDay) : null),
-            "OS最大＝採用α/VAPちょうど＝予定EPに触れただけで上抜けなかった記録 " + agg.eqCnt + "件。未約定として想定損益には入れていません。金額は『もし約定していたら』の想定損益（手じまい基準・100株換算）の合計です。合計＝想定損益＋この金額。バッジと1日あたりは合計を経過営業日で割った額（同値分だけの1日平均は出しません）") : null,
+            "OS最大＝採用α/VAPちょうど＝最終EPに触れただけで上抜けなかった記録 " + agg.eqCnt + "件。未約定として想定損益には入れていません。金額は『もし約定していたら』の想定損益（手じまい基準・100株換算）の合計です。合計＝想定損益＋この金額。バッジと1日あたりは合計を経過営業日で割った額（同値分だけの1日平均は出しません）") : null,
           _cell("1日あたり",
             perDay == null ? React.createElement("span", { style: { color: "#bbb" } }, "—")
               : React.createElement(React.Fragment, null, _elHoldGradeBadge(_profitGradeFromPnl(perDay, agg.finalCnt)), _amt(perDay)),
@@ -10593,7 +10593,7 @@ function EntryRecordForm(_ref_erf) {
       if (fTags.length === 0 && !fIsCustom) _vm.push("シグナル");
       if (_ef.alpha == null || isNaN(_ef.alpha)) _vm.push("合計α値");
       if (_vapMode && fVap === "") _vm.push("VAP値");   // （続き）
-      if (_vapMode && (fLevelPrice === "" || isNaN(parseFloat(fLevelPrice)))) _vm.push("EP基準ライン（予定EP＝EP基準ライン＋VAP値）");   // 予定EPが出せない記録を作らない 2026-10-08（ユーザー指示「EPも必須」）
+      if (_vapMode && (fLevelPrice === "" || isNaN(parseFloat(fLevelPrice)))) _vm.push("EP基準ライン（最終EP＝EP基準ライン＋VAP値）");   // 予定EPが出せない記録を作らない 2026-10-08（ユーザー指示「EPも必須」）
       if (!fTime) _vm.push("時間");
       if (_ef.o1 == null) _vm.push("OS1高値");
       if (fOsConfVal === "") _vm.push("OS1確定値");
@@ -10915,7 +10915,7 @@ function EntryRecordForm(_ref_erf) {
             (fRnAdj == null && _fRnTier) ? React.createElement("span", { style: { fontSize: 9.5, color: "#64748B", whiteSpace: "nowrap" } }, "自動") : null,
             (_fRnAdjEff !== 0) ? React.createElement("button", { type: "button", onClick: function() { setFRnAdj(0); }, style: { padding: "0 6px", fontSize: 10, fontWeight: 700, border: "1px solid #CBD5E1", background: "#fff", color: "#64748B", borderRadius: 4, cursor: "pointer" } }, "外す") : null,
             (!isEdit && fRnAdj != null && _fRnTier) ? React.createElement("button", { type: "button", onClick: function() { setFRnAdj(null); }, style: { padding: "0 6px", fontSize: 10, fontWeight: 700, border: "1px solid #CBD5E1", background: "#fff", color: "#64748B", borderRadius: 4, cursor: "pointer" } }, "自動に戻す") : null) : null,
-          React.createElement("span", { title: "EP\u57fa\u6e96\u30e9\u30a4\u30f3\uff0bVAP\u5024\uff1d\u4e88\u5b9a\u30a8\u30f3\u30c8\u30ea\u30fc\u4fa1\u683c", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "\u2192 \u4e88\u5b9aEP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, _epTxt), "\u5186")];
+          React.createElement("span", { title: "EP\u57fa\u6e96\u30e9\u30a4\u30f3\uff0bVAP\u5024\uff1d\u4e88\u5b9a\u30a8\u30f3\u30c8\u30ea\u30fc\u4fa1\u683c", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "\u2192 \u6700\u7d42EP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, _epTxt), "\u5186")];
         return _kids;
       })();
     return { vap: _k[0], adj: _k[1], rn: _k[2], ep: _k[3], ana: React.createElement(_VapAnaPanel, { data: data, stock: fStock, tags: fTags, vap: fVap, adj: fVapAdj, onAdj: function(k) { setFVapAdj(k); }, excludeId: isEdit ? initSig.id : null }) }; }
@@ -11507,7 +11507,7 @@ function EntryRecordForm(_ref_erf) {
         (_showUki && fUkiUsed === "○")
           ? "合計α値（EP基準ライン比）＝ 浮き足加算 ＋ RN加算。⚠️浮き足〇のあいだは基本α・応用αを使わない（浮き足専用α）。"
           : "合計α値（EP基準ライン比）＝（基本α or 応用α）＋ RN加算。",
-        "この合計αをEP基準ラインに足したものが予定EP。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
+        "この合計αをEP基準ラインに足したものが最終EP。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
       React.createElement.apply(React, ["div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } }].concat(_vapMode ? (_vapInOs ? [] : _vapBoxEls()) : [
         _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
         (function() {
@@ -11926,7 +11926,7 @@ function EntryRecordForm(_ref_erf) {
         },
           React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "RN加算"),
           // 2026-09-02 中RN(…50)／大RN(…00)のどちらを狙っているかのバッジ。種別はRN前EPの下二桁から都度導出＝保存しない。
-          _fRnKindI ? React.createElement("span", { title: "RN加算“前”の予定EP " + _fRnPreEp + "円 → 直近のキリ番は " + _fRnKindI.target + "（" + _fRnKindI.label + "）。中RN＝下二桁1〜49／大RN＝51〜99（…00＝100・1000台）。閾値は種別ごとに設定できます（🔢RN加算タブ→閾値）",
+          _fRnKindI ? React.createElement("span", { title: "RN加算“前”の最終EP " + _fRnPreEp + "円 → 直近のキリ番は " + _fRnKindI.target + "（" + _fRnKindI.label + "）。中RN＝下二桁1〜49／大RN＝51〜99（…00＝100・1000台）。閾値は種別ごとに設定できます（🔢RN加算タブ→閾値）",
             style: { fontSize: 9.5, fontWeight: 800, color: _fRnKindI.color, background: _fRnKindI.bg, border: "1px solid " + _fRnKindI.bd, borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } }, _fRnKindI.label) : null,
           React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
             [["○", "○", "要", "#C0392B", "#FCEBEB"], ["×", "×", "不要", "#1E8449", "#EAF3DE"]].map(function(kv) {
@@ -11952,14 +11952,14 @@ function EntryRecordForm(_ref_erf) {
           _rnOn ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#1D4ED8", whiteSpace: "nowrap" } }, "→ ＋" + _rnAddShown + "円を加算" + (_fRnKindI ? ("（" + _fRnKindI.target + "へ）") : "")) : null,
           // 2026-07-20b 自動判定の状態表示。自動中＝バッジ／手動上書き中＝「↺自動」ボタンで復帰。水準線未入力は判定不可のヒント。
           fRnAuto
-            ? React.createElement("span", { title: "予定EP（EP基準ライン＋基底α＋浮き足加算）の下二桁が、中RNは 50−T〜49（→…50）・大RNは 100−T〜99（→…00＝100・1000台）なら自動で〇にして、そのキリ番ちょうどまで加算します。閾値Tは中RN・大RNで別々に設定できます（🔢RN加算タブ→閾値）。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9.5, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
+            ? React.createElement("span", { title: "最終EP（EP基準ライン＋基底α＋浮き足加算）の下二桁が、中RNは 50−T〜49（→…50）・大RNは 100−T〜99（→…00＝100・1000台）なら自動で〇にして、そのキリ番ちょうどまで加算します。閾値Tは中RN・大RNで別々に設定できます（🔢RN加算タブ→閾値）。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9.5, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
                 _fRnAutoAdd == null ? "自動判定：EP基準ラインを入力すると効きます" : (_fRnAutoAdd > 0 ? ("自動判定中" + (_fRnKindI ? ("・" + _fRnKindI.label) : "")) : "自動判定中（対象外）"))
             : React.createElement("button", { type: "button", onClick: function() { setFRnAuto(true); },
-                title: "自動判定に戻す（予定EPの下二桁から〇×と加算値を自動でセットし直します）",
+                title: "自動判定に戻す（最終EPの下二桁から〇×と加算値を自動でセットし直します）",
                 style: { fontSize: 9.5, fontWeight: 700, color: "#B45309", background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 自動に戻す（手動中）"),
           React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 4, padding: "1px 7px", borderRadius: 6, background: "#DBEAFE", border: "1px solid #93C5FD", whiteSpace: "nowrap" } },
             React.createElement("span", { style: { fontSize: 9.5, color: "#1D4ED8", fontWeight: 700 } }, "暫定EP"),
-            React.createElement("span", { title: "EP基準ライン＋合計α値（RN加算を含む）＝この設定でのエントリー予定価格の目安。EPを見てRN加算の要否を判断（下の予定EP欄と同じ値）。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, _epPrev != null ? String(_epPrev) : "—"),
+            React.createElement("span", { title: "EP基準ライン＋合計α値（RN加算を含む）＝この設定でのエントリー予定価格の目安。EPを見てRN加算の要否を判断（下の最終EP欄と同じ値）。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, _epPrev != null ? String(_epPrev) : "—"),
             React.createElement("span", { style: { fontSize: 9.5, color: "#93C5FD" } }, "円"))
         );
       })(),
@@ -11978,7 +11978,7 @@ function EntryRecordForm(_ref_erf) {
             : React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "＝ " + (fAlphaKind === "special" ? "応用" : "基本") + " ",
                 React.createElement("span", { style: { color: fAlphaKind === "special" ? "#92400E" : "#0369A1", fontWeight: 700 } }, _fBaseLevel),
                 _fRnAdd > 0 ? React.createElement("span", null, " ＋ RN ", React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, _fRnAdd)) : null),
-          React.createElement("span", { title: "EP基準ライン＋合計α値（基本/応用＋浮き足＋RN）＝実際のエントリー予定価格。", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap", marginLeft: 4 } }, "→ 予定EP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; return String(Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100); })()), "円")
+          React.createElement("span", { title: "EP基準ライン＋合計α値（基本/応用＋浮き足＋RN）＝実際のエントリー予定価格。", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap", marginLeft: 4 } }, "→ 最終EP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; return String(Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100); })()), "円")
         );
       })()],
       [React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
@@ -12210,7 +12210,7 @@ function EntryRecordForm(_ref_erf) {
             var _lvRow = React.createElement("div", { style: _rowS }, _lvPriceBox("lv_os"), React.createElement("div", {
               style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
             },
-              React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, "予定EP"),
+              React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, "最終EP"),
               React.createElement("span", { title: "EP基準ライン＋合計α値（基本／応用＋浮き足＋RN）＝自動計算。エントリー予定価格の目安。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums", minWidth: 36, textAlign: "right" } },
                 (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; var _ep = _lv + (isNaN(_fAlpha) ? 0 : _fAlpha); return String(Math.round(_ep * 100) / 100); })()
               ),
@@ -12232,7 +12232,7 @@ function EntryRecordForm(_ref_erf) {
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
                   React.createElement("div", { style: _rowS },
                     React.createElement("span", { style: { fontWeight: 800, color: c.fg } }, "EP①（基準ライン）"),
-                    _vapRow ? null : React.createElement("span", { style: { fontWeight: 800, fontVariantNumeric: "tabular-nums" } }, "予定EP " + _epTx)),
+                    _vapRow ? null : React.createElement("span", { style: { fontWeight: 800, fontVariantNumeric: "tabular-nums" } }, "最終EP " + _epTx)),
                   _vapRow),
                 React.createElement("div", { style: { borderTop: "1px dashed " + c.bd } }),
                 _ceRow(true),
@@ -12244,7 +12244,7 @@ function EntryRecordForm(_ref_erf) {
               : React.createElement(React.Fragment, null,
                   _vapRow,
                   fCeOn ? React.createElement("div", { style: _boxS("#67E8F9", "#F0FDFF") }, _ceRow(false)) : null),
-              (_vapInOs && _kdOpen) ? _alphaMemoEl() : null);
+              null);   // 2026-11-20e VAPメモは廃止（ユーザー指示・保存済みの signal.alphaMemo は消さない）
           })(),
           // 確定待ちの理由（選択肢）2026-10-19: チェックを付けたときだけ。新規は必須（スルー・要審議の理由と同じ規約）。
           // 2026-10-21 チェックした瞬間に出す（ユーザー指摘）＝旧条件の「OS高値がα値に届いている(k0>=0)」を外した。OSを入れる前に理由を選べる。
@@ -13157,7 +13157,7 @@ function EntryLogCard(_ref_elc) {
         (s.holdMemo || s.hold2Memo) ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2 } },
           s.holdMemo ? React.createElement("div", { style: { fontSize: 10, color: "#777", lineHeight: 1.4, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "H１メモ"), s.holdMemo) : null,
           s.hold2Memo ? React.createElement("div", { style: { fontSize: 10, color: "#777", lineHeight: 1.4, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "H２メモ"), s.hold2Memo) : null) : null,
-        s.alphaMemo ? React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "αメモ"), s.alphaMemo) : null,
+        (s.alphaMemo && !_vapWorld(record.date)) ? React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "αメモ"), s.alphaMemo) : null,
         // スルーの理由（選択肢）2026-10-17
         (s.passThrough === true && Array.isArray(s.thruReasons) && s.thruReasons.length) ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } },
           React.createElement("span", { style: { fontSize: 11, color: "#9CA3AF", fontWeight: 700, marginRight: 1 } }, "スルー理由"),

@@ -3460,7 +3460,7 @@ function _elTotalAlphaSectionV2(recs, aiOf, holiSet, onPick, curSel, spanOverrid
   var insight = _nomin ? null : _elInsightBoxV2([
     React.createElement("span", null, "応用〇で採用する独立α値の", _elInsightEmV2("理想は応用α " + ideal + "円"), "、", _elInsightEmV2("推奨は " + a + "円" + (_elAlphaOffTxt("") ? "（理想" + _elAlphaOffTxt("") + "）" : "")), "（Σ想定損益 ", _elInsightEmV2(pick.h2Sum != null ? _elPnlFmt(Math.round(pick.h2Sum)) : "—"), "・平均想定損益 ", _elInsightEmV2(pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—"), "・E成立 ", _elInsightEmV2((pick.decided || 0) + "件"), "）。"),
     React.createElement("span", { style: { color: "#64748B" } }, "応用αは基本αより大きくクランプ。通常局面の推奨基本αは①基本αゾーン。")
-  ], { note: "母数＝応用〇（浮き足〇・RN〇除外）。各応用α0〜20円で評価。理想＝黒字・到達率" + reachP + "%以上・頻度" + _EL_FREQ_MAX + "未満を満たすαのうち、Σ想定損益（累計）が最大のα（基本αより大きくクランプ）／推奨＝理想" + _elAlphaOffTxt("円") + "。同点は平均（1件あたり）が大きい方→低α。フォーム/EPナビの推奨応用αと同じ算出（銘柄全体母数）。中央値が平均から大きく下なら、その平均は少数の大勝ちで作られている（＝毎回は取れない）。淡色の行は★の最低条件のどれかを満たさない行で、どの条件で落ちたかは行にカーソルを合わせると出る（2026-08-02mに「未達」列から行ツールチップへ移設）。利確・損切りの各列は「件数 率」の並び（分母＝E成立）。想定損益(平均/中央/Σ)の母数＝想定損益が確定した件数でE成立とはズレることがある。**同値はどの列の母数にも入れない**＝到達率・E成立・利確・損切り・想定損益(平均/中央/Σ)・勝ち/負け平均のすべてから外す（2026-08-10 ユーザー決定。旧2026-08-02eは想定損益にだけ0円で算入していたので、平均・中央値だけ同値ぶん分母が多かった）。勝ち/負けの境界は利確率と同じ（プラス＝勝ち／0円のトントンは負け側）。スコア＝旧H1基準の参考値［0.7×(1−H1損切り率)+0.3×H1勝率］＝★選定には不使用（H1勝率・平均H1損益の列は想定損益と重複のため2026-07-16に削除・列構成は基本α詳細表と同一）。同値列＝そのαがOS1〜3高値の最大とちょうど一致した件数（＝予定EPに触れただけで一度も上抜けていない＝指値が刺さらなかった可能性・実際に約定済みの記録は除く）。**同値は「そのαなら取引していない」として全列の母数から外す**（2026-08-10）。Σ想定損益は旧仕様（0円算入）と同額・平均は分母が同値ぶん減るので上がる。したがって平均想定損益は「そのαで実際に約定した1件あたりの実力」であって、刺さらなかった機会のぶんは価格に入っていない＝その頻度は同値列の件数のほうで読む。理想・推奨はΣ最大で選ぶので同値の扱いを変えても基本的に動かない（同点時の第2キー＝平均だけ入れ替わりうる・2026-08-02k 選定基準はΣ最大＝累計重視）。頻度列（到達実日数）からも同値を外しているので、同値だけの日は「到達した日」に数えない＝★の頻度ゲートと同じ値。" });
+  ], { note: "母数＝応用〇（浮き足〇・RN〇除外）。各応用α0〜20円で評価。理想＝黒字・到達率" + reachP + "%以上・頻度" + _EL_FREQ_MAX + "未満を満たすαのうち、Σ想定損益（累計）が最大のα（基本αより大きくクランプ）／推奨＝理想" + _elAlphaOffTxt("円") + "。同点は平均（1件あたり）が大きい方→低α。フォーム/EPナビの推奨応用αと同じ算出（銘柄全体母数）。中央値が平均から大きく下なら、その平均は少数の大勝ちで作られている（＝毎回は取れない）。淡色の行は★の最低条件のどれかを満たさない行で、どの条件で落ちたかは行にカーソルを合わせると出る（2026-08-02mに「未達」列から行ツールチップへ移設）。利確・損切りの各列は「件数 率」の並び（分母＝E成立）。想定損益(平均/中央/Σ)の母数＝想定損益が確定した件数でE成立とはズレることがある。**同値はどの列の母数にも入れない**＝到達率・E成立・利確・損切り・想定損益(平均/中央/Σ)・勝ち/負け平均のすべてから外す（2026-08-10 ユーザー決定。旧2026-08-02eは想定損益にだけ0円で算入していたので、平均・中央値だけ同値ぶん分母が多かった）。勝ち/負けの境界は利確率と同じ（プラス＝勝ち／0円のトントンは負け側）。スコア＝旧H1基準の参考値［0.7×(1−H1損切り率)+0.3×H1勝率］＝★選定には不使用（H1勝率・平均H1損益の列は想定損益と重複のため2026-07-16に削除・列構成は基本α詳細表と同一）。同値列＝そのαがOS1〜3高値の最大とちょうど一致した件数（＝最終EPに触れただけで一度も上抜けていない＝指値が刺さらなかった可能性・実際に約定済みの記録は除く）。**同値は「そのαなら取引していない」として全列の母数から外す**（2026-08-10）。Σ想定損益は旧仕様（0円算入）と同額・平均は分母が同値ぶん減るので上がる。したがって平均想定損益は「そのαで実際に約定した1件あたりの実力」であって、刺さらなかった機会のぶんは価格に入っていない＝その頻度は同値列の件数のほうで読む。理想・推奨はΣ最大で選ぶので同値の扱いを変えても基本的に動かない（同点時の第2キー＝平均だけ入れ替わりうる・2026-08-02k 選定基準はΣ最大＝累計重視）。頻度列（到達実日数）からも同値を外しているので、同値だけの日は「到達した日」に数えない＝★の頻度ゲートと同じ値。" });
   return React.createElement("div", null,
     concl,
     React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "8px 0 0" } }, "母数の内訳: 応用〇 " + _yesN + "件 → 浮き足〇 " + _exUki + "件・RN〇 " + _exRn + "件を除外 → " + pool.length + "件"),
@@ -3923,7 +3923,7 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride,
     React.createElement("span", null, (poolAll ? "★の一律α" : "採用α"), _elInsightEmV2(a + "円"), "の母数は", _elInsightEmV2(scN + "件"), "（OS3までにEP到達し決着）。うち想定損益プラス", _elInsightEmV2(winN + "件"), "・その他", _elInsightEmV2(otherN + "件"), "、対象外", _elInsightEmV2(offN + "件"), "（未到達）。"),
     React.createElement("span", null, "理想α＝", _elInsightEmV2("全条件（到達率" + _reachP + "%以上・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字）を満たすαのうち、Σ想定損益（累計）が最大のα"), "（到達率下限は🎯で調整可）。", _elInsightEmV2("推奨α＝理想" + _elAlphaOffTxt("円")), (_EL_ALPHA_OFFSET > 0 ? "（指値をギリギリで外さないよう理想より少し下げた実際に置く値）。" : "（最良と判定したαと実際に置くαをズラさない方針＝一律マージンは引かない。同値はどの列の母数にも入れず、件数だけ「同値」列に出る）。"), "同点は平均（1件あたり）が大きい方→低α。全条件を満たすαが1つも無ければ『条件適合無し』。"),
     React.createElement("span", null, _elInsightEmV2("中央値"), "が平均から大きく下なら、その平均は少数の大勝ちで作られている（＝毎回は取れない）。", _elInsightEmV2("淡色の行"), "は★の最低条件のどれかを満たさない行で、どの条件で落ちたかは行にカーソルを合わせると出る（2026-08-02mに「未達」列から行ツールチップへ移設）。", _elInsightEmV2("利確"), "の列は「件数 率」の並び（率の分母＝E成立）。")
-  ], { note: (poolAll ? "**分類「全記録」の母数＝基本・応用を問わず全記録（応用〇・浮き足〇・RN〇も含む）** に各αを一律で当ててシミュレーション。加算あり（浮き足〇/RN〇）の記録も一律αに置き換わるので、この表は「加算ルールを使わず一律αだけで通していたら」の答え。★はこの母数だけの参考値で、フォーム/EPナビ/シミュへ流れる推奨基本αは分類「基本α」（素の記録が母数）の値＝ここでは変わらない。" : "この銘柄のv2・算入記録（素の記録のみ）に各αを当ててシミュレーション") + "。E成立・利確率・想定損益(平均/中央/Σ)・勝ち/負け平均＝想定損益(手じまい・EP/H1/H2)基準・理想＝全条件を満たすαのうちΣ想定損益（累計）が最大のα（同点は平均が大きい方→低α）・推奨α＝理想" + _elAlphaOffTxt("円") + "。想定損益(平均/中央/Σ)の母数＝想定損益が確定した件数で、隣のE成立とはEP×見送り等でズレることがある。**同値はどの列の母数にも入れない**＝到達率・E成立・利確・損切り・想定損益(平均/中央/Σ)・勝ち/負け平均のすべてから外す（2026-08-10 ユーザー決定。旧2026-08-02eは想定損益にだけ0円で算入していたので、平均・中央値だけ同値ぶん分母が多かった）。勝ち/負けの境界は利確率と同じ（プラス＝勝ち／0円のトントンは負け側）。スコア＝［0.7×(1−損切り率(最終))+0.3×利確率(最終)］＝この行の他の列と同じ想定損益（手じまい・終値撤退）基準の要約値。★選定には不使用（★＝全条件を満たすαのうちΣ想定損益が最大）。2026-08-02gに旧H1基準［H1まで・ラインに触れたら損切り］から切替＝同じ行の中でスコアだけ土俵が違い、行の優劣が入れ替わって見えていたため。同値列＝そのαがOS1〜3高値の最大とちょうど一致した件数（＝予定EPに触れただけで一度も上抜けていない＝指値が刺さらなかった可能性・実際に約定済みの記録は除く）。**同値は「そのαなら取引していない」として全列の母数から外す**（2026-08-10）。Σ想定損益は旧仕様（0円算入）と同額・平均は分母が同値ぶん減るので上がる。したがって平均想定損益は「そのαで実際に約定した1件あたりの実力」であって、刺さらなかった機会のぶんは価格に入っていない＝その頻度は同値列の件数のほうで読む。理想・推奨はΣ最大で選ぶので同値の扱いを変えても基本的に動かない（同点時の第2キー＝平均だけ入れ替わりうる・2026-08-02k 選定基準はΣ最大＝累計重視）。頻度列（到達実日数）からも同値を外しているので、同値だけの日は「到達した日」に数えない＝★の頻度ゲートと同じ値。" });
+  ], { note: (poolAll ? "**分類「全記録」の母数＝基本・応用を問わず全記録（応用〇・浮き足〇・RN〇も含む）** に各αを一律で当ててシミュレーション。加算あり（浮き足〇/RN〇）の記録も一律αに置き換わるので、この表は「加算ルールを使わず一律αだけで通していたら」の答え。★はこの母数だけの参考値で、フォーム/EPナビ/シミュへ流れる推奨基本αは分類「基本α」（素の記録が母数）の値＝ここでは変わらない。" : "この銘柄のv2・算入記録（素の記録のみ）に各αを当ててシミュレーション") + "。E成立・利確率・想定損益(平均/中央/Σ)・勝ち/負け平均＝想定損益(手じまい・EP/H1/H2)基準・理想＝全条件を満たすαのうちΣ想定損益（累計）が最大のα（同点は平均が大きい方→低α）・推奨α＝理想" + _elAlphaOffTxt("円") + "。想定損益(平均/中央/Σ)の母数＝想定損益が確定した件数で、隣のE成立とはEP×見送り等でズレることがある。**同値はどの列の母数にも入れない**＝到達率・E成立・利確・損切り・想定損益(平均/中央/Σ)・勝ち/負け平均のすべてから外す（2026-08-10 ユーザー決定。旧2026-08-02eは想定損益にだけ0円で算入していたので、平均・中央値だけ同値ぶん分母が多かった）。勝ち/負けの境界は利確率と同じ（プラス＝勝ち／0円のトントンは負け側）。スコア＝［0.7×(1−損切り率(最終))+0.3×利確率(最終)］＝この行の他の列と同じ想定損益（手じまい・終値撤退）基準の要約値。★選定には不使用（★＝全条件を満たすαのうちΣ想定損益が最大）。2026-08-02gに旧H1基準［H1まで・ラインに触れたら損切り］から切替＝同じ行の中でスコアだけ土俵が違い、行の優劣が入れ替わって見えていたため。同値列＝そのαがOS1〜3高値の最大とちょうど一致した件数（＝最終EPに触れただけで一度も上抜けていない＝指値が刺さらなかった可能性・実際に約定済みの記録は除く）。**同値は「そのαなら取引していない」として全列の母数から外す**（2026-08-10）。Σ想定損益は旧仕様（0円算入）と同額・平均は分母が同値ぶん減るので上がる。したがって平均想定損益は「そのαで実際に約定した1件あたりの実力」であって、刺さらなかった機会のぶんは価格に入っていない＝その頻度は同値列の件数のほうで読む。理想・推奨はΣ最大で選ぶので同値の扱いを変えても基本的に動かない（同点時の第2キー＝平均だけ入れ替わりうる・2026-08-02k 選定基準はΣ最大＝累計重視）。頻度列（到達実日数）からも同値を外しているので、同値だけの日は「到達した日」に数えない＝★の頻度ゲートと同じ値。" });
   }
   return React.createElement("div", null,
     concl,
@@ -6922,7 +6922,7 @@ function _elKabuLadderSimV2(props) {
   var _mtNoBuildChip = function(nb) {
     var k = null; (_KB_NB || []).forEach(function(x) { if (x[0] === nb) k = x; });
     if (!k) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-    return React.createElement("span", { title: nb === "unreached" ? "掃引αにOS1〜3で届かなかった（αを下げれば拾える可能性）" : nb === "x" ? "×見送り宣言の後にαへ到達＝実際には降りているので建てない" : nb === "noalpha" ? "この取引のαが出せない（推奨α不明／採用α未入力）" : nb === "fillEq" ? "実効αがOS高値の最大とちょうど一致＝予定EPに触れただけで指値が約定しなかった可能性（オプション「指値同値は建てない」がON）" : "有効な取引行が無い（株数0・方式未選択）",
+    return React.createElement("span", { title: nb === "unreached" ? "掃引αにOS1〜3で届かなかった（αを下げれば拾える可能性）" : nb === "x" ? "×見送り宣言の後にαへ到達＝実際には降りているので建てない" : nb === "noalpha" ? "この取引のαが出せない（推奨α不明／採用α未入力）" : nb === "fillEq" ? "実効αがOS高値の最大とちょうど一致＝最終EPに触れただけで指値が約定しなかった可能性（オプション「指値同値は建てない」がON）" : "有効な取引行が無い（株数0・方式未選択）",
       style: { fontSize: 9, fontWeight: 700, color: k[2], background: k[3], border: "1px solid " + k[4], borderRadius: 4, padding: "0 5px", whiteSpace: "nowrap" } }, k[1]);
   };
   // 建たなかった段の理由ラベル 2026-08-06d（ユーザー要望「0（∵指値同値）+〇 みたいに。未達も同様」）。
@@ -6964,7 +6964,7 @@ function _elKabuLadderSimV2(props) {
     };
     // 建たなかった段は「0（∵理由）」＝その段の寄与が0円であることと、なぜ0なのかを同時に出す
     var _skipNode = function(sk, i) {
-      return React.createElement("span", { key: i, style: { whiteSpace: "nowrap" }, title: sk === "fillEq" ? "実効αがOS高値の最大とちょうど一致＝予定EPに触れただけ（オプション「指値同値は建てない」がON）" : sk === "unreached" ? "この段の実効αにOS1〜3で届かなかった" : sk === "x" ? "×見送り宣言の後にαへ到達＝実際には降りている" : sk === "noalpha" ? "この段のαが出せない（推奨α不明／採用α未入力）" : "損益を判定できない段（（）外が無い）" },
+      return React.createElement("span", { key: i, style: { whiteSpace: "nowrap" }, title: sk === "fillEq" ? "実効αがOS高値の最大とちょうど一致＝最終EPに触れただけ（オプション「指値同値は建てない」がON）" : sk === "unreached" ? "この段の実効αにOS1〜3で届かなかった" : sk === "x" ? "×見送り宣言の後にαへ到達＝実際には降りている" : sk === "noalpha" ? "この段のαが出せない（推奨α不明／採用α未入力）" : "損益を判定できない段（（）外が無い）" },
         React.createElement("span", { style: { color: "#94a3b8" } }, "0"),
         React.createElement("span", { style: { color: "#b9c2cc", fontSize: "0.8em" } }, "（∵" + (_SIM_SKIP_JA[sk] || "—") + "）"));
     };
@@ -7015,7 +7015,7 @@ function _elKabuLadderSimV2(props) {
     var _amt = function(v, has, w) { return has ? React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: w || 800 } }, _elPnlFmt(Math.round(v))) : React.createElement("span", { style: { color: "#ccc" } }, "—"); };
     var _nbCell = function(g) {
       var chips = _KB_NB.filter(function(k) { return g[k[0]] > 0; }).map(function(k) {
-        return React.createElement("span", { key: k[0], title: k[0] === "unreached" ? "掃引αにOS1〜3で届かなかった＝αを下げれば拾える可能性" : k[0] === "x" ? "×見送り宣言後の到達＝実際には降りているので建てない" : k[0] === "fillEq" ? "実効αがOS高値の最大とちょうど一致＝予定EPに触れただけで指値が約定しなかった可能性（オプション「指値同値は建てない」がON）" : k[0] === "noalpha" ? "その銘柄の推奨αが出せない（記録が薄い）／採用α未入力＝その取引は建てない" : "有効な取引行が無い（株数0・方式未選択）",
+        return React.createElement("span", { key: k[0], title: k[0] === "unreached" ? "掃引αにOS1〜3で届かなかった＝αを下げれば拾える可能性" : k[0] === "x" ? "×見送り宣言後の到達＝実際には降りているので建てない" : k[0] === "fillEq" ? "実効αがOS高値の最大とちょうど一致＝最終EPに触れただけで指値が約定しなかった可能性（オプション「指値同値は建てない」がON）" : k[0] === "noalpha" ? "その銘柄の推奨αが出せない（記録が薄い）／採用α未入力＝その取引は建てない" : "有効な取引行が無い（株数0・方式未選択）",
           style: { fontSize: 9, fontWeight: 700, color: k[2], background: k[3], border: "1px solid " + k[4], borderRadius: 4, padding: "0 5px", marginRight: 3, whiteSpace: "nowrap" } }, k[1] + g[k[0]]);
       });
       return chips.length ? React.createElement("span", null, chips) : React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -7090,7 +7090,7 @@ function _elKabuLadderSimV2(props) {
         React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 730 } },
           React.createElement("thead", null,
             React.createElement("tr", { style: { background: "#F0FDFA", color: "#0F766E" } },
-              _mtTh("日付"), _mtTh("OS連鎖（次足期待度）"), _mtTh("E", "center"), (vap ? null : _mtTh("推奨α")), _mtTh(vap ? "VAP値" : "採用α"), _mtTh(vap ? "シミュEP" : "シミュα"), _mtTh("予定EP", "right"), _mtTh("シミュ損切", "center"), _mtTh("従来", "right"), _mtTh("シミュレーション", "center", true), _mtTh("差額", "right"), _mtTh(""))),
+              _mtTh("日付"), _mtTh("OS連鎖（次足期待度）"), _mtTh("E", "center"), (vap ? null : _mtTh("推奨α")), _mtTh(vap ? "VAP値" : "採用α"), _mtTh(vap ? "シミュEP" : "シミュα"), _mtTh("最終EP", "right"), _mtTh("シミュ損切", "center"), _mtTh("従来", "right"), _mtTh("シミュレーション", "center", true), _mtTh("差額", "right"), _mtTh(""))),
           React.createElement("tbody", null, brows),
           React.createElement("tfoot", null, _sumRow("f")))),
       _mtBar(cfgSum, cfgRef, cfgLabel, baseSum, baseRef, upl, uplRef, true));
@@ -7130,7 +7130,7 @@ function _elKabuLadderSimV2(props) {
     if (calc.indetRecN) parts.push("判定不可の取引あり" + calc.indetRecN + "件（その取引は損益に不算入）");
     if (calc.noBaseRecN) parts.push("推奨α不明" + calc.noBaseRecN + "件（その取引は建てない）");
     var _fq = _fillEqN(calc);
-    if (_fq) parts.push("同値除外損益" + _fq + "件（掃引αがOS高値の最大とちょうど一致＝予定EPに触れただけで約定しなかった可能性あり" + (fillEqEx ? ("・オプションONにつきその段は建てていません／うち建玉ゼロ" + (calc.fillEqRecN || 0) + "件") : "・損益からは除外していません") + "）");   // 2026-08-06 オプション「指値同値は建てない」の状態で文言を切替（件数の数え方＝_fillEqNはON/OFFで不変＝該当記録数そのもの）
+    if (_fq) parts.push("同値除外損益" + _fq + "件（掃引αがOS高値の最大とちょうど一致＝最終EPに触れただけで約定しなかった可能性あり" + (fillEqEx ? ("・オプションONにつきその段は建てていません／うち建玉ゼロ" + (calc.fillEqRecN || 0) + "件") : "・損益からは除外していません") + "）");   // 2026-08-06 オプション「指値同値は建てない」の状態で文言を切替（件数の数え方＝_fillEqNはON/OFFで不変＝該当記録数そのもの）
     return parts.length ? React.createElement("div", { style: { fontSize: 9, color: "#B45309", marginTop: 3 } }, "※ " + parts.join("・")) : null;
   };
   // ===== 取引行エディタ（手動ラダー／A/B比較 共通）2026-07-24 =====
@@ -7246,7 +7246,7 @@ function _elKabuLadderSimV2(props) {
       var rooms = _uniq(as.map(function(a) { return raw - a; }));
       return React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, whiteSpace: "nowrap", marginTop: 1, lineHeight: 1.3 } },
         showCap ? React.createElement("span", { title: "この設定の実効αでの実現最高（EP足〜手じまい足の高値の最大）。採用α基準の「最高OS」列と値が違うときだけ表示＝αを動かした結果、手じまい位置が変わった記録。", style: { color: "#94A3B8", marginRight: 4 } }, "実現最高 " + caps.join("/") + "・") : null,   // 「・」で区切る＝5pxのmarginだけだとコピペ/読み上げで「9余裕」と繋がって読める
-        React.createElement("span", { title: "余裕＝OS1〜3の最高値（" + raw + "円）− この設定の実効α（" + as.join("/") + "円）。EP到達の判定はOS1〜3しか見ないので、αが届く天井はこの値。0円＝予定EPにちょうど触れただけ＝指値同値／マイナス＝その段はαに届いていない。※左の「最高OS」列は手じまいまでの実現最高（OS1〜5）なので基準が違い、引き算では合わないことがある。" },
+        React.createElement("span", { title: "余裕＝OS1〜3の最高値（" + raw + "円）− この設定の実効α（" + as.join("/") + "円）。EP到達の判定はOS1〜3しか見ないので、αが届く天井はこの値。0円＝最終EPにちょうど触れただけ＝指値同値／マイナス＝その段はαに届いていない。※左の「最高OS」列は手じまいまでの実現最高（OS1〜5）なので基準が違い、引き算では合わないことがある。" },
           React.createElement("span", { style: { color: "#94A3B8" } }, "余裕 "),
           rooms.map(function(v, i) {
             return React.createElement("span", { key: i, style: { color: v > 0 ? "#64748B" : (v === 0 ? "#0F6E56" : "#B45309"), fontWeight: 800 } }, (i ? "/" : "") + (v > 0 ? "+" : "") + v);
@@ -7342,10 +7342,10 @@ function _elKabuLadderSimV2(props) {
           : _optNote("浮き足〇の記録をシミュ母数から除外（現在 " + pool.length + "件）")),
       // ② 指値同値は建てない 2026-08-06。①と違い母数（件数）は減らさず、その段だけ建てない＝掃引αで毎回判定し直す（保存値のフラグではない）。
       _optRow("fq", "指値同値:", "#0F6E56",
-        _optChip(fillEqEx, "建てない", function() { setFillEqEx(!fillEqEx); setAutoExp(null); setMtExp(null); }, "#0F6E56", "#E1F5EE", "実効αがOS高値の最大とちょうど一致した段＝予定EPに触れただけで指値が約定しなかった可能性が高い段を建てない。判定は掃引αで毎回やり直すので、αを下げれば同じ記録が普通に建ち、αを上げれば未到達になる。実際に約定した記録（採用αで刺さっている）は対象外。"),
+        _optChip(fillEqEx, "建てない", function() { setFillEqEx(!fillEqEx); setAutoExp(null); setMtExp(null); }, "#0F6E56", "#E1F5EE", "実効αがOS高値の最大とちょうど一致した段＝最終EPに触れただけで指値が約定しなかった可能性が高い段を建てない。判定は掃引αで毎回やり直すので、αを下げれば同じ記録が普通に建ち、αを上げれば未到達になる。実際に約定した記録（採用αで刺さっている）は対象外。"),
         fillEqEx
           ? _optBadge("EPちょうど到達の段を建てない", "#0F6E56", "#E1F5EE", "#5DCAA5")
-          : _optNote("実効αがOS高値の最大とちょうど一致した段を建てない（＝予定EPに触れただけ）"),
+          : _optNote("実効αがOS高値の最大とちょうど一致した段を建てない（＝最終EPに触れただけ）"),
         _fqPoolN > 0 ? _optBadge("母数内 " + _fqPoolN + "件", "#0F6E56", "#F0FDFA", "#99E2CB", "採用α時点で指値同値だった記録の数（目安）。実際の除外は掃引αで再判定するので、この件数と一致するとは限りません。") : null,
         fillEqEx ? _optNote("母数（件数）は減らさず、その段だけ建てません") : null),
       // ③ 時間かぶり除外＝他のP&L集計(_elTotAccum の excluded)と同じ線引きを常時適用（トグルではない）2026-07-20b。0件のときは行ごと出さない。
@@ -7354,9 +7354,9 @@ function _elKabuLadderSimV2(props) {
         _optNote("保有時間が重なる記録は早い方だけ残す（他の損益集計と同じ線引き・切替不可）")) : null,
       // ④ RN自動加算トグル 2026-07-21a（既定ON）: 全方式一律。ONで予定EP下二桁が中RN/大RNのバンド内を…50/…00へ／OFFで入力αそのまま。採用α±X系は元からRN込みで対象外。
       vap ? null : _optRow("rn", "RN自動加算:", "#0F766E",
-        _optChip(rnAuto, "乗せる", function() { setRnAuto(!rnAuto); setAutoExp(null); setMtExp(null); }, "#0F766E", "#F0FDFA", "予定EPの下二桁が中RNバンド（" + (50 - _elRnTMidCur) + "〜49）／大RNバンド（" + (100 - _elRnTBigCur) + "〜99）のとき…50/…00ちょうどまでαを自動で引き上げる（記録フォーム/EPナビと同じキリ番調整）。OFFにすると入力したαがそのまま効く（下二桁に依らず判定が安定）。採用α±X系は元からRN込みのため対象外。"),
-        _optNote(rnAuto ? ("予定EP下二桁 中RN" + (50 - _elRnTMidCur) + "〜49→…50／大RN" + (100 - _elRnTBigCur) + "〜99→…00（採用α±X系は元から込み）") : "入力したαをそのまま評価（キリ番調整なし）"),
-        (rnAuto && _noLvN > 0) ? _optBadge("EP基準ライン未入力 " + _noLvN + "件（RN自動判定なし）", "#1D4ED8", "#EFF6FF", "#BFDBFE", "EP基準ラインが未入力の記録は予定EPが出せないためRN加算自動判定ができません。RN加算なし（0円）として掃引しています（母数からは外していません）。") : null)) : null);
+        _optChip(rnAuto, "乗せる", function() { setRnAuto(!rnAuto); setAutoExp(null); setMtExp(null); }, "#0F766E", "#F0FDFA", "最終EPの下二桁が中RNバンド（" + (50 - _elRnTMidCur) + "〜49）／大RNバンド（" + (100 - _elRnTBigCur) + "〜99）のとき…50/…00ちょうどまでαを自動で引き上げる（記録フォーム/EPナビと同じキリ番調整）。OFFにすると入力したαがそのまま効く（下二桁に依らず判定が安定）。採用α±X系は元からRN込みのため対象外。"),
+        _optNote(rnAuto ? ("最終EP下二桁 中RN" + (50 - _elRnTMidCur) + "〜49→…50／大RN" + (100 - _elRnTBigCur) + "〜99→…00（採用α±X系は元から込み）") : "入力したαをそのまま評価（キリ番調整なし）"),
+        (rnAuto && _noLvN > 0) ? _optBadge("EP基準ライン未入力 " + _noLvN + "件（RN自動判定なし）", "#1D4ED8", "#EFF6FF", "#BFDBFE", "EP基準ラインが未入力の記録は最終EPが出せないためRN加算自動判定ができません。RN加算なし（0円）として掃引しています（母数からは外していません）。") : null)) : null);
   var head = React.createElement(React.Fragment, null,
     allStock ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "母数:"),
@@ -8450,7 +8450,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         oth(React.createElement("span", { title: "想定損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・損失（<0）のどちらにも入らない第4のバケツで、これを出すと 到達＝利確＋同値＋損切＋損失 で件数が閉じます（2026-07-29e）" }, "同値")),
         oth(React.createElement("span", { title: "損失＝期待度×等で降りたら損だったもの。率はE成立母数（＝到達）に対する割合。平均は想定損益と同じ基準の実額。利確＋同値＋損失＝E成立母数" }, "損失")),
         oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "想定損益")),
-        (legacy ? oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済み・×見送りは対象外）。上＝該当件数、下＝その記録を除いた想定損益。該当が無い期間は想定損益と同額（差額行なし）" }, "同値除外損益")) : oth(React.createElement("span", { title: "OS高値の最大が予定EPとちょうど一致＝上抜けず未約定の記録（想定損益の金額には入りません）。上＝該当件数、中＝もし約定していたらの想定損益（同値分・手じまい基準）、下＝想定損益に同値分を足した合計（同値込み）と1日平均。（）内の参考額（△も保有）は同値込みの対象外。実エントリー済み・×見送りは対象外" }, "指値同値込み"))),
+        (legacy ? oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝最終EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済み・×見送りは対象外）。上＝該当件数、下＝その記録を除いた想定損益。該当が無い期間は想定損益と同額（差額行なし）" }, "同値除外損益")) : oth(React.createElement("span", { title: "OS高値の最大が最終EPとちょうど一致＝上抜けず未約定の記録（想定損益の金額には入りません）。上＝該当件数、中＝もし約定していたらの想定損益（同値分・手じまい基準）、下＝想定損益に同値分を足した合計（同値込み）と1日平均。（）内の参考額（△も保有）は同値込みの対象外。実エントリー済み・×見送りは対象外" }, "指値同値込み"))),
         oth("実現損益"));
     };
     // ドリルダウン（マトリョーシカ 2026-07-30 ユーザー要望）: 月をタップ→その月の【週別】／週をタップ→その週の【日別】／日をタップ→その日の【取引記録】。
@@ -8776,7 +8776,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       style: { padding: "3px 11px", fontSize: 11, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (riskOpen ? "#0F6E56" : "#5DCAA5"), background: riskOpen ? "#0F6E56" : "#E1F5EE", color: riskOpen ? "#fff" : "#0F6E56" } },
       (riskOpen ? "✓ " : "") + "該当のみ表示（" + _riskRecs.length + "件）") : null;
     return [
-      _secH("🎯 同値除外損益（OS値＝α値）", "※ 予定EP（EP基準ライン＋採用α）にちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある。実エントリー済み（実現損益あり）は約定した証拠につき対象外。母数＝" + (scopeNote || "上の期間選択（v2記録のみ）") + "・時間かぶり除外は通常側にも適用済み", _btn),
+      _secH("🎯 同値除外損益（OS値＝α値）", "※ 最終EP（EP基準ライン＋採用α）にちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある。実エントリー済み（実現損益あり）は約定した証拠につき対象外。母数＝" + (scopeNote || "上の期間選択（v2記録のみ）") + "・時間かぶり除外は通常側にも適用済み", _btn),
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 } },
         _cell("該当件数", _riskRecs.length + "件", _riskRecs.length > 0 ? "#0F6E56" : "#bbb", "OS高値の最大＝EP（未約定扱い）"),
         _cell("通常の想定損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _frDays), null, t.hold2Cnt + "件"),
@@ -9417,8 +9417,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
             _recTable(_rnListRecs, "full", "rntab_")])
         : (rnSub === "cand")
           ? _cardify([
-              _secH("🎯 RN加算候補の記録一覧（全銘柄・全記録）", "※RN加算×だが予定EPの下2桁が現行の閾値バンド内だった記録＝キリ番をまたげた可能性。中RN＝下二桁 " + (50 - _elRnTMidCur) + "〜49（→…50）／大RN＝" + (100 - _elRnTBigCur) + "〜99（→…00＝100・1000台）。記録フォーム/EPナビの自動判定と同じ範囲・同じ式。スルー・要審議・合計除外も含む全記録が対象。予定EP＝EP基準ライン＋採用α（ライン列に表示）"),
-              _rnCandRecs.length ? _recTable(_rnCandRecs, "full", "rncand_") : _sigKpiEmpty("該当する候補記録がありません（RN加算×かつ予定EP下2桁が中RN " + (50 - _elRnTMidCur) + "〜49／大RN " + (100 - _elRnTBigCur) + "〜99・EP基準ライン入りの記録が対象）")])
+              _secH("🎯 RN加算候補の記録一覧（全銘柄・全記録）", "※RN加算×だが最終EPの下2桁が現行の閾値バンド内だった記録＝キリ番をまたげた可能性。中RN＝下二桁 " + (50 - _elRnTMidCur) + "〜49（→…50）／大RN＝" + (100 - _elRnTBigCur) + "〜99（→…00＝100・1000台）。記録フォーム/EPナビの自動判定と同じ範囲・同じ式。スルー・要審議・合計除外も含む全記録が対象。最終EP＝EP基準ライン＋採用α（ライン列に表示）"),
+              _rnCandRecs.length ? _recTable(_rnCandRecs, "full", "rncand_") : _sigKpiEmpty("該当する候補記録がありません（RN加算×かつ最終EP下2桁が中RN " + (50 - _elRnTMidCur) + "〜49／大RN " + (100 - _elRnTBigCur) + "〜99・EP基準ライン入りの記録が対象）")])
           : _cardify([
               // 2026-09-02 中RN(…50)/大RN(…00)の種別トグル。閾値タブと同じ state(rnTier) を共有＝タブを行き来しても「いま中RNを見ている」がぶれない。
               React.createElement("div", { key: "rnkind", style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _rnTierToggle(rnTier, setRnTier)),
