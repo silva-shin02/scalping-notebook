@@ -6333,7 +6333,8 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
       ? _elHoldStopPnlNode(_stopLeft, holdPnl, "hp")
       : React.createElement("span", { key: "hp", style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
         _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
-        React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"),
+        (function() { var _bsp = (alpha == null) ? null : _elBSplit(isH2 ? _elDynHold2 : _elDynHold, s, alpha, cutLine);   // 2026-11-20n
+          return _bsp ? _elBSumNode(_bsp, true) : React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"); })(),
         sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginLeft: 2, fontWeight: 800 } }, sym[0]) : null
       ));
   } else if (res === "miss") {
@@ -6590,6 +6591,34 @@ _elDynHold2 = _elBMixWrap(_elDynHold2, "num");
 _elDynHoldAt = _elBMixWrap(_elDynHoldAt, "num");
 _elH1HeldBase = _elBMixWrap(_elH1HeldBase, "num");
 _elHold1TotParts = _elBMixWrap(_elHold1TotParts, "parts");
+// Bの内訳 2026-11-20n（ユーザー指示「分割の場合、〇円＋〇円＝〇円」）: fn(s, alpha, ...) の ①の分（w×①）・②の分（(1−w)×②）・合計。
+//   合計は混ぜた値（_elBMixWrap と同じ式）＝②の分は 合計−①の分（端数のずれを出さない）。Bでない・①が成立しない記録は null（従来の1つの値の表示）。
+function _elBSplit(fn, s, alpha) {
+  if (!_elBMixOn(s, alpha)) return null;
+  var rest = Array.prototype.slice.call(arguments, 2);
+  _EL_BMIX_IN++;
+  try {
+    var w = _bRatioOf(s) / 100, sA = Object.assign({}, s, { ceOn: undefined }), rA = _epResolve(sA, alpha);
+    if (!rA || rA.judge !== "ok") return null;
+    var mv = function(v) { return (v && typeof v === "object") ? v.main : v; };
+    var b = mv(fn.apply(null, [sA].concat(rest))), c = mv(fn.apply(null, [s].concat(rest)));
+    if (b == null) return null;
+    var t = Math.round(w * b + (1 - w) * (c == null ? 0 : c)), a = Math.round(w * b);
+    return { a: a, b: t - a, t: t, w: w };
+  } finally { _EL_BMIX_IN--; }
+}
+// 内訳の表示。vertical＝表（〇円／＋／〇円／＝〇円）・横＝フォーム（〇円 ＋ 〇円 ＝ 〇円）。合計は太く大きく。
+function _elBSumNode(sp, vertical, big) {
+  var _y = function(v, lbl) { return React.createElement("span", { style: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+    React.createElement("span", { style: { fontSize: "0.8em", color: "#9A3412", fontWeight: 800, marginRight: 1 } }, lbl),
+    React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v))); };
+  var _op = function(t) { return React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, t); };
+  var _tot = React.createElement("span", { style: { fontWeight: 900, fontSize: big ? "1.35em" : "1.2em", color: _elPnlColor(sp.t), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _elPnlFmt(sp.t));
+  var _tt = "エントリー確度B（割合 " + _bRatioLbl(Math.round(sp.w * 100)) + "）：①基準ラインの分＋②確定待ちor直上VAPの分＝合計";
+  if (vertical) return React.createElement("div", { title: _tt, style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.2 } },
+    _y(sp.a, "①"), _op("＋"), _y(sp.b, "②"), React.createElement("span", { style: { whiteSpace: "nowrap", borderTop: "1px solid #FDBA74", paddingTop: 1, marginTop: 1 } }, _op("＝"), _tot));
+  return React.createElement("span", { title: _tt, style: { display: "inline-flex", alignItems: "baseline", gap: 5, flexWrap: "wrap" } }, _y(sp.a, "①"), _op("＋"), _y(sp.b, "②"), _op("＝"), _tot);
+}
 
 // ===== 日別損益マップ（ホーム/カレンダー/早見パネルの単一源）2026-08-17 =====
 // 【なぜ作ったか】ホームの月次チップ(_mAgg)とカレンダーの日次バッジ(gradeByDate)が、それぞれ独自に
@@ -6872,7 +6901,8 @@ function _elHoldParts(s, alpha, cutLine, isH2, depth) {
       ? _elHoldStopPnlNode(_stopLeftP, holdPnl)
       : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
         _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
-        React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"),
+        (function() { var _bsp = (alpha == null) ? null : _deep ? _elBSplit(_elDynHoldAt, s, alpha, cutLine, _d) : _elBSplit(isH2 ? _elDynHold2 : _elDynHold, s, alpha, cutLine);   // 2026-11-20n Bは ①＋②＝合計
+          return _bsp ? _elBSumNode(_bsp, true) : React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"); })(),
         sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginLeft: 2, fontWeight: 800 } }, sym[0]) : null);
   } else if (res === "miss") { miss = true; pnl = _qZeroCell(); }
   return { high: high, width: width, acmp: acmp, pnl: pnl, miss: miss, hasAny: !!(high || width || acmp || pnl) };
@@ -7139,7 +7169,7 @@ function _elEpAlignedRow(s, alpha, cutLine) {
   var _pnlNode = (pnl != null)
     ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
         _elHoldGradeBadge(_profitGradeFromPnl(pnl, 1)),
-        React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(pnl) } }, _elPnlFmt(pnl)),
+        (function() { var _bsp = _elBSplit(_elDynPlanned, s, alpha, cutLine); return _bsp ? _elBSumNode(_bsp, true) : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(pnl) } }, _elPnlFmt(pnl)); })(),   // 2026-11-20n
         _resEl ? React.createElement("span", { style: { marginLeft: 3 } }, _resEl) : null)
     : React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
@@ -7194,9 +7224,10 @@ function _elHold2AmtNode(s, alpha, cutLine) {
     ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, p.ref, 1))
     : React.createElement("span", { style: { color: "#ccc" } }, "—");
   var g = _profitGradeFromPnl(p.main, 1);
+  var _bsp = _elBSplit(_elHoldFinalParts0, s, alpha, cutLine);   // 2026-11-20n Bは ①＋②＝合計 を縦に
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
     g ? _elHoldGradeBadge(g) : null,
-    React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(p.main) } }, _elPnlFmt(p.main)),
+    _bsp ? _elBSumNode(_bsp, true, true) : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(p.main) } }, _elPnlFmt(p.main)),
     _elHold2RefSuffix(p.main, p.ref, p.ref != null ? 1 : 0));
 }
 // 集計/早見表用: 「H１合計」td と「H２合計」td の2セル。集計表はH列を統合しない（2列のまま）。
@@ -12481,6 +12512,8 @@ function EntryRecordForm(_ref_erf) {
             //   ラインで約定する前提で、保存後の表・集計（撤退足の終値ベース）と必ずズレていた。
             _pvV2 = (_epFormState.epConf != null) ? Math.round((_epFormState.px - _epFormState.epConf) * 100) : (_dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100) : null);
           }
+          var _bspP = (_useV2P && fKakudo === "B") ? _elBSplit(_elDynPlanned, _fVSig, _fAlpha, _fCutLine) : null;   // 2026-11-20n Bは ①＋②＝合計
+          if (_bspP) return _elBSumNode(_bspP, false, true);
           var _sgnP = _useV2P ? (_pvV2 == null ? null : _pvV2 > 0 ? "+" : _pvV2 < 0 ? "-" : null) : fPlanSign;
           var _txtP = _useV2P
             ? (_pvV2 == null ? "—" : _pvV2 === 0 ? "0円" : (_pvV2 > 0 ? "+" : "−") + Math.abs(_pvV2).toLocaleString() + "円")
@@ -12523,7 +12556,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            _fMiss ? _fMissEl : _fPlanStopNow ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHoldExp === "×" ? _fHoldXEl : React.createElement("span", {
+            _fMiss ? _fMissEl : _fPlanStopNow ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHoldExp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine), false, true) : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
@@ -12581,7 +12614,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            _fMiss ? _fMissEl : (_fPlanStopNow || _fH1StopNow) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHold2Exp === "×" ? _fHoldXEl : React.createElement("span", {
+            _fMiss ? _fMissEl : (_fPlanStopNow || _fH1StopNow) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHold2Exp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine), false, true) : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
