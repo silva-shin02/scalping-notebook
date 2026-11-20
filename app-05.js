@@ -4534,6 +4534,39 @@ function _elAllCeAgg(rows) {
   o.downAvg = o.down ? o.downAmt / o.down : null;
   return o;
 }
+// ===== ⚖ エントリー確度B の割合（反実仮想）2026-11-20（ユーザー要望「Bの分割割合を過去記録から算出してから決める」）=====
+// B＝①基準ライン（α値）で先に入る分＋②確定待ちor直上VAPで入る分。割合ごとの比較は app-06 _ElBSplitSection。
+//   p1＝①だけで入った想定損益（確定待ちを外した記録＝α値に最初に届いた足でα値約定）。
+//   p2＝②だけで入った想定損益（その足に確定待ちを付けた記録。記録に直上VAPがあればそれも使う＝_epResolve の規約どおり：
+//       直上VAPに届けば直上VAPで約定／終値＞EPなら終値で約定／終値≦EPならその足では入らず次の足でα値／OS3まで届かなければ入らず＝0円）。
+//   確定待ちを付けてある記録は②＝記録のまま。終値が未入力ならCAの1分足の終値で補う（_allCeCaRel・記録には書かない）。
+// 返り値: {skip:"noep"|"x"|"noconf"|"noamt"} か {k0, a, src, already, kind("top"/"up"/"later"/"miss"), p1, p2, px2(②の約定値・水準線比), hasTop}
+function _elBSplitRow(s, alpha, cutLine, caRel) {
+  if (!s || !_epIsV2(s) || alpha == null) return null;
+  var A = Number(alpha); if (isNaN(A)) return null;
+  var cut = cutLine != null ? cutLine : 15;
+  var already = _epCeOn(s) && s.ceOn === true;
+  var base = already ? Object.assign({}, s, { ceOn: undefined }) : s;
+  var r0 = _epResolve(base, A);
+  if (!r0 || r0.epIdx < 0) return { skip: "noep" };
+  if (r0.judge !== "ok") return { skip: "x", k0: r0.epIdx };
+  var k0 = r0.epIdx, lg = r0.legs[k0], src = "rec", v;
+  var p1p = _elHoldFinalParts(base, A, cut), p1 = p1p ? p1p.main : null;
+  if (already && s.ceIdx === k0) v = s;
+  else {
+    var c = lg.c;
+    if (c == null && caRel) { c = caRel(k0); src = "ca"; }
+    if (c == null || isNaN(Number(c))) return { skip: "noconf", k0: k0 };
+    v = Object.assign({}, s, { ceOn: true, ceIdx: k0 });
+    if (src === "ca") _epCeWriteLeg(v, { h: lg.h, c: Number(c), role: lg.role });
+  }
+  var rr = _epResolve(v, A), p2p = _elHoldFinalParts(v, A, cut), p2 = p2p ? p2p.main : null;
+  var kind = (rr && rr.ce) ? (rr.top ? "top" : "up") : (rr && rr.epIdx >= 0 && rr.judge === "ok") ? "later" : "miss";
+  if (kind === "miss") p2 = 0;
+  if (p1 == null && p2 == null) return { skip: "noamt", k0: k0 };
+  return { k0: k0, a: A, src: src, already: already, kind: kind, p1: p1 || 0, p2: p2 || 0,
+    px2: (rr && rr.epIdx >= 0) ? rr.px : null, hasTop: _epCeTopRel(s) != null };
+}
 // 「時刻が確定足」の記録か（既存記録を含む・一覧の目印/絞り込み/記録帳の一覧帯用）2026-10-17b。
 //   判定足＝このαで最初にα値を上抜けた足（OS1〜3・確定足で入らない規約は無視）。その足の時刻（OS1＋足番号分）が分の1の位4/9、またはチェック欄で付けた足なら対象。
 //   checked＝チェック済み（ceOnを持ち、その足が確定足扱い）＝計算も終値約定。未チェックは計算はα値約定のまま。
