@@ -11158,7 +11158,7 @@ function EntryRecordForm(_ref_erf) {
       fTimeOpen ? React.createElement("div", { style: { display: "flex", justifyContent: "flex-end" } }, React.createElement(_TimeDialPicker, { key: "tp" + fTime, value: fTime, onCommit: function(v) { setFTime(v); setFTimeOpen(false); }, onCancel: function() { setFTimeOpen(false); } })) : null,
       
       React.createElement("div", { style: SH_ }, "売/買"),
-      React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
+      React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap", alignItems: "stretch" } },   // 2026-11-20i 売/買の右にもEP基準ライン（数値）欄＝下の欄と同じ state（ユーザー指示・元の欄も残す・狭い画面は折り返し）
         ["空売", "買い"].map(function(val) {
           var on = fTradeType === val;
           var col = val === "空売" ? "#C0392B" : "#1E8449";
@@ -11167,14 +11167,14 @@ function EntryRecordForm(_ref_erf) {
             key: val,
             onClick: function() { setFTradeType(val); },
             style: {
-              flex: 1, padding: "10px 12px", fontSize: 14, fontWeight: 700,
+              flex: "1 1 90px", minWidth: 80, padding: "10px 12px", fontSize: 14, fontWeight: 700,
               border: on ? "1.5px solid " + col : "1px solid #ddd",
               background: on ? bg : "#fff",
               color: on ? col : "#888",
               borderRadius: 6, cursor: "pointer", textAlign: "center"
             }
           }, val);
-        })
+        }).concat([React.createElement("div", { key: "lv_tt", style: { display: "flex", alignItems: "center", flex: "0 0 auto" } }, _lvPriceBox("lv_tt"))])
       ),
       
       // 2026-11-11j 分足欄（1・5）は画面から外した（ユーザー決定）＝シグナル詳細の1分／5分タブで入力するため。記録の minBar は保存時に詳細から自動で埋める（_autoMinBars）。水準線値欄は残す。
