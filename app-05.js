@@ -9374,22 +9374,15 @@ function EntryRecordForm(_ref_erf) {
       if (Object.keys(_m).length) _o[_k] = _m; });
     return _o;
   }), fBTfMap = _useStateBTF[0], setFBTfMap = _useStateBTF[1];
+  var _useStateBTP = useState(null), fBTfPop = _useStateBTP[0], setFBTfPop = _useStateBTP[1];   // 2026-11-20t ①の分足ポップアップ {dt, ln}
+  var _bTfMode = function(_dt, _sc, _tf) { return _sc.key === "b" && !_tf && _elBShared(custom, _dt); };
+  var _bTfSet = function(_dt, ln, t) { setFBTfMap(function(prev) { var o = Object.assign({}, prev); var mm = Object.assign({}, o[_dt] || {}); if (t) mm[ln] = t; else delete mm[ln]; o[_dt] = mm; return o; }); };
+  // 2026-11-20t 分足は線を押したときのポップアップで選ぶ（ユーザー指示「この形、違くない？」＝B・Cにした理由と同じ形）。ここは未選択の注意だけ。
   var _bLineTfRows = function(_dt, _sc, _tf, _curArr) {
-    if (_sc.key !== "b" || _tf || !_elBShared(custom, _dt)) return null;
-    var _ls = (_curArr || []).filter(Boolean); if (!_ls.length) return null;
+    if (!_bTfMode(_dt, _sc, _tf) || isEdit) return null;
     var _m = (fBTfMap && fBTfMap[_dt]) || {};
-    return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3, margin: "4px 0 2px", paddingLeft: 6, borderLeft: "2px solid #FDBA74" } },
-      _ls.map(function(ln) {
-        var _cur = _m[ln] ? String(_m[ln]).split(",") : [];
-        return React.createElement("div", { key: ln, style: { display: "flex", alignItems: "center", gap: 6, fontSize: 11 } },
-          React.createElement("span", { style: { fontWeight: 700, color: "#92400E", minWidth: 70 } }, ln),
-          React.createElement("span", { style: { display: "inline-flex", border: "1px solid #FDBA74", borderRadius: 6, overflow: "hidden" } },
-            _EL_TFS.map(function(tf, i) { var on = _cur.indexOf(tf) >= 0; return React.createElement("button", { key: tf, type: "button", onClick: function() {
-              var nx = _EL_TFS.filter(function(x) { return x === tf ? !on : _cur.indexOf(x) >= 0; }).join(",");
-              setFBTfMap(function(prev) { var o = Object.assign({}, prev); var mm = Object.assign({}, o[_dt] || {}); if (nx) mm[ln] = nx; else delete mm[ln]; o[_dt] = mm; return o; }); },
-              style: { padding: "1px 8px", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap", border: "none", borderLeft: i ? "1px solid #FDBA74" : "none", cursor: "pointer", background: on ? "#B45309" : "#fff", color: on ? "#fff" : "#B45309" } }, tf + "分足"); })),
-          (!_cur.length && !isEdit) ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#DC2626" } }, "分足を選ぶ") : null);
-      }));
+    if (!(_curArr || []).filter(Boolean).some(function(ln) { return !_m[ln]; })) return null;
+    return React.createElement("div", { style: { fontSize: 10, fontWeight: 800, color: "#DC2626", marginTop: 4 } }, "(分足?) の線を押して分足を選んでください");
   };
   var _detDragRef = useRef(null);
   var _detMovedRef = useRef(false);
@@ -11449,13 +11442,14 @@ function EntryRecordForm(_ref_erf) {
                         setFDetOrder(null);
                       },
                       onPointerCancel: function() { _detDragRef.current = null; _detMovedRef.current = false; setFDetOrder(null); },
-                      style: { display: "inline-flex", alignItems: "center", gap: 1, touchAction: "none",
+                      style: { display: "inline-flex", alignItems: "center", gap: 1, touchAction: "none", position: _bTfMode(_dt, _sc, _tf) ? "relative" : null,
                         boxShadow: _dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null,
                         transform: _dragging ? "scale(1.06)" : null,
                         opacity: _dragging ? 0.9 : null } },
                       React.createElement("button", {
                         onClick: function() {
                           if (_detMovedRef.current) { _detMovedRef.current = false; return; }
+                          if (_bTfMode(_dt, _sc, _tf) && _sc.multi) { setFBTfPop((fBTfPop && fBTfPop.dt === _dt && fBTfPop.ln === _dn) ? null : { dt: _dt, ln: _dn, rk: _rk }); return; }   // 2026-11-20t 押すと分足のポップアップ
                           setFSigDetail(function(prev) {
                             var _o = Object.assign({}, prev);
                             var _pe = _o[_dt] || {};
@@ -11475,7 +11469,21 @@ function EntryRecordForm(_ref_erf) {
                           border: _on ? "1.5px solid #D97706" : "1px solid #ddd",
                           background: _on ? "#FEF3C7" : "#fff", color: _on ? "#92400E" : "#777",
                           borderRadius: 6, cursor: "pointer" }
-                      }, (_sc.ordered && _on) ? React.createElement("span", { style: { display: "inline-block", minWidth: 13, marginRight: 4, padding: "0 3px", fontSize: 9, fontWeight: 800, lineHeight: "13px", borderRadius: 7, background: "#D97706", color: "#fff", textAlign: "center" } }, String(_curArr.indexOf(_dn) + 1)) : null, _dn),
+                      }, (_sc.ordered && _on) ? React.createElement("span", { style: { display: "inline-block", minWidth: 13, marginRight: 4, padding: "0 3px", fontSize: 9, fontWeight: 800, lineHeight: "13px", borderRadius: 7, background: "#D97706", color: "#fff", textAlign: "center" } }, String(_curArr.indexOf(_dn) + 1)) : null,
+                        (function() { if (!(_on && _bTfMode(_dt, _sc, _tf))) return _dn; var _t = ((fBTfMap && fBTfMap[_dt]) || {})[_dn], _a = String(_t || "").split(",").filter(Boolean);
+                          return _a.length ? _dn + "(" + (_a.length >= 2 ? "1分・5分" : _a[0] + "分") + ")" : React.createElement(React.Fragment, null, _dn, React.createElement("span", { style: { color: "#DC2626", fontSize: 10 } }, "(分足?)")); })()),
+                      (_bTfMode(_dt, _sc, _tf) && fBTfPop && fBTfPop.dt === _dt && fBTfPop.ln === _dn) ? React.createElement(React.Fragment, null,
+                        React.createElement("div", { onClick: function() { setFBTfPop(null); }, style: { position: "fixed", inset: 0, zIndex: 60 } }),
+                        React.createElement("div", { onPointerDown: function(e) { e.stopPropagation(); }, style: { position: "absolute", top: "100%", left: 0, marginTop: 3, zIndex: 61, display: "flex", alignItems: "center", gap: 4, padding: "5px 6px", background: "#fff", border: "1px solid #FDBA74", borderRadius: 7, boxShadow: "0 3px 10px rgba(0,0,0,0.18)", whiteSpace: "nowrap" } },
+                          [["1", "1分足"], ["5", "5分足"], ["1,5", "両方"]].map(function(o) { var _cur = _on && String(((fBTfMap && fBTfMap[_dt]) || {})[_dn] || "") === o[0];
+                            return React.createElement("button", { key: o[0], type: "button", onClick: function() {
+                                if (!_on) setFSigDetail(function(prev) { var _o = Object.assign({}, prev); var _e = _secClone(_o[_dt] || {}); if (_e[_rk].indexOf(_dn) < 0) _e[_rk].push(_dn); _o[_dt] = _e; return _o; });
+                                _bTfSet(_dt, _dn, o[0]); setFBTfPop(null); },
+                              style: { padding: "3px 9px", fontSize: 11, fontWeight: 800, borderRadius: 5, cursor: "pointer", border: "1px solid #B45309", background: _cur ? "#B45309" : "#fff", color: _cur ? "#fff" : "#B45309" } }, o[1]); }),
+                          _on ? React.createElement("button", { type: "button", onClick: function() {
+                              setFSigDetail(function(prev) { var _o = Object.assign({}, prev); var _pe = _o[_dt]; if (!_pe) return prev; var _e = _secClone(_pe); _e[_rk] = _e[_rk].filter(function(x) { return x !== _dn; }); if (_secAny(_e)) _o[_dt] = _e; else delete _o[_dt]; return _o; });
+                              _bTfSet(_dt, _dn, null); setFBTfPop(null); },
+                            style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, borderRadius: 5, cursor: "pointer", border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C" } }, "外す") : null)) : null,
                       (fDetEdit && !_isOrphan) ? React.createElement(React.Fragment, null,
                         React.createElement("button", {
                           title: "この詳細の名前を変更（このセクションに付いた過去の記録の詳細も一括変更）",
