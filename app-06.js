@@ -2265,7 +2265,7 @@ function _ElBSplitSection(props) {
       React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#1A1714", marginRight: 4 } }, "📋 記録ごと"),
       _pill(fil === "all", "全て " + ok.length, function() { setFil("all"); }, "f_all"),
       _BSPLIT_KIND.map(function(o) { return _pill(fil === o[0], o[1] + " " + kN[o[0]], function() { setFil(o[0]); }, "f_" + o[0]); })),
-    listRecs.length ? props.recTable(listRecs, extra) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
+    listRecs.length ? (props.recTable ? props.recTable(listRecs, extra) : React.createElement("div", { style: { fontSize: 11, color: "#475569", lineHeight: 1.6 } }, listRecs.map(function(r, i) { return React.createElement("div", { key: i }, (r.date || "") + "　" + (r.stock || "") + "　" + ((r.signal && (r.signal.tags || [r.signal.tag]).filter(Boolean).join("・")) || "")); }))) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
   return React.createElement("div", null, head, defRow, kpi, note, table, list);
 }
 // ===== 🎯 確定待ち vs 直上VAP 2026-11-20（⏳タブのサブタブ・ユーザー要望「確度BのEP②と確度Cで、確定待ちで入るべきか直上VAPで待つべきか」）=====
