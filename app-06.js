@@ -5450,10 +5450,9 @@ function _elOsTradeMini(recs, aiOf, opts) {
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#666" } }, s.time || "—"),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
         (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); })); })()),
+      _elKakudoTd(s, _bb),
       _elLineCell(s, a, c, _bb),
-      React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } }, _epECell(s, a, c)),
-      React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap" } },
-        _elTradeLbl(s, entered)),
+      React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } }, _elEntryCell(s, entered, a, c)),
       _elPnlDetailCells(s, a, c, _bb, "1px 3px", "1px 5px"),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, whiteSpace: "nowrap" } },
         _elRPnlDispW(realPnl, gReal, 72, false, _elPer100Of(realPnl, s)))
@@ -5462,7 +5461,7 @@ function _elOsTradeMini(recs, aiOf, opts) {
   return React.createElement(_HScrollBox, { style: { marginTop: 4 }, plain: !!(opts && opts.plain) },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
-        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("ライン", { width: 1 }), _th("E", { width: 24 }), _th("取引", { width: 26 }), _th("想定損益・詳細", { width: 84 }),
+        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("E確度", { width: 1 }), _th("ライン", { width: 1 }), _th("エントリー", { width: 1 }), _th("想定損益・詳細", { width: 84 }),
         React.createElement("th", { colSpan: 2, style: { padding: "2px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", textAlign: "center", fontSize: 10, color: "#9A9186", whiteSpace: "nowrap" } }, "OS・損益詳細"),
         _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有"), { width: 30 }), _th("実現損益", { width: 80 }))),
       React.createElement("tbody", null, rows)));
@@ -8773,7 +8772,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     var _sorted = _recSorted(recs);
     var shown = (limit && _sorted.length > limit) ? _sorted.slice(0, limit) : _sorted;
     var _exN = (extra && extra.head) ? extra.head.length : 0;
-    var _exAt = (extra && extra.at != null) ? ((mode !== "day" && extra.at > 4) ? extra.at - 1 : extra.at) : null;   // 2026-11-20 VAP値列（旧4番目）の撤去で、それより右に差し込む列は1つ左へ
+    var _exAt = (extra && extra.at != null) ? ((mode !== "day" && extra.at > 6) ? extra.at - 1 : extra.at) : null;   // 2026-11-20 VAP値列→E確度列（4番目）・E＋取引→エントリー（6番目）の統合で、取引より右に差し込む列は1つ左へ
     var colN = (mode === "day" ? 8 : 12) + _exN;   // 2026-11-20 VAP値列の撤去で13→12   // 2026-11-16 損切り列撤去で14→13   // full: 2026-07-16 損切り・保有列追加で11→13／2026-07-18 ライン列追加で13→14
     var body = [];
     shown.forEach(function(r) {
@@ -8803,9 +8802,9 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(_t) { return _elTagDisp(s, _t); }).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
         cells = cells.concat([
           _td(_elSigCell(s, "flex-start", true), { textAlign: "left" }),
+          _td(_elKakudoCell(s), { width: "1%" }),
           _td(_elLineInner(s, a.alpha, a.cutLine), { padding: "1px 2px", width: "1%" }),
-          _td(_epECell(s, a.alpha, a.cutLine)),
-          _td(_elTradeLbl(s, entered, "#C0392B")),
+          _td(_elEntryCell(s, entered, a.alpha, a.cutLine, "#C0392B")),
           _td(React.createElement(React.Fragment, null, _elHold2AmtNode(s, a.alpha, a.cutLine), _elRideMiniNode(s, a.alpha, a.cutLine)), { background: "#FFFBF0" }),
           React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: "4px 6px", textAlign: "left", fontSize: 11, borderTop: "1px solid #f0ede8", background: "#F8FBFE" } }, _elDetailFlowStack(s, a.alpha, a.cutLine)),
           _td(_elHoldMinNode(s, a.alpha, a.cutLine))
@@ -8823,7 +8822,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     });
     var head = mode === "day"
       ? [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("OS"), _th("E"), _th("OS帯"), _th("H中最高値"), _th("実現結果")]
-      : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("ライン"), _th("E"), _th("取引"),
+      : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("E確度"), _th("ライン"), _th("エントリー"),
          _th("想定損益・詳細"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, "OS・損益詳細"), _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有")), _th("実現損益")];
     if (_exN) {
       if (extra.at != null) head.splice.apply(head, [_exAt, 0].concat(extra.head));
