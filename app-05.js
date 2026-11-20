@@ -6333,8 +6333,7 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
       ? _elHoldStopPnlNode(_stopLeft, holdPnl, "hp")
       : React.createElement("span", { key: "hp", style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
         _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
-        (function() { var _bsp = (alpha == null) ? null : _elBSplit(isH2 ? _elDynHold2 : _elDynHold, s, alpha, cutLine);   // 2026-11-20n
-          return _bsp ? _elBSumNode(_bsp, true) : React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"); })(),
+        React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"),
         sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginLeft: 2, fontWeight: 800 } }, sym[0]) : null
       ));
   } else if (res === "miss") {
@@ -6608,7 +6607,7 @@ function _elBSplit(fn, s, alpha) {
   } finally { _EL_BMIX_IN--; }
 }
 // 内訳の表示。vertical＝表（〇円／＋／〇円／＝〇円）・横＝フォーム（〇円 ＋ 〇円 ＝ 〇円）。合計は太く大きく。
-function _elBSumNode(sp, vertical, big) {
+function _elBSumNode(sp, vertical, big, badge) {
   var _f = function(v) { return v == null ? "—" : (v < 0 ? "−" : "") + Math.abs(v).toLocaleString() + "円"; };   // 2026-11-20o 利益に「+」を付けない（①+〇円が紛らわしい・ユーザー指示）
   var _y = function(v, lbl) { return React.createElement("span", { style: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
     React.createElement("span", { style: { fontSize: "0.8em", color: "#9A3412", fontWeight: 800, marginRight: 1 } }, lbl),
@@ -6617,7 +6616,7 @@ function _elBSumNode(sp, vertical, big) {
   var _tot = React.createElement("span", { style: { fontWeight: 900, fontSize: big ? "1.35em" : "1.2em", color: _elPnlColor(sp.t), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _f(sp.t));
   var _tt = "エントリー確度B（割合 " + _bRatioLbl(Math.round(sp.w * 100)) + "）：①基準ラインの分＋②確定待ちor直上VAPの分＝合計";
   if (vertical) return React.createElement("div", { title: _tt, style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.2 } },
-    _y(sp.a, "①"), _op("＋"), _y(sp.b, "②"), React.createElement("span", { style: { whiteSpace: "nowrap", borderTop: "1px solid #FDBA74", paddingTop: 1, marginTop: 1 } }, _op("＝"), _tot));
+    _y(sp.a, "①"), _op("＋"), _y(sp.b, "②"), React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", borderTop: "1px solid #FDBA74", paddingTop: 1, marginTop: 1 } }, badge || null, _op("＝"), _tot));   // グレードは合計の行に 2026-11-20p
   return React.createElement("span", { title: _tt, style: { display: "inline-flex", alignItems: "baseline", gap: 5, flexWrap: "wrap" } }, _y(sp.a, "①"), _op("＋"), _y(sp.b, "②"), _op("＝"), _tot);
 }
 
@@ -6902,8 +6901,7 @@ function _elHoldParts(s, alpha, cutLine, isH2, depth) {
       ? _elHoldStopPnlNode(_stopLeftP, holdPnl)
       : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
         _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
-        (function() { var _bsp = (alpha == null) ? null : _deep ? _elBSplit(_elDynHoldAt, s, alpha, cutLine, _d) : _elBSplit(isH2 ? _elDynHold2 : _elDynHold, s, alpha, cutLine);   // 2026-11-20n Bは ①＋②＝合計
-          return _bsp ? _elBSumNode(_bsp, true) : React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"); })(),
+        React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"),
         sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginLeft: 2, fontWeight: 800 } }, sym[0]) : null);
   } else if (res === "miss") { miss = true; pnl = _qZeroCell(); }
   return { high: high, width: width, acmp: acmp, pnl: pnl, miss: miss, hasAny: !!(high || width || acmp || pnl) };
@@ -7080,6 +7078,7 @@ function _elRideSummaryNode(s, alpha, cutLine) {
 }
 // 想定損益セル本体の下に出す簡易版（2026-07-13 ユーザー要望）: 手じまいまでの最高値→手じまい時点の確定値を「↑17→↓23」の矢印＋数値のみで表示。E成立(judge ok)のv2記録のみ（それ以外はnull＝非表示）。
 function _elRideMiniNode(s, alpha, cutLine) {
+  return null;   // 2026-11-20p 想定損益・詳細欄の「↑〇→↓〇」は全記録で出さない（ユーザー指示）
   if (_elEqSelf(s, alpha)) return React.createElement("div", { style: { opacity: 0.6 } }, _elFillEqLoose(function() { return _elRideMiniNode(s, alpha, cutLine); }));
   var v = _elRideVals(s, alpha, cutLine);
   if (!v) return null;
@@ -7170,7 +7169,7 @@ function _elEpAlignedRow(s, alpha, cutLine) {
   var _pnlNode = (pnl != null)
     ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
         _elHoldGradeBadge(_profitGradeFromPnl(pnl, 1)),
-        (function() { var _bsp = _elBSplit(_elDynPlanned, s, alpha, cutLine); return _bsp ? _elBSumNode(_bsp, true) : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(pnl) } }, _elPnlFmt(pnl)); })(),   // 2026-11-20n
+        React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(pnl) } }, _elPnlFmt(pnl)),   // 2026-11-20p OS・損益詳細は内訳を出さない（合計だけ）
         _resEl ? React.createElement("span", { style: { marginLeft: 3 } }, _resEl) : null)
     : React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
@@ -7227,8 +7226,8 @@ function _elHold2AmtNode(s, alpha, cutLine) {
   var g = _profitGradeFromPnl(p.main, 1);
   var _bsp = _elBSplit(_elHoldFinalParts0, s, alpha, cutLine);   // 2026-11-20n Bは ①＋②＝合計 を縦に
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
-    g ? _elHoldGradeBadge(g) : null,
-    _bsp ? _elBSumNode(_bsp, true, true) : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(p.main) } }, _elPnlFmt(p.main)),
+    (g && !_bsp) ? _elHoldGradeBadge(g) : null,
+    _bsp ? _elBSumNode(_bsp, true, true, g ? _elHoldGradeBadge(g) : null) : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(p.main) } }, _elPnlFmt(p.main)),
     _elHold2RefSuffix(p.main, p.ref, p.ref != null ? 1 : 0));
 }
 // 集計/早見表用: 「H１合計」td と「H２合計」td の2セル。集計表はH列を統合しない（2列のまま）。
