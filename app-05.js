@@ -12272,7 +12272,7 @@ function EntryRecordForm(_ref_erf) {
             var _ceRow = function(num) { return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, React.createElement("span", { style: { fontWeight: 800, color: "#0E7490" } }, num ? "EP②（確定待ちor直上VAP）" : "確定待ちor直上VAP"), _topFrag); };
             var _boxS = function(bd, bg) { return { padding: "6px 8px", border: "1px solid " + bd, background: bg, borderRadius: 7, display: "flex", flexDirection: "column", gap: 6 }; };
             // 2026-11-20i 確定待ちの理由はEP②（Cは確定待ちの箱）の中へ・名前は「Bにした理由」「Cにした理由」（ユーザー指示）
-          var _reasonEl = fCeOn ? React.createElement("div", { style: { borderTop: "1px dashed #A5F3FC", paddingTop: 5, alignSelf: "stretch", width: "100%", boxSizing: "border-box" } },
+          var _reasonEl = fCeOn ? React.createElement("div", { style: { padding: "5px 8px", border: "1px solid #A5F3FC", background: "#F0FDFF", borderRadius: 7, alignSelf: "stretch", boxSizing: "border-box" } },
             React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0E7490", marginBottom: 3 } }, fKakudo === "B" ? "Bにした理由" : fKakudo === "C" ? "Cにした理由" : "確定待ちの理由",
               !isEdit ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須") : null,
               React.createElement("span", { style: { color: "#6B7280", fontWeight: 600, marginLeft: 6, fontSize: 10 } }, "複数選択できます")),
@@ -12294,6 +12294,7 @@ function EntryRecordForm(_ref_erf) {
                 React.createElement("span", { style: { fontWeight: 800, color: "#44403C" } }, "エントリー確度"),
                 React.createElement(_KakudoSeg, { value: fKakudo, onChange: _pickKakudo, letters: true }),
                 !fKakudo ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (isEdit && fCeOn) ? "#0E7490" : "#DC2626" } }, (isEdit && fCeOn) ? "未設定（確定待ちオン）" : isEdit ? "未設定" : "必須（選ぶとEP基準ラインの欄が出ます）") : null),
+              _reasonEl,   // 2026-11-20j B・Cにした理由はエントリー確度の直下（ユーザー指示）
               _kdOpen ? _lvRow : null,
               _kdOpen ? _common : null,
               !_kdOpen ? null : fKakudo === "B" ? React.createElement("div", { style: _boxS(c.bd, "#FFF7ED") },
@@ -12309,11 +12310,10 @@ function EntryRecordForm(_ref_erf) {
                     _vapRow ? null : React.createElement("span", { style: { fontWeight: 800, fontVariantNumeric: "tabular-nums" } }, "最終EP " + _epTx)),
                   _vapRow),
                 React.createElement("div", { style: { borderTop: "1px dashed " + c.bd, alignSelf: "stretch", width: "100%", height: 0 } }),
-                _ceRow(true),
-                _reasonEl))
+                _ceRow(true)))
               : React.createElement(React.Fragment, null,
                   _vapRow,
-                  fCeOn ? React.createElement("div", { style: _boxS("#67E8F9", "#F0FDFF") }, _ceRow(false), _reasonEl) : null),
+                  fCeOn ? React.createElement("div", { style: _boxS("#67E8F9", "#F0FDFF") }, _ceRow(false)) : null),
               null);   // 2026-11-20e VAPメモは廃止（ユーザー指示・保存済みの signal.alphaMemo は消さない）
           })(),
           React.createElement("div", { style: { fontSize: 10, color: "#64748B", fontWeight: 600, margin: "0 0 6px 2px", lineHeight: 1.4 } }, "※5分足の場合、EPまでは5分足基準、EPからは1分足基準"),
