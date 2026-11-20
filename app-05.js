@@ -6652,6 +6652,7 @@ function _elBSumNode(sp, vertical, big, badge, fs) {
 //   ⚠️記録フォームが保存する値（fPlan/fHoldPnlVal/fHold2PnlVal）は _snK100(fn) で100株のまま計算する。
 //   ⚠️株数で実額へ直す所（理論値・按分）は ÷100 → ÷1000（_snShareMul・_kbConvParts）。実現損益の換算額も ×1000（_elPer100Of）。
 var _SN_K = 10, _SN_KSH = 1000, _EL_K_IN = 0;
+var _SN_STOP_ALLOW_YEN = 15000, _SN_STOP_ALLOW_SH = 1000;   // 1トレードの許容損切り額（推奨損切り値・Bの記録フォーム）2026-11-20w ユーザー指定
 function _snKv(v) { return (v == null || isNaN(v)) ? v : Math.round(v * _SN_K); }
 function _snK100(fn) { _EL_K_IN++; try { return fn(); } finally { _EL_K_IN--; } }
 function _elKWrap(fn, kind) {
@@ -12454,7 +12455,26 @@ function EntryRecordForm(_ref_erf) {
                   _lvRow,
                   _vapRow),
                 React.createElement("div", { style: { borderTop: "1px dashed " + c.bd, alignSelf: "stretch", width: "100%", height: 0 } }),
-                _ceRow(true)))
+                _ceRow(true),
+                // 2026-11-20w 推奨損切り値（ユーザー要望・Bだけ・目安の表示のみ＝損益計算には使わない）。許容損切り額 15,000円／1000株＝15円。
+                //   ①②両方入った前提：損切り値（EP基準ライン比）＝①の割合×最終EP①＋②の割合×最終EP②（直上VAP）＋15円。直上VAPが無いときは①だけ入った前提＝最終EP①＋15÷①の割合。
+                (function() {
+                  var _lv = parseFloat(fLevelPrice), _hasLv = fLevelPrice !== "" && !isNaN(_lv);
+                  if (_fAlpha == null || isNaN(_fAlpha)) return null;
+                  var _w = (fBRatio != null ? fBRatio : 50) / 100, _allow = _SN_STOP_ALLOW_YEN / _SN_STOP_ALLOW_SH;
+                  var _a2 = (fCeOn && fCeTopOn && _fCeTopRel != null) ? _fCeTopRel : null;
+                  var _x = (_a2 != null) ? (_w * _fAlpha + (1 - _w) * _a2 + _allow) : (_w > 0 ? _fAlpha + _allow / _w : null);
+                  if (_x == null) return null;
+                  var _xr = Math.floor(_x * 10 + 1e-9) / 10;
+                  var _tt = "許容損切り額 " + _SN_STOP_ALLOW_YEN.toLocaleString() + "円／" + _SN_STOP_ALLOW_SH + "株（＝" + _allow + "円）から逆算。" + (_a2 != null
+                    ? "①②両方入った前提：①の割合" + Math.round(_w * 100) + "%×最終EP①（基準ライン" + (_fAlpha >= 0 ? "+" : "") + _fAlpha + "）＋②の割合" + Math.round((1 - _w) * 100) + "%×最終EP②（直上VAP・基準ライン" + (_a2 >= 0 ? "+" : "") + _a2 + "）＋" + _allow + "円"
+                    : "直上VAPが無いので①だけ入った前提：最終EP①（基準ライン" + (_fAlpha >= 0 ? "+" : "") + _fAlpha + "）＋" + _allow + "円÷①の割合" + Math.round(_w * 100) + "%") + "＝基準ライン+" + (Math.round(_x * 100) / 100) + "円（小数は切り捨て）。損益の計算には使いません。";
+                  return React.createElement("div", { title: _tt, style: { display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", borderTop: "1px dashed " + c.bd, paddingTop: 6 } },
+                    React.createElement("span", { style: { fontWeight: 800, color: "#B91C1C" } }, "🛑 推奨損切り値"),
+                    React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#991B1B", fontVariantNumeric: "tabular-nums" } }, "EP基準ライン" + (_xr >= 0 ? "+" : "−") + Math.abs(_xr) + "円"),
+                    _hasLv ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#7F1D1D", fontVariantNumeric: "tabular-nums" } }, "（株価 " + (Math.round((_lv + _xr) * 100) / 100) + "円）") : null,
+                    React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, _a2 != null ? "①②両方入った前提・許容 " + _SN_STOP_ALLOW_YEN.toLocaleString() + "円/" + _SN_STOP_ALLOW_SH + "株" : "直上VAPなし＝①だけ入った前提・許容 " + _SN_STOP_ALLOW_YEN.toLocaleString() + "円/" + _SN_STOP_ALLOW_SH + "株"));
+                })()))
               : React.createElement(React.Fragment, null,
                   _lvRow,
                   _vapRow,
