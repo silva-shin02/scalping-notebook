@@ -5461,7 +5461,7 @@ function _elOsTradeMini(recs, aiOf, opts) {
   return React.createElement(_HScrollBox, { style: { marginTop: 4 }, plain: !!(opts && opts.plain) },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
-        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("E確度", { width: 1 }), _th("ライン", { width: 1 }), _th("エントリー", { width: 1 }), _th("想定損益・詳細", { width: 84 }),
+        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("E確度", { width: 1 }), _th("Eライン", { width: 1 }), _th("エントリー", { width: 1 }), _th("想定損益・詳細", { width: 84 }),
         React.createElement("th", { colSpan: 2, style: { padding: "2px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", textAlign: "center", fontSize: 10, color: "#9A9186", whiteSpace: "nowrap" } }, "OS・損益詳細"),
         _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有"), { width: 30 }), _th("実現損益", { width: 80 }))),
       React.createElement("tbody", null, rows)));
@@ -8822,7 +8822,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     });
     var head = mode === "day"
       ? [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("OS"), _th("E"), _th("OS帯"), _th("H中最高値"), _th("実現結果")]
-      : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("E確度"), _th("ライン"), _th("エントリー"),
+      : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("E確度"), _th("Eライン"), _th("エントリー"),
          _th("想定損益・詳細"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, "OS・損益詳細"), _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有")), _th("実現損益")];
     if (_exN) {
       if (extra.at != null) head.splice.apply(head, [_exAt, 0].concat(extra.head));

@@ -3838,14 +3838,14 @@ function _elTradeLbl(s, entered, okCol) {
   if (top && bot) return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } }, top, bot);
   return top || bot;
 }
-// 2026-11-20 表の「エントリー」欄＝上に取引の言葉・下に E の印（○×・未達・同値・(+7)・確定待ち等）。確度の札は「E確度」欄へ移したのでここでは出さない。
+// 2026-11-20 表の「エントリー」欄＝上に E の印・下に取引の言葉（v702で上下入れ替え）。E の印（○×・未達・同値・(+7)・確定待ち等）。確度の札は「E確度」欄へ移したのでここでは出さない。
 var _EL_NO_KD = false;
 function _elEntryCell(s, entered, alpha, cutLine, okCol) {
   var top = _elTradeLbl(s, entered, okCol);
   if (alpha == null) return top;
   _EL_NO_KD = true;
   var e; try { e = _epECell(s, alpha, cutLine); } finally { _EL_NO_KD = false; }
-  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2 } }, top, e);
+  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2 } }, e, top);   // 2026-11-20 〇などEの印が上・言葉が下（ユーザー指示）
 }
 // 2026-11-20 表の「E確度」欄：A/B/C/D の文字だけ（色は確度の札と同じ）。未設定は「—」。
 function _elKakudoCell(s) {
@@ -4182,7 +4182,7 @@ function _elAlphaTypeCell(s, alpha) {
 function _minBarList(s) { if (!s || s.minBar == null) return []; var arr = Array.isArray(s.minBar) ? s.minBar : [s.minBar]; var out = []; for (var i = 0; i < arr.length; i++) { var n = Number(arr[i]); if ((n === 1 || n === 5) && out.indexOf(n) < 0) out.push(n); } out.sort(function(a, b) { return a - b; }); return out; }
 // 各記録の分足を表の時間欄の下に出す小バッジ（「1分」=薄青／「5分」=薄緑の個別ピル・両方選択時は2つ並ぶ）。未設定はnull。2026-06-24に新規エントリー記録フォームへ再導入＝旧minBar欄。色分け2026-06-24→色入替2026-06-25(1分=青/5分=緑)。
 // 2026-11-20 シグナル欄の分足の札：1分／5分／両分（両方＝紫の札1つ）。justify＝札の寄せ。
-function _minBarTfBadge(s, justify) { var list = _minBarList(s); if (!list.length) return null; var _both = list.length > 1; var _n = list[0]; var _c = _both ? { color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD" } : (_n === 1) ? { color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #93C5FD" } : { color: "#166534", background: "#F0FDF4", border: "1px solid #86EFAC" }; return React.createElement("div", { style: { display: "flex", justifyContent: justify || "center", marginTop: 2 } }, React.createElement("span", { style: { display: "inline-block", padding: "1px 7px", fontSize: 11, fontWeight: 800, color: _c.color, background: _c.background, border: _c.border, borderRadius: 4, lineHeight: 1.5, whiteSpace: "nowrap" } }, _both ? "両分" : _n + "分")); }
+function _minBarTfBadge(s, justify) { var list = _minBarList(s); if (!list.length) return null; var _both = list.length > 1; var _n = list[0]; var _c = _both ? { color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD" } : (_n === 1) ? { color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #93C5FD" } : { color: "#166534", background: "#F0FDF4", border: "1px solid #86EFAC" }; return React.createElement("div", { style: { display: "flex", justifyContent: "center", alignSelf: "stretch", marginTop: 2 } }, React.createElement("span", { style: { display: "inline-block", padding: "1px 7px", fontSize: 11, fontWeight: 800, color: _c.color, background: _c.background, border: _c.border, borderRadius: 4, lineHeight: 1.5, whiteSpace: "nowrap" } }, _both ? "両分" : _n + "分")); }
 function _minBarBadge(s) { var list = _minBarList(s); if (!list.length) return null; var _mbStyle = function(_n) { var _c = (_n === 1) ? { color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #93C5FD" } : { color: "#166534", background: "#F0FDF4", border: "1px solid #86EFAC" }; return { display: "inline-block", padding: "1px 7px", fontSize: 11, fontWeight: 800, color: _c.color, background: _c.background, border: _c.border, borderRadius: 4, lineHeight: 1.5, whiteSpace: "nowrap", textAlign: "center" }; }; return React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 3, marginTop: 2 } }, list.map(function(_n) { return React.createElement("span", { key: _n, style: _mbStyle(_n) }, _n + "分"); })); }
 // === EP起算方式(scheme:2)のリゾルバ ===
 // 新方式: OS1〜OS3の3本以内にα値到達した足=EP(エントリーポイント)。EPの次の足からH1/H2。
