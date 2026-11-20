@@ -4662,6 +4662,43 @@ function _elCeTopRow(s, alpha, cutLine, caRel) {
   return { k0: k0, a: A, tp: tp, c: Number(c), src: src, both: both.amt, ce: ce.amt, top: top.amt,
     bothKind: kindOf(both), ceKind: kindOf(ce), topIn: top.inn, topIdx: top.inn ? top.r.epIdx : -1, kd: _kakudoOf(s) };
 }
+// ===== ⏭ 次の足：基準ライン vs 直上VAP 2026-11-20（ユーザー要望「最初のエントリー足でEP②が入らなかったとき、次の足は基準ラインで入るか直上VAPまで待つか」）=====
+// 対象＝記録に直上VAPがあり（最終EPより上）、最初の足（α値に最初に届いた足＝①のEP足）で ②が入らなかった記録＝高値が直上VAPに届かず・終値がEP以下。
+// EP②の分だけの想定損益（1000株換算・Bの割合は混ぜない）を2通りで出す：
+//   基準ライン（今の規約）＝次の足からα値で約定（_epResolve の確定待ちの規約どおり・OS3まで届かなければ入らず0円）。
+//   直上VAPまで待つ＝次の足1本だけ直上VAPに指値。その足の高値が直上VAPに届けば直上VAPで約定・届かなければ②は入らず0円（①だけ）。
+// 最初の足の終値が未入力ならCAの1分足の終値で補う（_allCeCaRel・記録には書かない）。
+// 返り値: {skip:"noep"|"x"|"low"|"noconf"|"topk0"|"closeup"|"nonext"} か {k0, a, tp, c, src, line, lineIn, lineIdx, top, topIn, kd}
+function _elNextTopRow(s, alpha, cutLine, caRel) {
+  if (!s || !_epIsV2(s) || alpha == null) return null;
+  var tp = _epCeTopRel(s); if (tp == null) return null;
+  var A = Number(alpha); if (isNaN(A)) return null;
+  var cut = cutLine != null ? cutLine : 15;
+  var base = Object.assign({}, s, { ceOn: undefined });
+  var r0 = _epResolve(base, A);
+  if (!r0 || r0.epIdx < 0) return { skip: "noep" };
+  if (r0.judge !== "ok") return { skip: "x", k0: r0.epIdx };
+  if (!(tp > A)) return { skip: "low", k0: r0.epIdx };
+  var k0 = r0.epIdx, lg = r0.legs[k0], c = lg.c, src = "rec";
+  if (lg.h != null && Number(lg.h) >= tp) return { skip: "topk0", k0: k0 };
+  if (c == null && caRel) { c = caRel(k0); src = "ca"; }
+  if (c == null || isNaN(Number(c))) return { skip: "noconf", k0: k0 };
+  if (Number(c) > A) return { skip: "closeup", k0: k0 };
+  var lg1 = r0.legs[k0 + 1];
+  if (!lg1 || lg1.h == null) return { skip: "nonext", k0: k0 };
+  var v = Object.assign({}, s, { ceOn: true, ceIdx: k0 });
+  if (src === "ca") _epCeWriteLeg(v, { h: lg.h, c: Number(c), role: lg.role });
+  var amt = function(x, a) {
+    var r = _epResolve(x, a);
+    if (!r || r.epIdx < 0 || r.judge !== "ok") return { amt: 0, inn: false, r: r };
+    var p = _elHoldFinalParts0(x, a, cut);
+    return { amt: (p && p.main != null) ? p.main : 0, inn: true, r: r };
+  };
+  var line = amt(v, A);
+  var top = { amt: 0, inn: false };
+  if (Number(lg1.h) >= tp) { var t2 = amt(base, tp); if (t2.inn && t2.r.epIdx === k0 + 1) top = t2; }
+  return { k0: k0, a: A, tp: tp, c: Number(c), src: src, line: line.amt, lineIn: line.inn, lineIdx: line.inn ? line.r.epIdx : -1, top: top.amt, topIn: top.inn, kd: _kakudoOf(s) };
+}
 // ===== ⚖ エントリー確度B の割合（反実仮想）2026-11-20（ユーザー要望「Bの分割割合を過去記録から算出してから決める」）=====
 // B＝①基準ライン（α値）で先に入る分＋②確定待ちor直上VAPで入る分。割合ごとの比較は app-06 _ElBSplitSection。
 //   p1＝①だけで入った想定損益（確定待ちを外した記録＝α値に最初に届いた足でα値約定）。
