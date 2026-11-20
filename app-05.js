@@ -4573,6 +4573,15 @@ function _BRatioCtl(p) {
     (p.def != null && w !== p.def) ? React.createElement("button", { key: "d", type: "button", onClick: function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); p.onChange(p.def); }, title: "設定の初期値に戻す（⚖ Bの割合 タブで変更）",
       style: { padding: "0 6px", fontSize: 9.5, fontWeight: 700, lineHeight: 1.5, border: "1px solid #D6D3D1", background: "#fff", color: "#78716C", borderRadius: 4, cursor: "pointer" } }, "↺ " + _bRatioLbl(p.def)) : null);
 }
+// ⚖ Bの割合 タブへ移る（記録フォーム・EPナビのBの欄のボタン）2026-11-20c。_snBSplitReq を立てて "sn-open-bsplit" を投げる＝
+//   App（app-08）が記録帳を開き、EntryLogViewBody が 全体・⏳(view "ce") に、_ElCeTabs が「⚖ Bの割合」サブタブにする（初回描画は _snBSplitReq を見る・開いている最中はイベントで切替）。
+var _snBSplitReq = false;
+function _snOpenBSplit() { _snBSplitReq = true; try { window.dispatchEvent(new Event("sn-open-bsplit")); } catch (e) {} }
+function _BSplitLinkBtn(p) {
+  return React.createElement("button", { type: "button", title: p.title || "記録帳 → 📊集計 → ⏳ → ⚖ Bの割合（過去の全記録で ①:② の割合ごとの合計・勝率・最大負けなど）を開きます",
+    onClick: function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); if (p.onBefore) p.onBefore(); _snOpenBSplit(); },
+    style: { padding: "1px 8px", fontSize: p.small ? 9.5 : 10.5, fontWeight: 800, lineHeight: 1.6, border: "1px solid #FDBA74", background: "#fff", color: "#C2410C", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap" } }, "⚖ 割合のデータを見る");
+}
 // 一覧・カード用の小さな印（A/B 50:50/C）。s＝記録 or EPナビの保存EP
 function _kakudoBadge(s, key) {
   var k = _kakudoOf(s); if (!k) return null;
@@ -12223,6 +12232,7 @@ function EntryRecordForm(_ref_erf) {
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                   React.createElement("span", { style: { fontWeight: 700, color: "#78716C" } }, "割合"),
                   React.createElement(_BRatioCtl, { value: fBRatio, onChange: setFBRatio, def: _bRatioDef(data) }),
+                  React.createElement(_BSplitLinkBtn, { onBefore: onClose, title: "記録帳 → 📊集計 → ⏳ → ⚖ Bの割合 を開きます（この記録フォームは閉じます・入力中の内容は保存されません）" }),
                   React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "想定損益＝①の損益×①の割合＋②の損益×②の割合（②が入らなければ0円）")))
               : React.createElement(React.Fragment, null,
                   _vapFrag,

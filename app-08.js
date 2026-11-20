@@ -653,6 +653,12 @@ function App() {
     window.addEventListener("popstate", onPop);
     return function() { window.removeEventListener("popstate", onPop); };
   }, [applyHistoryToken]);
+  // ⚖ Bの割合へ（記録フォーム・EPナビのボタン・app-05 _snOpenBSplit）2026-11-20c：記録帳を開く（中の切替は app-06 が _snBSplitReq を見る）。
+  useEffect(function() {
+    var h = function() { try { _stFlush(); } catch (e) {} setSel(null); setSelTab("news"); setShowEntryLog(true); };
+    window.addEventListener("sn-open-bsplit", h);
+    return function() { window.removeEventListener("sn-open-bsplit", h); };
+  }, []);
   
   useEffect(function() {
     if (sel || showEntryLog || showStockHistory || showNewsHistory || showSummaryHistory) {

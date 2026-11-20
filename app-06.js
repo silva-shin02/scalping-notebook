@@ -2270,7 +2270,13 @@ function _ElBSplitSection(props) {
 }
 var _CE_SUBTABS = [["five", "⏳ 5分確定待ち"], ["good", "✅ 待つべき場面"], ["bad", "⛔ 待たない場面"], ["detail", "📊 条件ごとの内訳"], ["bsplit", "⚖ Bの割合"]];
 function _ElCeTabs(props) {
-  var _u = useState("five"), sub = _u[0], setSub = _u[1];
+  var _u = useState(_snBSplitReq ? "bsplit" : "five"), sub = _u[0], setSub = _u[1];
+  useEffect(function() {
+    _snBSplitReq = false;
+    var h = function() { _snBSplitReq = false; setSub("bsplit"); };
+    window.addEventListener("sn-open-bsplit", h);
+    return function() { window.removeEventListener("sn-open-bsplit", h); };
+  }, []);
   var bar = React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 } }, _CE_SUBTABS.map(function(t) {
     var on = sub === t[0];
     return React.createElement("button", { key: t[0], type: "button", onClick: function() { setSub(t[0]); }, style: { padding: "5px 12px", fontSize: 12, fontWeight: 800, borderRadius: 8, cursor: "pointer", border: "1px solid " + (on ? "#0E7490" : "#D6D3D1"), background: on ? "#0E7490" : "#fff", color: on ? "#fff" : "#57534E" } }, t[1]);
@@ -7541,12 +7547,18 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     onSelectStock = _ref_elv2.onSelectStock;   // 2026-08-02c 配線: app-08から渡っていたが受け取っていなかった（死にprop）。ホームの「📊 銘柄別記録」ボタン撤去に伴い、ここを記録帳からの入口にする。
   var custom = data.custom || {};
   var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
-  var _uV = useState("sum"), view = _uV[0], setView = _uV[1];
+  var _uV = useState(_snBSplitReq ? "ce" : "sum"), view = _uV[0], setView = _uV[1];
+  // ⚖ Bの割合へ（記録フォーム・EPナビのボタン）2026-11-20c：開いている最中に押されたら 全体・⏳ に切り替え、開いていた記録フォームを閉じる。
+  useEffect(function() {
+    var h = function() { setView("ce"); setStockFil("__all__"); setEditTarget(null); };
+    window.addEventListener("sn-open-bsplit", h);
+    return function() { window.removeEventListener("sn-open-bsplit", h); };
+  }, []);
   // 2026-07-20i 期間の指定を年月週日カスケード選択へ置換。既定は全階層「全て」＝全期間（従来の既定と同じ見え方を維持・ユーザー選択）。
   // 旧 period/rngFrom/rngTo（全期間/今週/1ヶ月…＋🗓期間指定）は撤去。旧「今週」はJSTで金曜が落ちるバグがあった（_elFilterPeriodのtoISOString）。
   var _uPS = useState(_elPSelAll), pSel = _uPS[0], setPSel = _uPS[1];
   // 2026-07-20i rngFrom/rngTo（🗓期間指定の自由レンジ）は_ElPeriodPickerへ統合して撤去。
-  var _uS = useState(""), stockFil = _uS[0], setStockFil = _uS[1];
+  var _uS = useState(_snBSplitReq ? "__all__" : ""), stockFil = _uS[0], setStockFil = _uS[1];
   var _uE = useState(initialEdit || null), editTarget = _uE[0], setEditTarget = _uE[1];
   var _uX = useState(null), expKey = _uX[0], setExpKey = _uX[1];
   var _uL = useState(50), listLimit = _uL[0], setListLimit = _uL[1];
