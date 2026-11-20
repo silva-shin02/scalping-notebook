@@ -7314,7 +7314,7 @@ function _elLineInner(s, alpha, cutLine) {   // 2026-11-20 表のライン欄＝
   var ep2 = (lv != null && _tp != null) ? Math.round((lv + _tp) * 100) / 100 : null;
   var _tags = s ? (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])) : [];
   var _kinds = [];
-  _tags.forEach(function(_t) { var _b = _elBJoin(s, _t); if (!_b) return; _b = String(_b).replace(/^1・5分:/, ""); if (_kinds.indexOf(_b) < 0) _kinds.push(_b); });
+  _tags.forEach(function(_t) { var _b = _elBJoin(s, _t); if (!_b) return; _b = String(_b).replace(/^1・5分:/, ""); _b.split(/ (?=[15]分:)/).forEach(function(_bp) { if (_bp && _kinds.indexOf(_bp) < 0) _kinds.push(_bp); }); });
   var _num = function(k, v, mark) { return React.createElement("span", { key: k, title: mark ? "最終EP" + mark : "最終EP", style: { fontSize: 11, fontWeight: 700, color: "#334155", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } },
     mark ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginRight: 1 } }, mark) : null, v); };
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } },
