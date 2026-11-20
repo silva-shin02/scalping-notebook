@@ -10358,6 +10358,8 @@ function EntryRecordForm(_ref_erf) {
     : (Number(fOsVal) > 0 && _fAlpha != null && (Number(fOsVal) - _fAlpha) >= _fCutLine);
   // OS1〜5固定欄（scheme:3）: ミラー同期は廃止。hold*/hold2*欄=常に4・5本目の実データ。
   // フォーム状態を仮想signal化し、H1/H2のプレビュー損益・損切り判定は共通ヘルパー（表と同一基準）で算出する。
+  // 2026-11-20z3 フォームの金額表示の倍率：Dは株数の分（×株数/100）・ほかは1000株換算（×_SN_K）＝_snKFac と同じ（保存値は100株のまま）
+  var _fKf = fKakudo === "D" ? _dSharesClamp(fDShares) / 100 : _SN_K, _fKLbl = fKakudo === "D" ? _dSharesClamp(fDShares) + "株" : "1000株換算";
   var _fVSig = {
     stopHold: _fStopHoldOn ? true : undefined,   // 損切り接触でも次足期待度○なら持ち続ける（保存後の表と同じ判定に揃える）
     ceOn: _fCeActive ? !!fCeOn : undefined, ceIdx: (_fCeActive && _fK0 >= 0) ? _fK0 : null, time: fTime || "",   // 5分足確定足エントリー（保存値と同じ）
@@ -12366,7 +12368,7 @@ function EntryRecordForm(_ref_erf) {
           //   旧式。_elDynPlanned が「旧実装の分岐は廃止」として捨てた式）を使っていたため、入力中にこの欄が出す額と
           //   保存後に表・集計が出す額（撤退足の終値ベース）が必ず食い違っていた。終値(epConf)基準に一本化する。
           //   終値が未入力のときだけ、旧式を保守的なフォールバックとして残す（_elRideVals と同じ倒し方）。
-          var _pnl = (_ef.epConf != null) ? Math.round((_ef.px - _ef.epConf) * 100 * _SN_K) : (_df >= _cl ? -Math.round(_df * 100 * _SN_K) : null);   // 1000株換算 2026-11-20s
+          var _pnl = (_ef.epConf != null) ? Math.round((_ef.px - _ef.epConf) * 100 * _fKf) : (_df >= _cl ? -Math.round(_df * 100 * _fKf) : null);   // 1000株換算 2026-11-20s
           if (_ef.ce) _df = 0;   // 確定足エントリー＝EP足では損切りしない
           if (_pnl == null) return null;
           return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: _pnl > 0 ? "#C0392B" : _pnl < 0 ? "#1E8449" : "#888" } },
@@ -12616,7 +12618,7 @@ function EntryRecordForm(_ref_erf) {
       ),
       React.createElement("div", { style: { flex: 1, marginBottom: 0, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" } },
       React.createElement("div", { style: { marginBottom: 0 } },
-        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "EP損益（1000株換算）"),
+        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "EP損益（" + _fKLbl + "）"),
         _fMiss ? _fMissEl : (function() {
           // v2はEP足から直接計算した値を表示（fPlan経由にしない＝上のEPチップと同じ単一の式）。
           // 2026-07-29d 条件を epIdx>0（EP=OS2/3のみ）→ epIdx>=0 へ。EP=OS1だけがfPlanフォールバックのままで、
@@ -12627,14 +12629,14 @@ function EntryRecordForm(_ref_erf) {
             var _dfV2 = _epFormState.epHigh - _fAlpha;
             // 2026-07-29 上のEPチップと同じく終値(epConf)基準へ一本化。旧式 -(高値−α)×100 は
             //   ラインで約定する前提で、保存後の表・集計（撤退足の終値ベース）と必ずズレていた。
-            _pvV2 = (_epFormState.epConf != null) ? Math.round((_epFormState.px - _epFormState.epConf) * 100 * _SN_K) : (_dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100 * _SN_K) : null);   // 表示は1000株換算 2026-11-20s
+            _pvV2 = (_epFormState.epConf != null) ? Math.round((_epFormState.px - _epFormState.epConf) * 100 * _fKf) : (_dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100 * _fKf) : null);   // 表示は1000株換算 2026-11-20s
           }
           var _bspP = (_useV2P && fKakudo === "B") ? _elBSplit(_elDynPlanned, _fVSig, _fAlpha, _fCutLine) : null;   // 2026-11-20n Bは ①＋②＝合計
           if (_bspP) return _elBSumNode(_bspP, "hissan", true);
           var _sgnP = _useV2P ? (_pvV2 == null ? null : _pvV2 > 0 ? "+" : _pvV2 < 0 ? "-" : null) : fPlanSign;
           var _txtP = _useV2P
             ? (_pvV2 == null ? "—" : _pvV2 === 0 ? "0円" : (_pvV2 > 0 ? "+" : "−") + Math.abs(_pvV2).toLocaleString() + "円")
-            : (fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + (Number(fPlan) * _SN_K).toLocaleString() + "円" : "—");
+            : (fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + (Number(fPlan) * _fKf).toLocaleString() + "円" : "—");
           return React.createElement("span", {
             style: {
               display: "inline-block", padding: "5px 14px",
@@ -12660,7 +12662,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
-              React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "1000株換算")),
+              React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, _fKLbl)),
             _fMiss ? _fMissEl : _fPlanStopNow ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHoldExp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold, _fVSig, _fAlpha, _fCutLine), "hissan", true) : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
@@ -12670,7 +12672,7 @@ function EntryRecordForm(_ref_erf) {
                 borderRadius: 6, border: "1px solid " + (fHoldPnlSign === "+" ? "#F5B7B1" : fHoldPnlSign === "-" ? "#A9DFBF" : "#ddd"),
                 minWidth: 80, textAlign: "right"
               }
-            }, fHoldPnlVal === "0" ? "0円" : fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + (Number(fHoldPnlVal) * _SN_K).toLocaleString() + "円" : "—")
+            }, fHoldPnlVal === "0" ? "0円" : fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + (Number(fHoldPnlVal) * _fKf).toLocaleString() + "円" : "—")
           ),
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
@@ -12706,7 +12708,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
-              React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "1000株換算")),
+              React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, _fKLbl)),
             _fMiss ? _fMissEl : (_fPlanStopNow || _fH1StopNow) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHold2Exp === "×" ? _fHoldXEl : (fKakudo === "B" && _elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine)) ? _elBSumNode(_elBSplit(_elDynHold2, _fVSig, _fAlpha, _fCutLine), "hissan", true) : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
@@ -12716,7 +12718,7 @@ function EntryRecordForm(_ref_erf) {
                 borderRadius: 6, border: "1px solid " + (fHold2PnlSign === "+" ? "#F5B7B1" : fHold2PnlSign === "-" ? "#A9DFBF" : "#ddd"),
                 minWidth: 80, textAlign: "right"
               }
-            }, fHold2PnlVal === "0" ? "0円" : fHold2PnlVal ? (fHold2PnlSign === "-" ? "−" : "+") + (Number(fHold2PnlVal) * _SN_K).toLocaleString() + "円" : "—")
+            }, fHold2PnlVal === "0" ? "0円" : fHold2PnlVal ? (fHold2PnlSign === "-" ? "−" : "+") + (Number(fHold2PnlVal) * _fKf).toLocaleString() + "円" : "—")
           ),
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化", React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（H１比）")),
