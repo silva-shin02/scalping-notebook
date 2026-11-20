@@ -5296,8 +5296,8 @@ function _EpnKakudoCard(p) {
   var tp = (e.ceTopPx != null && e.ceTopPx !== "") ? Number(e.ceTopPx) : null;
   var rows = [];
   if (k === "B") {
-    rows.push(React.createElement("div", { key: "1", style: { fontWeight: 800, color: c.fg } }, "EP① " + e.ep + "円 ・ " + w + "%"));
-    rows.push(React.createElement("div", { key: "2", style: { fontWeight: 800, color: "#0E7490" } }, "EP② 確定待ち" + (tp != null ? "or直上VAP " + tp + "円" : "") + " ・ " + (100 - w) + "%"));
+    rows.push(React.createElement("div", { key: "1", style: { fontWeight: 800, color: c.fg } }, "EP① " + e.ep + "円（" + (w / 10) + "）"));
+    rows.push(React.createElement("div", { key: "2", style: { fontWeight: 800, color: "#0E7490" } }, "EP② 確定待ち" + (tp != null ? "or直上VAP " + tp + "円" : "") + "（" + ((100 - w) / 10) + "）"));
   } else if (k === "C") {
     rows.push(React.createElement("div", { key: "c", style: { fontWeight: 800, color: "#0E7490" } }, "確定待ち" + (tp != null ? "or直上VAP " + tp + "円" : "") + "のみ"));
   } else if (k === "A") {

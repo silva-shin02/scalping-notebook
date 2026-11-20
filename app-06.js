@@ -2206,7 +2206,7 @@ function _ElBSplitSection(props) {
     if (best == null || g.a.sum > best.a.sum) best = g;
     if (g.a.maxLoss != null && (safe == null || g.a.maxLoss > safe.a.maxLoss)) safe = g;
   });
-  var _lbl = function(k) { return (k * 10) + ":" + ((10 - k) * 10); };
+  var _lbl = function(k) { return k + ":" + (10 - k); };
   var a10 = aggs[0].a, a0 = aggs[aggs.length - 1].a;
   var kpi = React.createElement("div", { key: "k", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
     _card("対象", React.createElement("span", null, ok.length + "件"), "記録に直上VAPがある記録 " + topN + "件", "k1"),
