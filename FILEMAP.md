@@ -3330,3 +3330,4 @@ HomeEventFormModal, App
 - 2026-11-22 v711：仮シグナルだけの記録の行を半透明（opacity 0.55）に（app-05 `_elNotInclRowStyle`・明細表すべて）。
 - 2026-11-22 v712：⏸ 終値で入る vs 待つ（最初の足で直上VAPに届かず終値＞EP → 終値で入る／入らずに次の足1本だけ直上VAPまで待つ・②の分だけ）。app-05 `_elCloseWaitRow`（⏭ `_elNextTopRow` と同じ返り値・待つ側は `_epFrom` で次の足がOS4/5でも可）・記録フォームの直上VAPトグルの右に `_CloseWaitLine`（結論の一行＋詳しく見る＝重ね窓・入力中はCAを読まない）・母数 `_snAllAmtRecs`（⚖ の重ね窓と共通）。app-06 `_ElCloseWaitSection`・⏳ のサブタブ 🎯/⏭ を "topvap"＝`_ElTopVapTabs`（中で 🎯/⏭/⏸ 切替・`_TOPVAP_SUBS`）にまとめた。
 - 2026-11-22 v713：シグナルの分足（signal.sigTf・チップを押すと 1分足/5分足/両方 の小窓＝①の線・理由と同じ形・新規は必須・仮シグナルも）。記録の minBar（表の 1分/5分/両分 の札）は sigTf の和（無ければ従来の詳細からの自動）。app-05 EntryRecordForm `fSigTf`/`fSigTfPop`/`_sigTfPopEl`/`_sigTfChipLbl`・保存 sigTf/minBar・改名 `_elSignalRenameData`（sigTf キー）とフォームの `_rekey(setFSigTf)`。
+- 2026-11-22 v714：①EP基準ラインの線の分足をシグナルの分足に揃える（シグナルが1分/5分なら線は押すだけでその分足・小窓なし／「両方」・未選択のときだけ線ごとに小窓）。app-05 `_sigTfOne`/`_bTfMapOf`（フォーム内で fBTfMap を読む所は全部これ経由）。1分/5分→両方に変えたら線は前の分足を初期値に残す。
