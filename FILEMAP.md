@@ -3333,3 +3333,4 @@ HomeEventFormModal, App
 - 2026-11-22 v714：①EP基準ラインの線の分足をシグナルの分足に揃える（シグナルが1分/5分なら線は押すだけでその分足・小窓なし／「両方」・未選択のときだけ線ごとに小窓）。app-05 `_sigTfOne`/`_bTfMapOf`（フォーム内で fBTfMap を読む所は全部これ経由）。1分/5分→両方に変えたら線は前の分足を初期値に残す。
 - 2026-11-22 v715：確度Dの②を「EP①の約定値より〇円上」に（ユーザー指示・EP①は確定待ちで値が決まらないため）。signal.ce2Off（EPナビ item.ce2Off）・初期値 custom.ce2OffDef（既定10円・`_ce2OffDef`/`_ce2OffOf`/`_ce2OffClamp`）。app-05 `_elSplitDef` の D：a2＝①の px＋ce2Off・開始足＝①が終値約定なら次の足／それ以外は同じ足・`_epHold0`＝①のEP足（そこから先は次足期待度○△の間だけ）。Eライン `_elLineInner`：D は①②とも約定値・②未約定は「①+〇」。フォームは `fCe2Off`（▲▼・↺・この円数を初期値に）。推奨損切り値の②＝①＋〇円。旧形式 ce2TopPx は一回性 app-01 `_migKakudoD2Off1122` で ce2Off（②の株価−①の直上VAP）へ。
 - 2026-11-22 v716：シグナルの分足（sigTf）を選んでいない記録は、表のシグナル欄の札を灰色の「分足不明」に（詳細から自動で決めた 1分/5分/両分 は出さない）。app-05 `_sigTfSet`/`_minBarTfBadge`。
+- 2026-11-22 v717：記録フォーム（EntryRecordForm）を開いている間は後ろの画面をスクロールさせない（冒頭の useEffect で body/html の overflow を hidden・window.__snFormLock で重なりを数える・閉じたら元に戻す）＋背景と本体の overscrollBehavior "contain"。

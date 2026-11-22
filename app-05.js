@@ -9367,6 +9367,10 @@ function _TimeDialPicker(_p) {
 }
 
 function EntryRecordForm(_ref_erf) {
+  // 2026-11-22 開いている間は後ろの画面をスクロールさせない（ユーザー報告「スクロールを続けると後ろの暗い画面がスクロールされる」）。閉じたら元に戻す（重ねて開いても数で管理）。
+  useEffect(function() { var b = document.body, h = document.documentElement; window.__snFormLock = (window.__snFormLock || 0) + 1;
+    if (window.__snFormLock === 1) { window.__snFormLockPrev = [b.style.overflow, h.style.overflow]; b.style.overflow = "hidden"; h.style.overflow = "hidden"; }
+    return function() { window.__snFormLock = Math.max(0, (window.__snFormLock || 1) - 1); if (!window.__snFormLock) { var pv = window.__snFormLockPrev || ["", ""]; b.style.overflow = pv[0]; h.style.overflow = pv[1]; } }; }, []);
   var data = _ref_erf.data,
     save = _ref_erf.save,
     initial = _ref_erf.initial,  
@@ -11460,10 +11464,10 @@ function EntryRecordForm(_ref_erf) {
         React.createElement(FastInput, { multiline: true, autoResize: true, value: fAlphaMemo, onChange: function(v) { setFAlphaMemo(v); }, placeholder: "", rows: 2, style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 44 }) })
       ); }
   return React.createElement("div", {
-    style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto" }
+    style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto", overscrollBehavior: "contain" }   /* 2026-11-22 端まで来ても後ろの画面へスクロールを渡さない */
   },
     React.createElement("div", {
-      style: { background: "#fff", borderRadius: 12, padding: 20, maxWidth: 780, width: "100%", maxHeight: "90vh", overflowY: "auto" }
+      style: { background: "#fff", borderRadius: 12, padding: 20, maxWidth: 780, width: "100%", maxHeight: "90vh", overflowY: "auto", overscrollBehavior: "contain" }
     },
       React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
         React.createElement("div", { style: { fontSize: 16, fontWeight: 700 } }, isEdit ? "📝 エントリー記録 編集" : "📝 新規エントリー記録"),
