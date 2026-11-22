@@ -9681,6 +9681,13 @@ function EntryRecordForm(_ref_erf) {
   //   シグナルのチップを押すと 1分足／5分足／両方 の小窓（選択済みなら変更／外す）。新規は必須。記録の minBar（表の 1分／5分／両分 の札）はこの分足の和で決める。
   var _useStateSTF = useState(function() { var m = initSig.sigTf; return (m && typeof m === "object") ? Object.assign({}, m) : {}; }), fSigTf = _useStateSTF[0], setFSigTf = _useStateSTF[1];
   var _useStateSTP = useState(null), fSigTfPop = _useStateSTP[0], setFSigTfPop = _useStateSTP[1];
+  // ①EP基準ラインの線の分足は、シグナルの分足が1分か5分ならそれに揃える（ユーザー決定・2026-11-22）＝線を押すだけで入り、小窓は出さない。「両方」・未選択のときだけ線ごとに選ぶ（fBTfMap）。
+  var _sigTfOne = function(dt) { var v = (fSigTf || {})[dt]; return (v === "1" || v === "5") ? v : null; };
+  var _bTfMapOf = function(dt) {
+    var v = _sigTfOne(dt);
+    if (!v) return (fBTfMap && fBTfMap[dt]) || {};
+    var mm = {}; ((fSigDetail && fSigDetail[dt] && fSigDetail[dt].b) || []).forEach(function(ln) { if (ln) mm[ln] = v; }); return mm;
+  };
   var _sigTfLbl = function(t) { var a = String((fSigTf || {})[t] || "").split(",").filter(Boolean); return a.length ? (a.length >= 2 ? "1分・5分" : a[0] + "分") : null; };
   var _sigTfChipLbl = function(t, on) { if (!on) return t; var l = _sigTfLbl(t); return l ? t + "(" + l + ")" : React.createElement(React.Fragment, null, t, React.createElement("span", { style: { color: "#DC2626", fontSize: 10 } }, "(分足?)")); };
   var _sigTfPopEl = function(t, on, select, unselect, col) {
@@ -9689,7 +9696,10 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", { onClick: function() { setFSigTfPop(null); }, style: { position: "fixed", inset: 0, zIndex: 60 } }),
       React.createElement("div", { style: { position: "absolute", top: "100%", left: 0, marginTop: 3, zIndex: 61, display: "flex", alignItems: "center", gap: 4, padding: "5px 6px", background: "#fff", border: "1px solid " + col, borderRadius: 7, boxShadow: "0 3px 10px rgba(0,0,0,0.18)", whiteSpace: "nowrap" } },
         [["1", "1分足"], ["5", "5分足"], ["1,5", "両方"]].map(function(o) { var _cur = on && String((fSigTf || {})[t] || "") === o[0];
-          return React.createElement("button", { key: o[0], type: "button", onClick: function() { if (!on) select(); setFSigTf(function(prev) { var m = Object.assign({}, prev); m[t] = o[0]; return m; }); setFSigTfPop(null); },
+          return React.createElement("button", { key: o[0], type: "button", onClick: function() { if (!on) select();
+              var _old = _sigTfOne(t);   // 1分/5分 → 両方 にしたら、①の線は今までの分足を初期値に残す
+              if (o[0] === "1,5" && _old) setFBTfMap(function(prev) { var mm = Object.assign({}, (prev || {})[t] || {}); ((fSigDetail && fSigDetail[t] && fSigDetail[t].b) || []).forEach(function(ln) { if (ln && !mm[ln]) mm[ln] = _old; }); var o2 = Object.assign({}, prev); o2[t] = mm; return o2; });
+              setFSigTf(function(prev) { var m = Object.assign({}, prev); m[t] = o[0]; return m; }); setFSigTfPop(null); },
             style: { padding: "3px 9px", fontSize: 11, fontWeight: 800, borderRadius: 5, cursor: "pointer", border: "1px solid " + col, background: _cur ? col : "#fff", color: _cur ? "#fff" : col } }, o[1]); }),
         on ? React.createElement("button", { type: "button", onClick: function() { unselect(); setFSigTf(function(prev) { var m = Object.assign({}, prev); delete m[t]; return m; }); setFSigTfPop(null); },
           style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, borderRadius: 5, cursor: "pointer", border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C" } }, "外す") : null));
@@ -9699,7 +9709,7 @@ function EntryRecordForm(_ref_erf) {
   // 2026-11-20t 分足は線を押したときのポップアップで選ぶ（ユーザー指示「この形、違くない？」＝B・Cにした理由と同じ形）。ここは未選択の注意だけ。
   var _bLineTfRows = function(_dt, _sc, _tf, _curArr) {
     if (!_bTfMode(_dt, _sc, _tf) || isEdit) return null;
-    var _m = (fBTfMap && fBTfMap[_dt]) || {};
+    var _m = _bTfMapOf(_dt);
     if (!(_curArr || []).filter(Boolean).some(function(ln) { return !_m[ln]; })) return null;
     return React.createElement("div", { style: { fontSize: 10, fontWeight: 800, color: "#DC2626", marginTop: 4 } }, "(分足?) の線を押して分足を選んでください");
   };
@@ -11167,7 +11177,7 @@ function EntryRecordForm(_ref_erf) {
       if (!isEdit && fReview === true && (fReviewReasons || []).filter(Boolean).length === 0) _vm.push("要審議の理由（選択肢）");   // 新規の要審議も必須 2026-10-17
       // ①EP基準ライン・②起点は必須 2026-10-29（新規・編集とも・ユーザー決定）。選んだシグナルごとに1つ以上。②の名前はシグナルごとの表示名。
       // 2026-10-29h 1分足・5分足の両方の段で必須（ユーザー決定）。
-      fTags.forEach(function(_t) { var _sb = fSigDetail && fSigDetail[_t]; if (!isEdit && _elBShared(custom, _t)) ((_sb && _sb.b) || []).filter(Boolean).forEach(function(_ln) { if (!((fBTfMap && fBTfMap[_t]) || {})[_ln]) _vm.push("①EP基準ラインの分足（" + _ln + "・" + _t + "）"); });   // 線ごとの分足・新規は必須 2026-11-20h   // 指標線底抜け 2026-10-29m
+      fTags.forEach(function(_t) { var _sb = fSigDetail && fSigDetail[_t]; if (!isEdit && _elBShared(custom, _t)) ((_sb && _sb.b) || []).filter(Boolean).forEach(function(_ln) { if (!(_bTfMapOf(_t))[_ln]) _vm.push("①EP基準ラインの分足（" + _ln + "・" + _t + "）"); });   // 線ごとの分足・新規は必須 2026-11-20h   // 指標線底抜け 2026-10-29m
         if (!isEdit && _elSigSecs(data, _t).some(function(_sc) { return _sc.key === _elKitenKey(custom, _t); })) _EL_TFS.forEach(function(tf) {   // 起点の足の時刻（無しなら株価も）新規は必須 2026-11-05
           var _ka = ((fKitenAt || {})[_t] || {})[tf] || {};
           if (!_snlTm(_ka.t)) _vm.push("起点の足（" + tf + "分・" + _t + "）");
@@ -11208,7 +11218,7 @@ function EntryRecordForm(_ref_erf) {
           if (_s && _secAny(_s)) {
             var _tfO = {};
             _EL_TFS.forEach(function(tf) { var x = {}; ["b", "k", "p", "f"].forEach(function(sk) { if (sk === "b" && _elBShared(custom, _t)) return; var a = (_s[sk + tf] || []).filter(Boolean); if (a.length) x[sk] = a.slice(); }); if (Object.keys(x).length) _tfO[tf] = x; });
-            if (_elBShared(custom, _t)) { var _bm = (fBTfMap && fBTfMap[_t]) || {};   // ①は線ごとに選んだ分足へ入れる 2026-11-20h（旧：指標線底抜けだけ共通の1分/5分）
+            if (_elBShared(custom, _t)) { var _bm = _bTfMapOf(_t);   // ①は線ごとに選んだ分足へ入れる 2026-11-20h（旧：指標線底抜けだけ共通の1分/5分）
               (_s.b || []).filter(Boolean).forEach(function(_ln) { String(_bm[_ln] || "").split(",").forEach(function(tf) { if (tf !== "1" && tf !== "5") return; var _x = Object.assign({}, _tfO[tf] || {}); _x.b = (_x.b || []).concat([_ln]); _tfO[tf] = _x; }); }); }
             _e.tf = _tfO;
             var _ub = _secUnion(_s, "b"), _uk = _secUnion(_s, "k"), _up = _secUnion(_s, "p"), _uf = _secUnion(_s, "f");
@@ -11289,7 +11299,7 @@ function EntryRecordForm(_ref_erf) {
           _EL_TFS.forEach(function(tf) {
             if (_s && ["b", "k", "p", "f"].some(function(sk) { if (sk === "b" && _elBShared(custom, _t)) return false; return ((_s[sk + tf] || []).filter(Boolean)).length > 0; })) _got[tf] = 1;
           });
-          if (_s && _elBShared(custom, _t)) { var _bm2 = (fBTfMap && fBTfMap[_t]) || {}; (_s.b || []).filter(Boolean).forEach(function(_ln) { String(_bm2[_ln] || "").split(",").forEach(function(tf) { if (tf === "1" || tf === "5") _got[tf] = 1; }); }); }
+          if (_s && _elBShared(custom, _t)) { var _bm2 = _bTfMapOf(_t); (_s.b || []).filter(Boolean).forEach(function(_ln) { String(_bm2[_ln] || "").split(",").forEach(function(tf) { if (tf === "1" || tf === "5") _got[tf] = 1; }); }); }
         });
         var _auto = _EL_TFS.filter(function(tf) { return _got[tf]; });
         var _use = _auto.length ? _auto : (fMinBars || []);
@@ -11813,7 +11823,7 @@ function EntryRecordForm(_ref_erf) {
                       React.createElement("button", {
                         onClick: function() {
                           if (_detMovedRef.current) { _detMovedRef.current = false; return; }
-                          if (_bTfMode(_dt, _sc, _tf) && _sc.multi) { setFBTfPop((fBTfPop && fBTfPop.dt === _dt && fBTfPop.ln === _dn) ? null : { dt: _dt, ln: _dn, rk: _rk }); return; }   // 2026-11-20t 押すと分足のポップアップ
+                          if (_bTfMode(_dt, _sc, _tf) && _sc.multi && !_sigTfOne(_dt)) { setFBTfPop((fBTfPop && fBTfPop.dt === _dt && fBTfPop.ln === _dn) ? null : { dt: _dt, ln: _dn, rk: _rk }); return; }   // 2026-11-20t 押すと分足のポップアップ
                           setFSigDetail(function(prev) {
                             var _o = Object.assign({}, prev);
                             var _pe = _o[_dt] || {};
@@ -11834,12 +11844,12 @@ function EntryRecordForm(_ref_erf) {
                           background: _on ? "#FEF3C7" : "#fff", color: _on ? "#92400E" : "#777",
                           borderRadius: 6, cursor: "pointer" }
                       }, (_sc.ordered && _on) ? React.createElement("span", { style: { display: "inline-block", minWidth: 13, marginRight: 4, padding: "0 3px", fontSize: 9, fontWeight: 800, lineHeight: "13px", borderRadius: 7, background: "#D97706", color: "#fff", textAlign: "center" } }, String(_curArr.indexOf(_dn) + 1)) : null,
-                        (function() { if (!(_on && _bTfMode(_dt, _sc, _tf))) return _dn; var _t = ((fBTfMap && fBTfMap[_dt]) || {})[_dn], _a = String(_t || "").split(",").filter(Boolean);
+                        (function() { if (!(_on && _bTfMode(_dt, _sc, _tf))) return _dn; var _t = (_bTfMapOf(_dt))[_dn], _a = String(_t || "").split(",").filter(Boolean);
                           return _a.length ? _dn + "(" + (_a.length >= 2 ? "1分・5分" : _a[0] + "分") + ")" : React.createElement(React.Fragment, null, _dn, React.createElement("span", { style: { color: "#DC2626", fontSize: 10 } }, "(分足?)")); })()),
                       (_bTfMode(_dt, _sc, _tf) && fBTfPop && fBTfPop.dt === _dt && fBTfPop.ln === _dn) ? React.createElement(React.Fragment, null,
                         React.createElement("div", { onClick: function() { setFBTfPop(null); }, style: { position: "fixed", inset: 0, zIndex: 60 } }),
                         React.createElement("div", { onPointerDown: function(e) { e.stopPropagation(); }, style: { position: "absolute", top: "100%", left: 0, marginTop: 3, zIndex: 61, display: "flex", alignItems: "center", gap: 4, padding: "5px 6px", background: "#fff", border: "1px solid #FDBA74", borderRadius: 7, boxShadow: "0 3px 10px rgba(0,0,0,0.18)", whiteSpace: "nowrap" } },
-                          [["1", "1分足"], ["5", "5分足"], ["1,5", "両方"]].map(function(o) { var _cur = _on && String(((fBTfMap && fBTfMap[_dt]) || {})[_dn] || "") === o[0];
+                          [["1", "1分足"], ["5", "5分足"], ["1,5", "両方"]].map(function(o) { var _cur = _on && String((_bTfMapOf(_dt))[_dn] || "") === o[0];
                             return React.createElement("button", { key: o[0], type: "button", onClick: function() {
                                 if (!_on) setFSigDetail(function(prev) { var _o = Object.assign({}, prev); var _e = _secClone(_o[_dt] || {}); if (_e[_rk].indexOf(_dn) < 0) _e[_rk].push(_dn); _o[_dt] = _e; return _o; });
                                 _bTfSet(_dt, _dn, o[0]); setFBTfPop(null); },
