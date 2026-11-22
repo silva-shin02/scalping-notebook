@@ -2199,11 +2199,11 @@ function _ElBSplitSection(props) {
   var modeRow = React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center", marginBottom: 6 } },
     React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#57534E", marginRight: 2 } }, "確度"),
     _pill(!isD, "B（①基準ライン＋②確定待ちor直上VAP）", function() { setMode("B"); setFil("all"); }, "m_B"),
-    _pill(isD, "D（①確定待ちor直上VAP＋②さらに上の直上VAP）", function() { setMode("D"); setFil("all"); }, "m_D"));
+    _pill(isD, "D（①確定待ちor直上VAP＋②EP①より〇円上）", function() { setMode("D"); setFil("all"); }, "m_D"));
   var head = isD ? React.createElement("div", { key: "h", style: { marginBottom: 8 } }, modeRow,
-    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⚖ Dの割合 ― ①確定待ちor直上VAP と②さらに上の直上VAP に何:何で分けるか"),
+    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⚖ Dの割合 ― ①確定待ちor直上VAP と②EP①より〇円上 に何:何で分けるか"),
     React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
-      "対象＝確度Dで②（さらに上の直上VAP）が入っている記録だけです（それより前の記録には②の値が無いため）。各記録で「①だけで入った想定損益」と「②だけで入った想定損益」（①が入った足から①を持っている間に②の値を上抜けたらその値で約定・届かなければ0円）を出し、割合で混ぜて合計しました。"))
+      "対象＝確度Dの記録だけです（それより前の記録には②の決まりが無いため）。各記録で「①だけで入った想定損益」と「②だけで入った想定損益」（①の約定値＋〇円に指値・①が入った瞬間から①を持っている間に上抜けたらその値で約定・届かなければ0円）を出し、割合で混ぜて合計しました。"))
   : React.createElement("div", { key: "h", style: { marginBottom: 8 } }, modeRow,
     React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⚖ Bの割合 ― ①基準ライン（α値）と②確定待ちor直上VAP に何:何で分けるか"),
     React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
@@ -2226,7 +2226,7 @@ function _ElBSplitSection(props) {
     _card("両端の合計", [React.createElement("span", { key: "a", style: { fontSize: 11, color: "#78716C" } }, "①だけ"), _amt(a10.sum), React.createElement("span", { key: "c", style: { fontSize: 11, color: "#78716C" } }, "②だけ"), _amt(a0.sum)],
       "差（②だけ − ①だけ） " + _elPnlFmt(Math.round(a0.sum - a10.sum)), "k3"),
     _card("目安", React.createElement("span", { style: { fontSize: 11.5 } }, "合計最大 " + (best ? _lbl(best.k) : "—") + "・最大負けが最も浅い " + (safe ? _lbl(safe.k) : "—")),
-      isD ? "割合は ①確定待ちor直上VAP:②さらに上の直上VAP" : "割合は ①基準ライン:②確定待ちor直上VAP", "k4"));
+      isD ? "割合は ①確定待ちor直上VAP:②EP①より〇円上" : "割合は ①基準ライン:②確定待ちor直上VAP", "k4"));
   var _defW = _bRatioDef(data, mode);
   var _setDef = function(v) { if (!props.save) return; v = _bRatioClamp(v); var _o = {}; _o[isD ? "dRatioDef" : "bRatioDef"] = v; props.save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, _o) }); }); };
   var defRow = React.createElement("div", { key: "d", style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "6px 9px", border: "1px solid #FDBA74", background: "#FFF7ED", borderRadius: 8, fontSize: 11 } },

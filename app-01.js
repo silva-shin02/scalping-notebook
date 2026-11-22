@@ -1635,6 +1635,25 @@ function migrateData(d) {
       d._migKakudoDE1122 = true;
     } catch(e) { console.warn("[migrateData] kakudoDE1122 error:", e); }
   }
+  // 【一回性 _migKakudoD2Off1122・2026-11-22b】確度Dの②を「株価（ce2TopPx）」から「EP①の約定値より〇円上（ce2Off）」へ（ユーザー指示）。
+  //   〇円＝②の株価−①の直上VAP（ceTopPx・無ければ 記録＝EP基準ライン＋採用VAP／EPナビ＝ep）。0以下になったら10円。記録と EPナビの保存EPの両方。
+  if (!d._migKakudoD2Off1122) {
+    try {
+      var _d2N = 0;
+      Object.keys(d.charts || {}).forEach(function(ck) {
+        var c = d.charts[ck]; if (!c) return;
+        ["signals", "epNavi"].forEach(function(f) { if (Array.isArray(c[f])) c[f].forEach(function(x) {
+          if (!x || x.kakudo !== "D" || x.ce2TopPx == null || x.ce2TopPx === "" || (x.ce2Off != null && x.ce2Off !== "")) return;
+          var p2 = Number(x.ce2TopPx), base = (x.ceTopPx != null && x.ceTopPx !== "") ? Number(x.ceTopPx)
+            : (f === "epNavi" ? Number(x.ep) : Number(x.levelPrice) + Number(x.alphaVal || 0));
+          var off = (isNaN(p2) || isNaN(base)) ? 10 : Math.round((p2 - base) * 10) / 10;
+          x.ce2Off = off > 0 ? off : 10; x.ce2TopPx = null; _d2N++;
+        }); });
+      });
+      if (_d2N) console.log("[migrateData] kakudoD2Off1122: " + _d2N + "件");
+      d._migKakudoD2Off1122 = true;
+    } catch(e) { console.warn("[migrateData] kakudoD2Off1122 error:", e); }
+  }
   // 【一回性 _migRestore1028・2026-10-28】同期の不具合で設定(custom)が古い内容に戻った件の復旧（ユーザー決定）。
   //   ①記録から名前を戻す（app-04 _snRebuildCustom＝シグナル名・仮シグナル・理由・固有材料。足すだけ）
   //   ②銘柄タブ＝フジクラ・SBG の2つだけ　③日替わり候補＝記録のある銘柄・名簿の銘柄すべて（フジクラ・SBG・日経平均株価を除く・今の候補の順＋記録の多い順）
