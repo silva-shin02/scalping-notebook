@@ -2127,6 +2127,7 @@ function _ElCeSitSection(props) {
 // 合計は割合に対して一直線＝最大は必ず両端。分割の価値は「負けの浅さ・ぶれの小ささ」なので、最大負け・月のぶれも並べる。
 // 母数＝⏳タブと同じ（合計損益と同じ線引き・期間選択に従う）。過去記録はA/B/Cの区別が無い＝「全部Bで入っていたら」の仮の計算。
 var _BSPLIT_KIND = [["top", "直上VAPで約定"], ["up", "終値で約定"], ["later", "後の足でα値"], ["miss", "入らず"]];
+var _DSPLIT_KIND = [["in", "②約定"], ["miss", "②届かず"]];   // 確度D 2026-11-22
 function _bSplitAgg(list, w) {
   var o = { n: 0, sum: 0, win: 0, loss: 0, lossSum: 0, maxLoss: null, mon: {} };
   list.forEach(function(it) {
@@ -2148,15 +2149,17 @@ function _ElBSplitSection(props) {
   var _uT = useState(0), setTick = _uT[1];
   var _uL = useState(null), load = _uL[0], setLoad = _uL[1];
   var _uF = useState("all"), fil = _uF[0], setFil = _uF[1];
+  var _uM = useState(props.kd === "D" ? "D" : "B"), mode = _uM[0], setMode = _uM[1];   // 2026-11-22 B／D の切替（ユーザー決定）
+  var isD = mode === "D", KIND = isD ? _DSPLIT_KIND : _BSPLIT_KIND;
   var rows = [];
   recs.forEach(function(r) {
     var a = aiOf(r) || {};
-    var x = _elBSplitRow(r.signal, a.alpha, a.cutLine, function(k) { return _allCeCaRel(r.signal, r.stock, r.date, k); });
+    var x = isD ? _elDSplitRow(r.signal, a.alpha, a.cutLine) : _elBSplitRow(r.signal, a.alpha, a.cutLine, function(k) { return _allCeCaRel(r.signal, r.stock, r.date, k); });
     if (x) rows.push({ r: r, x: x });
   });
   var ok = rows.filter(function(o) { return !o.x.skip; });
   var skipN = {}; rows.forEach(function(o) { if (o.x.skip) skipN[o.x.skip] = (skipN[o.x.skip] || 0) + 1; });
-  var kN = { top: 0, up: 0, later: 0, miss: 0 }, caN = 0, topN = 0, kdN = { A: 0, B: 0, C: 0, D: 0, none: 0 };
+  var kN = { top: 0, up: 0, later: 0, miss: 0, "in": 0 }, caN = 0, topN = 0, kdN = { A: 0, B: 0, C: 0, D: 0, E: 0, none: 0 };
   ok.forEach(function(o) { kN[o.x.kind]++; if (o.x.src === "ca") caN++; if (o.x.hasTop) topN++; var _k = _kakudoOf(o.r.signal); kdN[_k || "none"]++; });
   var need = {}, needKeys = [];
   rows.forEach(function(o) {
@@ -2193,7 +2196,15 @@ function _ElBSplitSection(props) {
   var _pill = function(on, label, onClick, key) {
     return React.createElement("button", { key: key, type: "button", onClick: onClick, style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#0E7490" : "#D6D3D1"), background: on ? "#ECFEFF" : "#fff", color: on ? "#0E7490" : "#57534E" } }, label);
   };
-  var head = React.createElement("div", { key: "h", style: { marginBottom: 8 } },
+  var modeRow = React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center", marginBottom: 6 } },
+    React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#57534E", marginRight: 2 } }, "確度"),
+    _pill(!isD, "B（①基準ライン＋②確定待ちor直上VAP）", function() { setMode("B"); setFil("all"); }, "m_B"),
+    _pill(isD, "D（①確定待ちor直上VAP＋②さらに上の直上VAP）", function() { setMode("D"); setFil("all"); }, "m_D"));
+  var head = isD ? React.createElement("div", { key: "h", style: { marginBottom: 8 } }, modeRow,
+    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⚖ Dの割合 ― ①確定待ちor直上VAP と②さらに上の直上VAP に何:何で分けるか"),
+    React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
+      "対象＝確度Dで②（さらに上の直上VAP）が入っている記録だけです（それより前の記録には②の値が無いため）。各記録で「①だけで入った想定損益」と「②だけで入った想定損益」（①が入った足から①を持っている間に②の値を上抜けたらその値で約定・届かなければ0円）を出し、割合で混ぜて合計しました。"))
+  : React.createElement("div", { key: "h", style: { marginBottom: 8 } }, modeRow,
     React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⚖ Bの割合 ― ①基準ライン（α値）と②確定待ちor直上VAP に何:何で分けるか"),
     React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
       "各記録で「①だけで入った想定損益」（α値に最初に届いた足でα値約定）と「②だけで入った想定損益」（その足で確定待ち：直上VAPが記録にあり届けば直上VAPで約定／終値＞EPなら終値で約定／終値≦EPなら次の足でα値／OS3まで届かなければ入らず0円）を出し、割合で混ぜて合計しました（1000株換算）。" +
@@ -2209,20 +2220,20 @@ function _ElBSplitSection(props) {
   var _lbl = function(k) { return k + ":" + (10 - k); };
   var a10 = aggs[0].a, a0 = aggs[aggs.length - 1].a;
   var kpi = React.createElement("div", { key: "k", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
-    _card("対象", React.createElement("span", null, ok.length + "件"), "記録に直上VAPがある記録 " + topN + "件", "k1"),
-    _card("②の入り方", React.createElement("span", { style: { fontSize: 11.5 } }, _BSPLIT_KIND.map(function(o) { return o[1] + " " + kN[o[0]]; }).join("・")),
-      "②がα値より上で入れた割合 " + _pct(ok.length ? (kN.top + kN.up) / ok.length : null), "k2"),
+    _card("対象", React.createElement("span", null, ok.length + "件"), isD ? "確度Dの記録" : "記録に直上VAPがある記録 " + topN + "件", "k1"),
+    _card("②の入り方", React.createElement("span", { style: { fontSize: 11.5 } }, KIND.map(function(o) { return o[1] + " " + kN[o[0]]; }).join("・")),
+      isD ? "②が約定した割合 " + _pct(ok.length ? kN["in"] / ok.length : null) : "②がα値より上で入れた割合 " + _pct(ok.length ? (kN.top + kN.up) / ok.length : null), "k2"),
     _card("両端の合計", [React.createElement("span", { key: "a", style: { fontSize: 11, color: "#78716C" } }, "①だけ"), _amt(a10.sum), React.createElement("span", { key: "c", style: { fontSize: 11, color: "#78716C" } }, "②だけ"), _amt(a0.sum)],
       "差（②だけ − ①だけ） " + _elPnlFmt(Math.round(a0.sum - a10.sum)), "k3"),
     _card("目安", React.createElement("span", { style: { fontSize: 11.5 } }, "合計最大 " + (best ? _lbl(best.k) : "—") + "・最大負けが最も浅い " + (safe ? _lbl(safe.k) : "—")),
-      "割合は ①基準ライン:②確定待ちor直上VAP", "k4"));
-  var _defW = _bRatioDef(data);
-  var _setDef = function(v) { if (!props.save) return; v = _bRatioClamp(v); props.save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { bRatioDef: v }) }); }); };
+      isD ? "割合は ①確定待ちor直上VAP:②さらに上の直上VAP" : "割合は ①基準ライン:②確定待ちor直上VAP", "k4"));
+  var _defW = _bRatioDef(data, mode);
+  var _setDef = function(v) { if (!props.save) return; v = _bRatioClamp(v); var _o = {}; _o[isD ? "dRatioDef" : "bRatioDef"] = v; props.save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, _o) }); }); };
   var defRow = React.createElement("div", { key: "d", style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "6px 9px", border: "1px solid #FDBA74", background: "#FFF7ED", borderRadius: 8, fontSize: 11 } },
-    React.createElement("span", { style: { fontWeight: 800, color: "#C2410C" } }, "新規記録・EPナビの B の割合の初期値"),
-    props.save ? React.createElement(_BRatioCtl, { value: _defW, onChange: _setDef }) : React.createElement("span", { style: { fontWeight: 800 } }, _bRatioLbl(_defW)),
+    React.createElement("span", { style: { fontWeight: 800, color: _KAKUDO_COL[mode].fg } }, "新規記録・EPナビの " + mode + " の割合の初期値"),
+    props.save ? React.createElement(_BRatioCtl, { value: _defW, onChange: _setDef, kd: mode }) : React.createElement("span", { style: { fontWeight: 800 } }, _bRatioLbl(_defW)),
     React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "下の表の行の「これにする」でも変えられます。保存済みの記録の割合は変わりません。"),
-    React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "確度を付けた記録：A " + kdN.A + "・B " + kdN.B + "・C " + kdN.C + "・D " + kdN.D + "・未設定 " + kdN.none + "件"));
+    React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "確度を付けた記録：A " + kdN.A + "・B " + kdN.B + "・C " + kdN.C + "・D " + kdN.D + "・E " + kdN.E + "・未設定 " + kdN.none + "件"));
   var noteParts = _ALLCE_SKIP.filter(function(o) { return skipN[o[0]]; }).map(function(o) { return o[1] + " " + skipN[o[0]] + "件"; });
   var note = React.createElement("div", { key: "n", style: { fontSize: 10, color: "#78716C", marginBottom: 8, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
     noteParts.length ? React.createElement("span", null, "対象外：" + noteParts.join("・")) : null,
@@ -2243,7 +2254,7 @@ function _ElBSplitSection(props) {
             _td(React.createElement("span", null, _lbl(g.k), isB ? React.createElement("span", { title: "合計が最大", style: { color: "#B45309", marginLeft: 3 } }, "★") : null, isS ? React.createElement("span", { title: "最大負けが最も浅い", style: { color: "#0E7490", marginLeft: 3 } }, "◆") : null), { textAlign: "left", fontWeight: 800 }),
             _td(_amt(a.sum)), _td(_amt(a.avg)), _td(a.win + "/" + a.loss), _td(_pct(a.winRate)), _td(_amt(a.lossAvg)), _td(_amt(a.maxLoss)),
             _td(a.monSd == null ? "—" : "±" + Math.round(a.monSd).toLocaleString() + "円"), _td(_amt(a.worstMon)),
-            _td(g.k * 10 === _defW ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#C2410C" } }, "初期値") : props.save ? React.createElement("button", { type: "button", onClick: function() { _setDef(g.k * 10); }, title: "新規記録・EPナビの B の割合の初期値をこの割合にする",
+            _td(g.k * 10 === _defW ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#C2410C" } }, "初期値") : props.save ? React.createElement("button", { type: "button", onClick: function() { _setDef(g.k * 10); }, title: "新規記録・EPナビの " + mode + " の割合の初期値をこの割合にする",
               style: { padding: "0 6px", fontSize: 10, fontWeight: 700, border: "1px solid #FDBA74", background: "#fff", color: "#C2410C", borderRadius: 4, cursor: "pointer" } }, "これにする") : null));
         })))),
     React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginTop: 3, lineHeight: 1.6 } }, "★＝合計が最大　◆＝1件の最大負けが最も浅い。月のぶれ＝月ごとの合計の標準偏差（2か月以上あるとき）。1件ごとの損益＝①の割合×①だけの損益＋②の割合×②だけの損益。"));
@@ -2253,10 +2264,10 @@ function _ElBSplitSection(props) {
   var _xtd = function(c) { return React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums", background: "#F8FEFF" } }, c); };
   var extra = { at: 10, head: [_xth("①だけ"), _xth("②の入り方"), _xth("②だけ"), _xth("50:50")], cells: function(r) {
     var x = xOf(r); if (!x) return [_xtd("—"), _xtd("—"), _xtd("—"), _xtd("—")];
-    var kl = (_BSPLIT_KIND.filter(function(o) { return o[0] === x.kind; })[0] || [0, "—"])[1];
+    var kl = (KIND.filter(function(o) { return o[0] === x.kind; })[0] || [0, "—"])[1];
     var d = x.px2 != null ? Math.round((x.px2 - x.a) * 10) / 10 : null;
     return [_xtd(_amt(x.p1)),
-      _xtd(React.createElement("span", null, React.createElement("div", { style: { fontWeight: 700, color: (x.kind === "top" || x.kind === "up") ? "#0E7490" : "#78716C" } }, kl),
+      _xtd(React.createElement("span", null, React.createElement("div", { style: { fontWeight: 700, color: (x.kind === "top" || x.kind === "up" || x.kind === "in") ? "#0E7490" : "#78716C" } }, kl),
         (d != null && x.kind !== "miss") ? React.createElement("div", { style: { fontSize: 9.5, color: "#78716C" } }, "EP" + (d > 0 ? "+" : "") + d + (x.src === "ca" ? "・CA" : "")) : null)),
       _xtd(_amt(x.p2)), _xtd(_amt((x.p1 + x.p2) / 2))];
   } };
@@ -2264,7 +2275,7 @@ function _ElBSplitSection(props) {
     React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#1A1714", marginRight: 4 } }, "📋 記録ごと"),
       _pill(fil === "all", "全て " + ok.length, function() { setFil("all"); }, "f_all"),
-      _BSPLIT_KIND.map(function(o) { return _pill(fil === o[0], o[1] + " " + kN[o[0]], function() { setFil(o[0]); }, "f_" + o[0]); })),
+      KIND.map(function(o) { return _pill(fil === o[0], o[1] + " " + kN[o[0]], function() { setFil(o[0]); }, "f_" + o[0]); })),
     listRecs.length ? (props.recTable ? props.recTable(listRecs, extra) : React.createElement("div", { style: { fontSize: 11, color: "#475569", lineHeight: 1.6 } }, listRecs.map(function(r, i) { return React.createElement("div", { key: i }, (r.date || "") + "　" + (r.stock || "") + "　" + ((r.signal && (r.signal.tags || [r.signal.tag]).filter(Boolean).join("・")) || "")); }))) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
   return React.createElement("div", null, head, defRow, kpi, note, table, list);
 }
@@ -2294,10 +2305,10 @@ function _ElCeTopSection(props) {
     var x = _elCeTopRow(r.signal, a.alpha, a.cutLine, function(k) { return _allCeCaRel(r.signal, r.stock, r.date, k); });
     if (x) rows.push({ r: r, x: x });
   });
-  var kdN = { all: 0, B: 0, C: 0, none: 0 };
-  rows.forEach(function(o) { if (o.x.skip) return; kdN.all++; kdN[o.x.kd === "B" || o.x.kd === "C" ? o.x.kd : "none"]++; });
+  var kdN = { all: 0, B: 0, C: 0, D: 0, none: 0 };
+  rows.forEach(function(o) { if (o.x.skip) return; kdN.all++; kdN[o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D" ? o.x.kd : "none"]++; });
   var okAll = rows.filter(function(o) { return !o.x.skip; });
-  var ok = okAll.filter(function(o) { return kf === "all" ? true : kf === "none" ? !(o.x.kd === "B" || o.x.kd === "C") : o.x.kd === kf; });
+  var ok = okAll.filter(function(o) { return kf === "all" ? true : kf === "none" ? !(o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D") : o.x.kd === kf; });
   var skipN = {}; rows.forEach(function(o) { if (o.x.skip) skipN[o.x.skip] = (skipN[o.x.skip] || 0) + 1; });
   var need = {}, needKeys = [];
   rows.forEach(function(o) {
@@ -2343,6 +2354,7 @@ function _ElCeTopSection(props) {
     _pill(kf === "all", "全て " + kdN.all, function() { setKf("all"); }, "k_all"),
     _pill(kf === "B", "確度B " + kdN.B, function() { setKf("B"); }, "k_B"),
     _pill(kf === "C", "確度C " + kdN.C, function() { setKf("C"); }, "k_C"),
+    _pill(kf === "D", "確度D(①) " + kdN.D, function() { setKf("D"); }, "k_D"),
     _pill(kf === "none", "確度未設定 " + kdN.none, function() { setKf("none"); }, "k_n"));
   var cards = React.createElement("div", { key: "k", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } }, _CETOP_MODES.map(function(m) {
     var a = aggs[m[0]], isB = best === m[0] && ok.length;
@@ -2394,10 +2406,10 @@ function _ElNextTopSection(props) {
     var x = _elNextTopRow(r.signal, a.alpha, a.cutLine, function(k) { return _allCeCaRel(r.signal, r.stock, r.date, k); });
     if (x) rows.push({ r: r, x: x });
   });
-  var kdN = { all: 0, B: 0, C: 0, none: 0 };
-  rows.forEach(function(o) { if (o.x.skip) return; kdN.all++; kdN[o.x.kd === "B" || o.x.kd === "C" ? o.x.kd : "none"]++; });
+  var kdN = { all: 0, B: 0, C: 0, D: 0, none: 0 };
+  rows.forEach(function(o) { if (o.x.skip) return; kdN.all++; kdN[o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D" ? o.x.kd : "none"]++; });
   var okAll = rows.filter(function(o) { return !o.x.skip; });
-  var ok = okAll.filter(function(o) { return kf === "all" ? true : kf === "none" ? !(o.x.kd === "B" || o.x.kd === "C") : o.x.kd === kf; });
+  var ok = okAll.filter(function(o) { return kf === "all" ? true : kf === "none" ? !(o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D") : o.x.kd === kf; });
   var skipN = {}; rows.forEach(function(o) { if (o.x.skip) skipN[o.x.skip] = (skipN[o.x.skip] || 0) + 1; });
   var need = {}, needKeys = [];
   rows.forEach(function(o) {
@@ -2453,6 +2465,7 @@ function _ElNextTopSection(props) {
     _pill(kf === "all", "全て " + kdN.all, function() { setKf("all"); }, "k_all"),
     _pill(kf === "B", "確度B " + kdN.B, function() { setKf("B"); }, "k_B"),
     _pill(kf === "C", "確度C " + kdN.C, function() { setKf("C"); }, "k_C"),
+    _pill(kf === "D", "確度D(①) " + kdN.D, function() { setKf("D"); }, "k_D"),
     _pill(kf === "none", "確度未設定 " + kdN.none, function() { setKf("none"); }, "k_n"));
   var cards = React.createElement("div", { key: "k", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } }, _NXTOP_MODES.map(function(m) {
     var a = aggs[m[0]], isB = best === m[0];
@@ -2488,7 +2501,7 @@ function _ElNextTopSection(props) {
     ok.length ? props.recTable(ok.map(function(o) { return o.r; }), extra) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
   return React.createElement("div", null, head, filt, cards, summary, note, list);
 }
-var _CE_SUBTABS = [["five", "⏳ 5分確定待ち"], ["good", "✅ 待つべき場面"], ["bad", "⛔ 待たない場面"], ["detail", "📊 条件ごとの内訳"], ["bsplit", "⚖ Bの割合"], ["cetop", "🎯 確定待ち vs 直上VAP"], ["nexttop", "⏭ 次の足：基準ライン vs 直上VAP"]];
+var _CE_SUBTABS = [["five", "⏳ 5分確定待ち"], ["good", "✅ 待つべき場面"], ["bad", "⛔ 待たない場面"], ["detail", "📊 条件ごとの内訳"], ["bsplit", "⚖ 分割の割合"], ["cetop", "🎯 確定待ち vs 直上VAP"], ["nexttop", "⏭ 次の足：基準ライン vs 直上VAP"]];
 function _ElCeTabs(props) {
   var _u = _snUseSess("elv.ceSub", _snBSplitReq ? "bsplit" : "five"), sub = _u[0], setSub = _u[1];
   useEffect(function() {
