@@ -3993,7 +3993,8 @@ function _elNotInclRowStyle(s) {
   if (_elIsThru(s)) return { opacity: 0.6, background: "#F5F5F4", borderLeft: "3px solid #9CA3AF" };
   // 仮シグナルは includeInTotal=false なので、先に見ないと下の不算入(水色)に吸われる。
   // 分析母数には残る＝読む対象なので、スルー/不算入と違って**文字は薄くしない**（opacityを掛けない）。
-  if (_elIsProvisional(s)) return { background: "#F0FDF4", borderLeft: "3px solid #4ADE80" };
+  // 2026-11-22 ユーザー要望「不算入だと分かるように」＝行全体を半透明に（背景・左線は今のまま）。
+  if (_elIsProvisional(s)) return { opacity: 0.55, background: "#F0FDF4", borderLeft: "3px solid #4ADE80" };
   return _elIsExcluded(s) ? { opacity: 0.65, background: "#EFF8FF", borderLeft: "3px solid #38BDF8" } : null;   // 不算入行の文字＝α詳細表の参考行と同じ0.65（2026-07-23 ユーザー要望・スルーは0.6据置）
 }
 // 行スタイル統合版（2026-07-08）: スルー(灰)/不算入(水色)に加え、時間かぶりで除外された記録（良い方）を薄紫で行全体色分け。
