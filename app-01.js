@@ -1622,6 +1622,19 @@ function migrateData(d) {
       d._migVapAdjExMid1120 = true;
     } catch(e) { console.warn("[migrateData] vapAdjExMid1120 error:", e); }
   }
+  // 【一回性 _migKakudoDE1122・2026-11-22】確度Dを「Cの分割」に作り替えるため、これまでのD（株数を抑えて全株）をEへ（ユーザー指示）。
+  //   記録（charts[*].signals[*].kakudo）と EPナビの保存EP（charts[*].epNavi[*].kakudo）の "D" を "E" に。株数(dShares)・設定 custom.dSharesDef はそのまま（Eが使う）。
+  if (!d._migKakudoDE1122) {
+    try {
+      var _kdN = 0;
+      Object.keys(d.charts || {}).forEach(function(ck) {
+        var c = d.charts[ck]; if (!c) return;
+        ["signals", "epNavi"].forEach(function(f) { if (Array.isArray(c[f])) c[f].forEach(function(x) { if (x && x.kakudo === "D") { x.kakudo = "E"; _kdN++; } }); });
+      });
+      if (_kdN) console.log("[migrateData] kakudoDE1122: D→E " + _kdN + "件");
+      d._migKakudoDE1122 = true;
+    } catch(e) { console.warn("[migrateData] kakudoDE1122 error:", e); }
+  }
   // 【一回性 _migRestore1028・2026-10-28】同期の不具合で設定(custom)が古い内容に戻った件の復旧（ユーザー決定）。
   //   ①記録から名前を戻す（app-04 _snRebuildCustom＝シグナル名・仮シグナル・理由・固有材料。足すだけ）
   //   ②銘柄タブ＝フジクラ・SBG の2つだけ　③日替わり候補＝記録のある銘柄・名簿の銘柄すべて（フジクラ・SBG・日経平均株価を除く・今の候補の順＋記録の多い順）
