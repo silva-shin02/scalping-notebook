@@ -8617,6 +8617,7 @@ function _elSignalRenameData(prev, oldNm, newNm) {
         if (_nt(ns.customTagText) === _oldN) ns.customTagText = newNm;
         if (Array.isArray(ns.tags)) ns.tags = _rnList(ns.tags);
         if (ns.sigDetail && typeof ns.sigDetail === "object") ns.sigDetail = _renameKey(Object.assign({}, ns.sigDetail), _mergeRecSec);
+        if (ns.sigTf && typeof ns.sigTf === "object") ns.sigTf = _renameKey(Object.assign({}, ns.sigTf), function(nw, od) { return nw || od; });   // シグナルの分足 2026-11-22
         return ns;
       });
     }
@@ -9471,6 +9472,7 @@ function EntryRecordForm(_ref_erf) {
         var _rekey = function(setter) { setter(function(prev) { if (!prev || !prev[t]) return prev; var n = Object.assign({}, prev); n[nm] = n[nm] || n[t]; delete n[t]; return n; }); };
         _rekey(setFSigDetail);
         _rekey(setFSecBar);
+        _rekey(setFSigTf);   // シグナルの分足 2026-11-22
       };
       if (_same) { window._snConfirm("「" + t + "」を既存の「" + nm + "」に統合します。両方の記録が「" + nm + "」になります。よろしいですか？").then(function(ok) { if (ok) _go(); }); return; }
       _go();
@@ -9675,6 +9677,23 @@ function EntryRecordForm(_ref_erf) {
     return _o;
   }), fBTfMap = _useStateBTF[0], setFBTfMap = _useStateBTF[1];
   var _useStateBTP = useState(null), fBTfPop = _useStateBTP[0], setFBTfPop = _useStateBTP[1];   // 2026-11-20t ①の分足ポップアップ {dt, ln}
+  // 2026-11-22 シグナルの分足（ユーザー要望「シグナルの選択肢に分足をつける・つけ方は他と同じ」）：signal.sigTf＝{シグナル名: "1"/"5"/"1,5"}。
+  //   シグナルのチップを押すと 1分足／5分足／両方 の小窓（選択済みなら変更／外す）。新規は必須。記録の minBar（表の 1分／5分／両分 の札）はこの分足の和で決める。
+  var _useStateSTF = useState(function() { var m = initSig.sigTf; return (m && typeof m === "object") ? Object.assign({}, m) : {}; }), fSigTf = _useStateSTF[0], setFSigTf = _useStateSTF[1];
+  var _useStateSTP = useState(null), fSigTfPop = _useStateSTP[0], setFSigTfPop = _useStateSTP[1];
+  var _sigTfLbl = function(t) { var a = String((fSigTf || {})[t] || "").split(",").filter(Boolean); return a.length ? (a.length >= 2 ? "1分・5分" : a[0] + "分") : null; };
+  var _sigTfChipLbl = function(t, on) { if (!on) return t; var l = _sigTfLbl(t); return l ? t + "(" + l + ")" : React.createElement(React.Fragment, null, t, React.createElement("span", { style: { color: "#DC2626", fontSize: 10 } }, "(分足?)")); };
+  var _sigTfPopEl = function(t, on, select, unselect, col) {
+    if (fSigTfPop !== t) return null;
+    return React.createElement(React.Fragment, null,
+      React.createElement("div", { onClick: function() { setFSigTfPop(null); }, style: { position: "fixed", inset: 0, zIndex: 60 } }),
+      React.createElement("div", { style: { position: "absolute", top: "100%", left: 0, marginTop: 3, zIndex: 61, display: "flex", alignItems: "center", gap: 4, padding: "5px 6px", background: "#fff", border: "1px solid " + col, borderRadius: 7, boxShadow: "0 3px 10px rgba(0,0,0,0.18)", whiteSpace: "nowrap" } },
+        [["1", "1分足"], ["5", "5分足"], ["1,5", "両方"]].map(function(o) { var _cur = on && String((fSigTf || {})[t] || "") === o[0];
+          return React.createElement("button", { key: o[0], type: "button", onClick: function() { if (!on) select(); setFSigTf(function(prev) { var m = Object.assign({}, prev); m[t] = o[0]; return m; }); setFSigTfPop(null); },
+            style: { padding: "3px 9px", fontSize: 11, fontWeight: 800, borderRadius: 5, cursor: "pointer", border: "1px solid " + col, background: _cur ? col : "#fff", color: _cur ? "#fff" : col } }, o[1]); }),
+        on ? React.createElement("button", { type: "button", onClick: function() { unselect(); setFSigTf(function(prev) { var m = Object.assign({}, prev); delete m[t]; return m; }); setFSigTfPop(null); },
+          style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, borderRadius: 5, cursor: "pointer", border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C" } }, "外す") : null));
+  };
   var _bTfMode = function(_dt, _sc, _tf) { return _sc.key === "b" && !_tf && _elBShared(custom, _dt); };
   var _bTfSet = function(_dt, ln, t) { setFBTfMap(function(prev) { var o = Object.assign({}, prev); var mm = Object.assign({}, o[_dt] || {}); if (t) mm[ln] = t; else delete mm[ln]; o[_dt] = mm; return o; }); };
   // 2026-11-20t 分足は線を押したときのポップアップで選ぶ（ユーザー指示「この形、違くない？」＝B・Cにした理由と同じ形）。ここは未選択の注意だけ。
@@ -11137,7 +11156,8 @@ function EntryRecordForm(_ref_erf) {
       //   選択肢に無い理由のときは、その場で「＋追加」して選べる（UI側）。
       if (_skipMemoReq && _fSkipOn && (fSkipReasons || []).filter(Boolean).length === 0) _vm.push("見送りの理由（選択肢）");
       if (!isEdit && fThru === true && (fThruReasons || []).filter(Boolean).length === 0) _vm.push("スルーの理由（選択肢）");   // 新規のスルーは必須 2026-10-17
-      if (!isEdit && !fKakudo && fThru !== true) _vm.push("エントリー確度（A〜E）");   // 新規のみ必須（スルーは除く）2026-11-20
+      if (!isEdit && !fKakudo && fThru !== true) _vm.push("エントリー確度（A〜E）");
+      if (!isEdit) fTags.forEach(function(t) { if (!(fSigTf || {})[t]) _vm.push("シグナルの分足（" + t + "）"); });   // 新規は必須 2026-11-22   // 新規のみ必須（スルーは除く）2026-11-20
       if (!isEdit && fCeOn && (fCeReasons || []).filter(Boolean).length === 0) _vm.push((fKakudo === "B" || fKakudo === "C" || fKakudo === "D") ? fKakudo + "にした理由（選択肢）" : "確定待ちの理由（選択肢）");
       if (!isEdit && fCeOn && _fCeRList().some(function(r) { return !fCeRTf[r]; })) _vm.push(((fKakudo === "B" || fKakudo === "C" || fKakudo === "D") ? fKakudo + "にした理由" : "確定待ちの理由") + "ごとの分足");   // 新規のみ必須（理由と同じ・ユーザー決定）2026-10-31
       // 直上VAP 2026-10-28（ユーザー決定）: 確定待ちを付けたら新規・編集とも必須／計算に水準線値が要る／VAPより上の株価であること。
@@ -11256,7 +11276,12 @@ function EntryRecordForm(_ref_erf) {
       vapAdjBatch: (_vapMode && fVapAdj && initSig.vapAdjBatch === true && fVapAdj === _vapAdjOf(initSig)) ? true : null,   // 一括反映の印は補正を変えなければ引き継ぐ   // VAP値（8/20以降）。alphaVal にも同値を書く＝下流の計算は無改修
       lineCoexist: fLineCoexist,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
+      sigTf: (function() { var o = {}, n = 0; fTags.forEach(function(t) { var v = (fSigTf || {})[t]; if (v) { o[t] = v; n++; } }); return n ? o : null; })(),   // シグナルの分足 2026-11-22
       minBar: (function() {
+        // 2026-11-22 シグナルの分足（sigTf）があればその和で決める（ユーザー指示）。無い記録（既存）は従来どおり下の自動。
+        var _st = {}; fTags.forEach(function(t) { String((fSigTf || {})[t] || "").split(",").forEach(function(tf) { if (tf === "1" || tf === "5") _st[tf] = 1; }); });
+        var _stl = _EL_TFS.filter(function(tf) { return _st[tf]; });
+        if (_stl.length) return _stl.map(Number).sort(function(_a, _b) { return _a - _b; });
         // 2026-11-11j 分足は詳細から自動: どれかのシグナルで、その分足のタブに詳細（①分足別・②③④）が入っていればその分足。何も無ければ従来の値のまま。
         var _got = {};
         fTags.forEach(function(_t) {
@@ -11527,6 +11552,7 @@ function EntryRecordForm(_ref_erf) {
             onClick: function() {
               // 名前変更モード中は選択ではなく改名。マスターに無い孤児タグは改名対象にしない（消す対象なので）。
               if (_rnMode) { if (signalTags.indexOf(t) >= 0) _renameSigTag(t, false); return; }
+              if (signalTags.indexOf(t) >= 0) { setFSigTfPop(fSigTfPop === t ? null : t); return; }   // 2026-11-22 押すと分足の小窓（選ぶと選択）
               // 排他: 通常シグナルを付けたら、選択中の仮シグナルとカスタムタグは外す。
               setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.concat([t]); });   // 仮と一緒に選べる 2026-11-09
               if (!on) setFIsCustom(false);
@@ -11538,8 +11564,10 @@ function EntryRecordForm(_ref_erf) {
               color: on ? "#9A3412" : "#555",
               borderRadius: 6, cursor: "pointer"
             }
-          }, signalTags.indexOf(t) < 0 ? React.createElement("span", null, t, React.createElement("span", { style: { color: "#B91C1C", fontWeight: 800, marginLeft: 4 } }, "✕削除")) : t);
+          }, signalTags.indexOf(t) < 0 ? React.createElement("span", null, t, React.createElement("span", { style: { color: "#B91C1C", fontWeight: 800, marginLeft: 4 } }, "✕削除")) : _sigTfChipLbl(t, on));
           // 編集中はチップの右に削除ボタンを並べる（マスターにあるタグだけ＝孤児タグはここでは消さない）。
+          if (!_rnMode && signalTags.indexOf(t) >= 0) return React.createElement("span", { key: "sw_" + t, style: { position: "relative", display: "inline-flex" } }, _chip,
+            _sigTfPopEl(t, on, function() { setFTags(function(prev) { return prev.indexOf(t) >= 0 ? prev : prev.concat([t]); }); setFIsCustom(false); }, function() { setFTags(function(prev) { return prev.filter(function(x) { return x !== t; }); }); }, "#C2410C"));
           if (!_rnMode || signalTags.indexOf(t) < 0) return _chip;
           return React.createElement("span", { key: "w_" + t, style: { display: "inline-flex", alignItems: "center", gap: 2 } },
             _chip,
@@ -11597,6 +11625,7 @@ function EntryRecordForm(_ref_erf) {
               key: "prov_" + t,
               onClick: function() {
                 if (_rnMode) { _renameSigTag(t, true); return; }
+                setFSigTfPop(fSigTfPop === t ? null : t); return;   // 2026-11-22 押すと分足の小窓（選ぶと選択）
                 // 排他: 仮シグナルを付けたら通常シグナルとカスタムタグは外す。仮同士は複数選べる。
                 setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.concat([t]); });   // 通常と一緒に選べる 2026-11-09
                 if (!on) setFIsCustom(false);
@@ -11608,8 +11637,9 @@ function EntryRecordForm(_ref_erf) {
                 color: on ? "#15803D" : "#555",
                 borderRadius: 6, cursor: "pointer"
               }
-            }, t);
-            if (!_rnMode) return _chip;
+            }, _sigTfChipLbl(t, on));
+            if (!_rnMode) return React.createElement("span", { key: "spw_" + t, style: { position: "relative", display: "inline-flex" } }, _chip,
+              _sigTfPopEl(t, on, function() { setFTags(function(prev) { return prev.indexOf(t) >= 0 ? prev : prev.concat([t]); }); setFIsCustom(false); }, function() { setFTags(function(prev) { return prev.filter(function(x) { return x !== t; }); }); }, "#15803D"));
             return React.createElement("span", { key: "wp_" + t, style: { display: "inline-flex", alignItems: "center", gap: 2 } },
               _chip,
               React.createElement("button", {
