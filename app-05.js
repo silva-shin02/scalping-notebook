@@ -4651,11 +4651,7 @@ function _BSplitLinkBtn(p) {
     onClick: function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); if (!data) { if (p.onBefore) p.onBefore(); _snOpenBSplit(); return; } setOpen(true); },
     style: { padding: "1px 8px", fontSize: p.small ? 9.5 : 10.5, fontWeight: 800, lineHeight: 1.6, border: "1px solid #FDBA74", background: "#fff", color: "#C2410C", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap" } }, "⚖ 割合のデータを見る");
   if (!open || !data) return btn;
-  var recs = _elCollectAllSignals(data).filter(function(r) {
-    var d = (r && r.date) || "";
-    return r && r.signal && !_elIsEmaRefPeriod(d) && _vapWorld(d) && _epIsV2(r.signal) && _elInclTotal(r.signal) && _vapOf(r.signal) != null
-      && !_isDataOnly(data, r) && !_elIsProvisional(r.signal) && _elAmtRecOk(r) && !_elCollExcluded(data, r, null);
-  });
+  var recs = _snAllAmtRecs(data);
   var close = function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); setOpen(false); };
   return React.createElement(React.Fragment, null, btn,
     ReactDOM.createPortal(React.createElement("div", { onClick: close, style: { position: "fixed", inset: 0, zIndex: 120000, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 12px", overflowY: "auto", boxSizing: "border-box" } },
@@ -4743,6 +4739,87 @@ function _elNextTopRow(s, alpha, cutLine, caRel) {
   var top = { amt: 0, inn: false };
   if (Number(lg1.h) >= tp) { var t2 = amt(base, tp); if (t2.inn && t2.r.epIdx === k0 + 1) top = t2; }
   return { k0: k0, a: A, tp: tp, c: Number(c), src: src, line: line.amt, lineIn: line.inn, lineIdx: line.inn ? line.r.epIdx : -1, top: top.amt, topIn: top.inn, kd: _kakudoOf(s) };
+}
+// ===== ⏸ 終値で入る vs 待つ 2026-11-22（ユーザー要望「直上VAPまで上がらずにEP①より上で確定したとき、その時点で入らず次の足で直上VAPまで待つべきか」）=====
+// 対象＝記録に直上VAPがあり（最終EPより上）、最初の足（α値に最初に届いた足）で 高値が直上VAPに届かず・終値がEPより上だった記録（⏭ の反対の場面）。
+// EP②（確定待ちor直上VAP）の分だけの想定損益（1000株換算・Bの割合は混ぜない）を2通りで出す：
+//   終値で入る（今の決まり）＝その足の終値で約定。
+//   待つ＝その足では入らず、次の足1本だけ直上VAPに指値。次の足の高値が直上VAPを上抜ければ直上VAPで約定・届かなければ②は入らず0円。次の足がOS4・OS5でも可（_epFrom）。
+// 最初の足の終値が未入力ならCAの1分足の終値で補う（_allCeCaRel・記録には書かない）。返り値の形は _elNextTopRow と同じ（line＝終値で入る・top＝待つ）。
+function _elCloseWaitRow(s, alpha, cutLine, caRel) {
+  if (!s || !_epIsV2(s) || alpha == null) return null;
+  var tp = _epCeTopRel(s); if (tp == null) return null;
+  var A = Number(alpha); if (isNaN(A)) return null;
+  var cut = cutLine != null ? cutLine : 15;
+  var base = Object.assign({}, s, { ceOn: undefined });
+  var r0 = _epResolve(base, A);
+  if (!r0 || r0.epIdx < 0) return { skip: "noep" };
+  if (r0.judge !== "ok") return { skip: "x", k0: r0.epIdx };
+  if (!(tp > A)) return { skip: "low", k0: r0.epIdx };
+  var k0 = r0.epIdx, lg = r0.legs[k0], c = lg.c, src = "rec";
+  if (lg.h != null && Number(lg.h) >= tp) return { skip: "topk0", k0: k0 };
+  if (c == null && caRel) { c = caRel(k0); src = "ca"; }
+  if (c == null || isNaN(Number(c))) return { skip: "noconf", k0: k0 };
+  if (!(Number(c) > A)) return { skip: "closedn", k0: k0 };
+  var lg1 = r0.legs[k0 + 1];
+  if (!lg1 || lg1.h == null) return { skip: "nonext", k0: k0 };
+  var v = Object.assign({}, s, { ceOn: true, ceIdx: k0 });
+  if (src === "ca") _epCeWriteLeg(v, { h: lg.h, c: Number(c), role: lg.role });
+  var amt = function(x, a) {
+    var r = _epResolve(x, a);
+    if (!r || r.epIdx < 0 || r.judge !== "ok") return { amt: 0, inn: false, r: r };
+    var p = _elHoldFinalParts0(x, a, cut);
+    return { amt: (p && p.main != null) ? p.main : 0, inn: true, r: r };
+  };
+  var line = amt(v, A);
+  var top = { amt: 0, inn: false };
+  if (Number(lg1.h) >= tp) { var t2 = amt(Object.assign({}, base, { _epFrom: k0 + 1 }), tp); if (t2.inn && t2.r.epIdx === k0 + 1) top = t2; }
+  return { k0: k0, a: A, tp: tp, c: Number(c), src: src, line: line.amt, lineIn: line.inn, lineIdx: line.inn ? line.r.epIdx : -1, top: top.amt, topIn: top.inn, kd: _kakudoOf(s) };
+}
+// 記録フォームの直上VAPトグルの右の一行（結論）＋「詳しく見る」（重ね窓・中身は app-06 _ElCloseWaitSection）2026-11-22。
+//   母数＝⚖ の重ね窓と同じ（_snAllAmtRecs）。終値が未入力の記録は、この端末に読み込み済みのCAだけで補う（入力中は通信しない・重ね窓の「CAから終値を補う」で読む）。
+function _snAllAmtRecs(data) {
+  return _elCollectAllSignals(data).filter(function(r) {
+    var d = (r && r.date) || "";
+    return r && r.signal && !_elIsEmaRefPeriod(d) && _vapWorld(d) && _epIsV2(r.signal) && _elInclTotal(r.signal) && _vapOf(r.signal) != null
+      && !_isDataOnly(data, r) && !_elIsProvisional(r.signal) && _elAmtRecOk(r) && !_elCollExcluded(data, r, null);
+  });
+}
+function _CloseWaitLine(p) {
+  var data = p.data;
+  var _uo = useState(false), open = _uo[0], setOpen = _uo[1];
+  var _ut = useState(0), tick = _ut[0], setTick = _ut[1];
+  var res = useMemo(function() {
+    if (!data) return null;
+    var recs = _snAllAmtRecs(data), n = 0, line = 0, top = 0;
+    recs.forEach(function(r) {
+      var a = _elAlphaInfo(r, data) || {};
+      var x = _elCloseWaitRow(r.signal, a.alpha, a.cutLine, function(k) { return _allCeCaRel(r.signal, r.stock, r.date, k); });
+      if (!x || x.skip) return;
+      n++; line += x.line; top += x.top;
+    });
+    return { recs: recs, n: n, line: line, top: top };
+  }, [data, tick]);
+  if (!res) return null;
+  var _f = function(v) { return React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(v), fontVariantNumeric: "tabular-nums" } }, _elPnlFmt(Math.round(v))); };
+  var verdict = !res.n ? "対象の記録なし" : res.top > res.line ? "→ 待つ方が良い" : res.line > res.top ? "→ 終値で入る方が良い" : "→ 同じ";
+  var close = function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); setOpen(false); setTick(function(t) { return t + 1; }); };
+  var line = React.createElement("span", { title: "過去の全記録のうち、最初の足で直上VAPに届かず終値がEPより上だった記録で、EP②の分だけの想定損益（1000株換算・割合は混ぜない）を比べた合計。待つ＝その足では入らず、次の足1本だけ直上VAPに指値（届かなければ0円）。",
+    style: { display: "inline-flex", alignItems: "center", gap: 5, flexWrap: "wrap", fontSize: 10.5, fontWeight: 700, color: "#57534E", padding: "1px 7px", border: "1px solid #E7E5E4", borderRadius: 6, background: "#FAFAF9" } },
+    React.createElement("span", { style: { color: "#78716C" } }, "⏸ 届かず終値>EPのとき："),
+    res.n ? [React.createElement("span", { key: "a" }, "終値で入る "), _f(res.line), React.createElement("span", { key: "b" }, "／待つ "), _f(res.top), React.createElement("span", { key: "c", style: { color: "#78716C" } }, "（" + res.n + "件）")] : null,
+    React.createElement("span", { style: { color: res.n ? (res.top > res.line ? "#7C3AED" : res.line > res.top ? "#C2410C" : "#78716C") : "#A8A29E", fontWeight: 800 } }, verdict),
+    React.createElement("button", { type: "button", onClick: function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); setOpen(true); }, title: "記録ごとの表を見る（この画面の上に開きます）",
+      style: { padding: "0 7px", fontSize: 10, fontWeight: 800, lineHeight: 1.6, border: "1px solid #C4B5FD", background: "#fff", color: "#7C3AED", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap" } }, "詳しく見る"));
+  if (!open) return line;
+  return React.createElement(React.Fragment, null, line,
+    ReactDOM.createPortal(React.createElement("div", { onClick: close, style: { position: "fixed", inset: 0, zIndex: 120000, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 12px", overflowY: "auto", boxSizing: "border-box" } },
+      React.createElement("div", { onClick: function(ev) { ev.stopPropagation(); }, style: { background: "#fff", borderRadius: 12, padding: "14px 16px", width: "100%", maxWidth: 980, boxShadow: "0 10px 30px rgba(0,0,0,0.3)", boxSizing: "border-box", position: "relative" } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 } },
+          React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: "#7C3AED" } }, "⏸ 終値で入る vs 待つ（全記録）"),
+          React.createElement("button", { type: "button", onClick: close, title: "閉じる", style: { fontSize: 18, lineHeight: 1, padding: "4px 10px", border: "1px solid #ddd", background: "#fff", borderRadius: 8, cursor: "pointer", color: "#555" } }, "×")),
+        (typeof _ElCloseWaitSection === "function") ? React.createElement(_ElCloseWaitSection, { recs: res.recs, aiOf: function(r) { return _elAlphaInfo(r, data); }, data: data }) : null)),
+      document.body));
 }
 // ===== ⚖ エントリー確度B の割合（反実仮想）2026-11-20（ユーザー要望「Bの分割割合を過去記録から算出してから決める」）=====
 // B＝①基準ライン（α値）で先に入る分＋②確定待ちor直上VAPで入る分。割合ごとの比較は app-06 _ElBSplitSection。
@@ -12640,6 +12717,7 @@ function EntryRecordForm(_ref_erf) {
               _k0 >= 0 ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "OS" + (_k0 + 1) + (_tAt ? "＝" + _tAt : "")) : null,
               _ciNode];
             var c = _KAKUDO_COL.B;
+            var _cwLine = fCeOn ? React.createElement(_CloseWaitLine, { data: data }) : null;   // 2026-11-22 ⏸ 終値で入る vs 待つ（結論の一行＋詳しく見る）
             // 2026-11-20d EP基準ライン（旧 水準線値）と予定EPは確度を選んでから出す（既存記録を開いたときは出す）。VAP補正・RN補正・VAP分析は共通＝上、VAP値と→予定EPはEP①（A・Cは単独の行）。
             var _kdOpen = !!fKakudo || isEdit;
             var _vp = _vapInOs ? _vapParts() : null;
@@ -12660,7 +12738,7 @@ function EntryRecordForm(_ref_erf) {
             var _ceRow = function(num) {   // 2026-11-20k 1段目＝名前＋直上VAPオンオフ／2段目＝直上VAP入力（＋OS時刻）／3段目＝最終EP②・基準ライン+〇円
               var _r = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
               return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5 } },
-                React.createElement("div", { style: _r }, React.createElement("span", { style: { fontWeight: 800, color: "#0E7490" } }, num ? "EP②（確定待ちor直上VAP）" : "確定待ちor直上VAP"), _topP[0]),
+                React.createElement("div", { style: _r }, React.createElement("span", { style: { fontWeight: 800, color: "#0E7490" } }, num ? "EP②（確定待ちor直上VAP）" : "確定待ちor直上VAP"), _topP[0], _cwLine),
                 (_topP[1] || _topP[2]) ? React.createElement("div", { style: _r }, _topP[1], _topP[2]) : null,
                 _topP[3] ? React.createElement("div", { style: _r }, _topP[3]) : null); };
             var _boxS = function(bd, bg) { return { padding: "6px 8px", border: "1px solid " + bd, background: bg, borderRadius: 7, display: "flex", flexDirection: "column", gap: 6 }; };
@@ -12762,7 +12840,7 @@ function EntryRecordForm(_ref_erf) {
                       React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "想定損益＝EP①の損益×①の割合＋EP②の損益×②の割合（EP②が入らなければ0円）")),
                     _dash(),
                     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
-                      React.createElement("div", { style: _rowS }, React.createElement("span", { style: { fontWeight: 800, color: "#0E7490" } }, "EP①（確定待ちor直上VAP）"), _topP[0]),
+                      React.createElement("div", { style: _rowS }, React.createElement("span", { style: { fontWeight: 800, color: "#0E7490" } }, "EP①（確定待ちor直上VAP）"), _topP[0], _cwLine),
                       _lvRow,
                       _vapRow,
                       (_topP[1] || _topP[2]) ? React.createElement("div", { style: _rowS }, _topP[1], _topP[2]) : null,
