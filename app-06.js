@@ -2279,6 +2279,75 @@ function _ElBSplitSection(props) {
     listRecs.length ? (props.recTable ? props.recTable(listRecs, extra) : React.createElement("div", { style: { fontSize: 11, color: "#475569", lineHeight: 1.6 } }, listRecs.map(function(r, i) { return React.createElement("div", { key: i }, (r.date || "") + "　" + (r.stock || "") + "　" + ((r.signal && (r.signal.tags || [r.signal.tag]).filter(Boolean).join("・")) || "")); }))) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
   return React.createElement("div", null, head, defRow, kpi, note, table, list);
 }
+// ===== 比べる分析の共通の見た目 2026-11-24（ユーザー要望「レイアウトが見づらい・表などで端的に」）=====
+// 🎯 確定待ち vs 直上VAP／⏭ 次の足／⏸ 終値で入る vs 待つ の3つで使う。説明は「ⓘ 説明」でたたむ・比較は1つの表（行＝指標・列＝やり方・良い方に★）・記録ごとも表（良い方のセルを濃く）。
+//   p: title, desc, filt, modes[[key, 見出し, 色]], aggs{key: _ceTopAgg形式}, best, ok[{r,x}], valOf(x,key), subOf(x,key), filledLbl, info{head, cell(x)}|null, hitLine, note, diff[keyA,keyB]|null
+function _ElCmpView(p) {
+  var _u = useState(false), open = _u[0], setOpen = _u[1];
+  var modes = p.modes, ok = p.ok || [], aggs = p.aggs || {};
+  var _pct = function(v) { return v == null ? "—" : Math.round(v * 1000) / 10 + "%"; };
+  var _amt = function(v, big) { return React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(v), fontSize: big ? 14 : null, fontVariantNumeric: "tabular-nums" } }, v == null ? "—" : _elPnlFmt(Math.round(v))); };
+  var _sub = function(t) { return t ? React.createElement("div", { style: { fontSize: 9.5, color: "#78716C", fontWeight: 600 } }, t) : null; };
+  var wins = {}, eq = 0; modes.forEach(function(m) { wins[m[0]] = 0; });
+  var bestOfRow = function(x) {
+    var bk = null, bv = null, tie = false;
+    modes.forEach(function(m) { var v = p.valOf(x, m[0]); if (v == null) return; if (bv == null || v > bv) { bv = v; bk = m[0]; tie = false; } else if (v === bv) tie = true; });
+    return tie ? null : bk;
+  };
+  ok.forEach(function(o) { var b = bestOfRow(o.x); if (b) wins[b]++; else eq++; });
+  var thS = { padding: "5px 8px", fontSize: 10.5, fontWeight: 800, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", background: "#FAF7F2", color: "#57534E" };
+  var tdS = { padding: "5px 8px", fontSize: 11.5, textAlign: "center", borderTop: "1px solid #F0EDE8", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
+  var lblS = Object.assign({}, tdS, { textAlign: "left", fontWeight: 700, color: "#57534E", fontSize: 11 });
+  var colBg = function(k) { return (p.best === k && ok.length) ? "#FFFBEB" : null; };
+  var mRow = function(lbl, cell) { return React.createElement("tr", { key: lbl }, React.createElement("td", { style: lblS }, lbl), modes.map(function(m) { return React.createElement("td", { key: m[0], style: Object.assign({}, tdS, { background: colBg(m[0]) }) }, cell(aggs[m[0]] || {}, m[0])); })); };
+  var cmp = React.createElement("div", { style: { overflowX: "auto", marginBottom: 6 } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", border: "1px solid #E7E5E4", borderRadius: 8 } },
+      React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", { style: Object.assign({}, thS, { textAlign: "left" }) }, "対象 " + ok.length + "件"),
+        modes.map(function(m) { var isB = p.best === m[0] && ok.length; return React.createElement("th", { key: m[0], style: Object.assign({}, thS, { color: m[2], background: isB ? "#FEF3C7" : thS.background }) }, (isB ? "★ " : "") + m[1]); }))),
+      React.createElement("tbody", null,
+        mRow("合計", function(a) { return _amt(a.sum, true); }),
+        mRow("1件平均", function(a) { return _amt(a.avg); }),
+        mRow(p.filledLbl || "入った件数", function(a) { return (a.filled != null ? a.filled : "—") + " / " + (a.n || 0) + "件"; }),
+        mRow("勝ち / 負け（勝率）", function(a) { return (a.win || 0) + " / " + (a.loss || 0) + "（" + _pct(a.winRate) + "）"; }),
+        mRow("最大負け", function(a) { return _amt(a.maxLoss); }),
+        mRow("1件ずつ比べて良い", function(a, k) { return React.createElement("span", { style: { fontWeight: 800 } }, wins[k] + "件"); }))));
+  var foot = React.createElement("div", { style: { fontSize: 10.5, color: "#57534E", marginBottom: 8, display: "flex", gap: 10, flexWrap: "wrap" } },
+    p.hitLine ? React.createElement("span", null, p.hitLine) : null,
+    React.createElement("span", null, "同じ額 " + eq + "件"));
+  // 記録ごとの表
+  var recHead = ["日付", "時刻", "銘柄", "シグナル"].concat(p.info ? [p.info.head] : []).concat(modes.map(function(m) { return m[1]; })).concat(p.diff ? [p.diffLbl || "差"] : []);
+  var recRows = ok.map(function(o, i) {
+    var r = o.r, x = o.x, sg = r.signal || {}, b = bestOfRow(x);
+    var tags = (Array.isArray(sg.tags) && sg.tags.length) ? sg.tags : (sg.tag ? [sg.tag] : []);
+    var cells = [
+      React.createElement("td", { key: "d", style: tdS }, String(r.date || "").slice(5).replace("-", "/")),
+      React.createElement("td", { key: "t", style: tdS }, r.time || sg.time || "—"),
+      React.createElement("td", { key: "s", style: Object.assign({}, tdS, { fontWeight: 700 }) }, r.stock || "—"),
+      React.createElement("td", { key: "g", style: Object.assign({}, tdS, { textAlign: "left", whiteSpace: "normal", minWidth: 90, fontSize: 10.5 }) }, tags.join("・") || "—")];
+    if (p.info) cells.push(React.createElement("td", { key: "i", style: tdS }, p.info.cell(x)));
+    modes.forEach(function(m) {
+      var on = b === m[0];
+      cells.push(React.createElement("td", { key: "m_" + m[0], style: Object.assign({}, tdS, { background: on ? "#FEF3C7" : null }) }, _amt(p.valOf(x, m[0])), _sub(p.subOf(x, m[0]))));
+    });
+    if (p.diff) { var dv = (p.valOf(x, p.diff[1]) || 0) - (p.valOf(x, p.diff[0]) || 0); cells.push(React.createElement("td", { key: "df", style: tdS }, _amt(dv))); }
+    return React.createElement("tr", { key: i, style: { background: i % 2 ? "#FCFBF9" : "#fff" } }, cells);
+  });
+  var recTbl = ok.length ? React.createElement("div", { style: { overflowX: "auto" } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", border: "1px solid #E7E5E4" } },
+      React.createElement("thead", null, React.createElement("tr", null, recHead.map(function(h, i) { return React.createElement("th", { key: i, style: thS }, h); }))),
+      React.createElement("tbody", null, recRows))) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし");
+  return React.createElement("div", null,
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1A1714" } }, p.title),
+      React.createElement("button", { type: "button", onClick: function() { setOpen(!open); }, style: { padding: "1px 8px", fontSize: 10.5, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid #D6D3D1", background: open ? "#F5F5F4" : "#fff", color: "#57534E" } }, open ? "ⓘ 説明を閉じる" : "ⓘ 説明")),
+    open ? React.createElement("div", { style: { fontSize: 10.5, color: "#57534E", lineHeight: 1.7, padding: "6px 9px", background: "#F5F5F4", borderRadius: 8, marginBottom: 8 } }, p.desc) : null,
+    p.filt,
+    ok.length ? cmp : null,
+    ok.length ? foot : null,
+    p.note,
+    React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#1A1714", margin: "4px 0 6px" } }, "📋 記録ごと（良い方を黄色）"),
+    recTbl);
+}
 // ===== 🎯 確定待ち vs 直上VAP 2026-11-20（⏳タブのサブタブ・ユーザー要望「確度BのEP②と確度Cで、確定待ちで入るべきか直上VAPで待つべきか」）=====
 // 計算は app-05 _elCeTopRow。母数＝⏳タブと同じ（合計損益と同じ線引き・期間選択に従う）のうち、記録に直上VAPが入っている記録。確度で絞れる。
 var _CETOP_MODES = [["ce", "確定待ちだけ", "#0E7490"], ["top", "直上VAPだけ", "#7C3AED"], ["both", "併用（今の規約）", "#C2410C"]];
@@ -2339,11 +2408,10 @@ function _ElCeTopSection(props) {
   var _pill = function(on, label, onClick, key) {
     return React.createElement("button", { key: key, type: "button", onClick: onClick, style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#0E7490" : "#D6D3D1"), background: on ? "#ECFEFF" : "#fff", color: on ? "#0E7490" : "#57534E" } }, label);
   };
-  var head = React.createElement("div", { key: "h", style: { marginBottom: 8 } },
-    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "🎯 確定待ち vs 直上VAP ― 確度BのEP②・確度Cは、確定を待って入るか、直上VAPに指値を置いて待つか"),
-    React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
-      "対象＝記録に直上VAPが入っている記録。EP②（確定待ちor直上VAP）の分だけの想定損益（1000株換算・Bの割合は混ぜない）を3通りで比べます。" +
-      "確定待ちだけ＝エントリー足の終値がEPより上なら終値で約定・EP以下なら次の足でα値・OS3まで無ければ入らず0円。直上VAPだけ＝直上VAPに指値を置いたまま、OS1〜OS3でその値段を上抜けた足で約定・届かなければ入らず0円。併用＝今の規約（エントリー足で直上VAPに届けば直上VAP・届かなければ確定待ち）。"));
+  var _cmpTtl = "🎯 確定待ち vs 直上VAP";
+  var _cmpDsc = "🎯 確定待ち vs 直上VAP ― 確度BのEP②・確度Cは、確定を待って入るか、直上VAPに指値を置いて待つか" + "。" + "対象＝記録に直上VAPが入っている記録。EP②（確定待ちor直上VAP）の分だけの想定損益（1000株換算・Bの割合は混ぜない）を3通りで比べます。" +
+      "確定待ちだけ＝エントリー足の終値がEPより上なら終値で約定・EP以下なら次の足でα値・OS3まで無ければ入らず0円。直上VAPだけ＝直上VAPに指値を置いたまま、OS1〜OS3でその値段を上抜けた足で約定・届かなければ入らず0円。併用＝今の規約（エントリー足で直上VAPに届けば直上VAP・届かなければ確定待ち）。";
+  var head = React.createElement("div", { key: "h", style: { marginBottom: 8, fontSize: 13, fontWeight: 800, color: "#1A1714" } }, _cmpTtl);
   if (!rows.length) return React.createElement("div", null, head, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "直上VAPが入っている記録がありません"));
   var aggs = {}; _CETOP_MODES.forEach(function(m) { aggs[m[0]] = _ceTopAgg(ok.map(function(o) { return o.x; }), m[0]); });
   var best = null; _CETOP_MODES.forEach(function(m) { if (best == null || aggs[m[0]].sum > aggs[best].sum) best = m[0]; });
@@ -2356,17 +2424,6 @@ function _ElCeTopSection(props) {
     _pill(kf === "C", "確度C " + kdN.C, function() { setKf("C"); }, "k_C"),
     _pill(kf === "D", "確度D(①) " + kdN.D, function() { setKf("D"); }, "k_D"),
     _pill(kf === "none", "確度未設定 " + kdN.none, function() { setKf("none"); }, "k_n"));
-  var cards = React.createElement("div", { key: "k", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } }, _CETOP_MODES.map(function(m) {
-    var a = aggs[m[0]], isB = best === m[0] && ok.length;
-    return React.createElement("div", { key: m[0], style: { flex: "1 1 180px", minWidth: 0, background: isB ? "#FFFBEB" : "#FAFAF9", border: "1px solid " + (isB ? "#F59E0B" : "#E7E5E4"), borderRadius: 10, padding: "8px 10px" } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: m[2] } }, m[1], isB ? React.createElement("span", { style: { color: "#B45309", marginLeft: 4 } }, "★合計最大") : null),
-      React.createElement("div", { style: { marginTop: 3, display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" } }, _amt(a.sum, true), React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "1件平均 " + _elPnlFmt(a.avg == null ? null : Math.round(a.avg)))),
-      React.createElement("div", { style: { marginTop: 3, fontSize: 10, color: "#78716C", lineHeight: 1.6 } },
-        "約定 " + a.filled + "/" + a.n + "件・勝ち/負け " + a.win + "/" + a.loss + "（勝率 " + _pct(a.winRate) + "）", React.createElement("br"), "最大負け ", _amt(a.maxLoss)));
-  }));
-  var summary = React.createElement("div", { key: "s", style: { fontSize: 11, color: "#44403C", marginBottom: 8, lineHeight: 1.7, padding: "6px 9px", background: "#F5F5F4", borderRadius: 8 } },
-    "直上VAPに届いた記録 " + topHit + "/" + ok.length + "件（" + _pct(ok.length ? topHit / ok.length : null) + "・うちエントリー足で " + topHitK0 + "件）。",
-    "1件ずつ比べると 確定待ちの方が良い " + vs.ce + "件・直上VAPの方が良い " + vs.top + "件・同じ " + vs.eq + "件。");
   var noteParts = _CETOP_SKIP.filter(function(o) { return skipN[o[0]]; }).map(function(o) { return o[1] + " " + skipN[o[0]] + "件"; });
   var note = React.createElement("div", { key: "n", style: { fontSize: 10, color: "#78716C", marginBottom: 8, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
     noteParts.length ? React.createElement("span", null, "対象外：" + noteParts.join("・")) : null,
@@ -2387,10 +2444,8 @@ function _ElCeTopSection(props) {
       _xtd(React.createElement("span", null, _amt(x.top), _sub(x.topIn ? "直上VAP" : "入らず"))),
       _xtd(React.createElement("span", null, _amt(x.both), _sub(_kl[x.bothKind])))];
   } };
-  var list = React.createElement("div", { key: "l" },
-    React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#1A1714", marginBottom: 6 } }, "📋 記録ごと"),
-    ok.length ? props.recTable(ok.map(function(o) { return o.r; }), extra) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
-  return React.createElement("div", null, head, filt, cards, summary, note, list);
+  return React.createElement(_ElCmpView, { title: _cmpTtl, desc: _cmpDsc, filt: filt, note: note, modes: _CETOP_MODES, aggs: aggs, best: best, ok: ok, filledLbl: "約定した件数",
+    valOf: function(x, k) { return x[k]; }, subOf: function(x, k) { return k === "ce" ? _kl[x.ceKind] + (x.src === "ca" ? "・CA" : "") : k === "top" ? (x.topIn ? "直上VAP" : "入らず") : _kl[x.bothKind]; }, info: { head: "直上VAP", cell: function(x) { var d = Math.round((x.tp - x.a) * 100) / 100; return React.createElement("span", null, React.createElement("div", { style: { fontWeight: 700 } }, "基準ライン+" + d + "円"), React.createElement("div", { style: { fontSize: 9.5, color: "#78716C" } }, x.topIn ? "OS" + (x.topIdx + 1) + "で届いた" : "届かず")); } }, hitLine: "直上VAPに届いた " + topHit + "/" + ok.length + "件（" + _pct(ok.length ? topHit / ok.length : null) + "・うちエントリー足で " + topHitK0 + "件）", diff: null });
 }
 // ===== ⏭ 次の足：基準ライン vs 直上VAP 2026-11-20（ユーザー要望）。行の計算は app-05 _elNextTopRow。=====
 var _NXTOP_MODES = [["line", "基準ラインで入る（今の決まり）", "#C2410C"], ["top", "直上VAPまで待つ（次の足1本）", "#7C3AED"]];
@@ -2440,11 +2495,10 @@ function _ElNextTopSection(props) {
   var _pill = function(on, label, onClick, key) {
     return React.createElement("button", { key: key, type: "button", onClick: onClick, style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#0E7490" : "#D6D3D1"), background: on ? "#ECFEFF" : "#fff", color: on ? "#0E7490" : "#57534E" } }, label);
   };
-  var head = React.createElement("div", { key: "h", style: { marginBottom: 8 } },
-    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⏭ 次の足：基準ライン vs 直上VAP ― 最初の足でEP②が入らなかった（①だけ入った）とき、次の足はどう入るのがよいか"),
-    React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
-      "対象＝直上VAPが入っている記録のうち、最初の足（α値に最初に届いた足）で 高値が直上VAPに届かず、終値もEP以下だった記録。EP②の分だけの想定損益（1000株換算・Bの割合は混ぜない）を2通りで比べます。" +
-      "基準ラインで入る＝次の足からα値（最終EP）で約定（今の決まり・OS3まで届かなければ入らず0円）。直上VAPまで待つ＝次の足1本だけ直上VAPに指値・届けば直上VAPで約定・届かなければ②は入らず0円（①だけ）。"));
+  var _cmpTtl = "⏭ 次の足：基準ライン vs 直上VAP";
+  var _cmpDsc = "⏭ 次の足：基準ライン vs 直上VAP ― 最初の足でEP②が入らなかった（①だけ入った）とき、次の足はどう入るのがよいか" + "。" + "対象＝直上VAPが入っている記録のうち、最初の足（α値に最初に届いた足）で 高値が直上VAPに届かず、終値もEP以下だった記録。EP②の分だけの想定損益（1000株換算・Bの割合は混ぜない）を2通りで比べます。" +
+      "基準ラインで入る＝次の足からα値（最終EP）で約定（今の決まり・OS3まで届かなければ入らず0円）。直上VAPまで待つ＝次の足1本だけ直上VAPに指値・届けば直上VAPで約定・届かなければ②は入らず0円（①だけ）。";
+  var head = React.createElement("div", { key: "h", style: { marginBottom: 8, fontSize: 13, fontWeight: 800, color: "#1A1714" } }, _cmpTtl);
   if (!rows.length) return React.createElement("div", null, head, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "直上VAPが入っている記録がありません"));
   var aggOf = function(key) {
     var o = { n: 0, filled: 0, sum: 0, win: 0, loss: 0, maxLoss: null };
@@ -2467,17 +2521,6 @@ function _ElNextTopSection(props) {
     _pill(kf === "C", "確度C " + kdN.C, function() { setKf("C"); }, "k_C"),
     _pill(kf === "D", "確度D(①) " + kdN.D, function() { setKf("D"); }, "k_D"),
     _pill(kf === "none", "確度未設定 " + kdN.none, function() { setKf("none"); }, "k_n"));
-  var cards = React.createElement("div", { key: "k", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } }, _NXTOP_MODES.map(function(m) {
-    var a = aggs[m[0]], isB = best === m[0];
-    return React.createElement("div", { key: m[0], style: { flex: "1 1 220px", minWidth: 0, background: isB ? "#FFFBEB" : "#FAFAF9", border: "1px solid " + (isB ? "#F59E0B" : "#E7E5E4"), borderRadius: 10, padding: "8px 10px" } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: m[2] } }, m[1], isB ? React.createElement("span", { style: { color: "#B45309", marginLeft: 4 } }, "★合計が多い") : null),
-      React.createElement("div", { style: { marginTop: 3, display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" } }, _amt(a.sum, true), React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "1件平均 " + _elPnlFmt(a.avg == null ? null : Math.round(a.avg)))),
-      React.createElement("div", { style: { marginTop: 3, fontSize: 10, color: "#78716C", lineHeight: 1.6 } },
-        "②が入った " + a.filled + "/" + a.n + "件・勝ち/負け " + a.win + "/" + a.loss + "（勝率 " + _pct(a.winRate) + "）", React.createElement("br"), "最大負け ", _amt(a.maxLoss)));
-  }));
-  var summary = React.createElement("div", { key: "s", style: { fontSize: 11, color: "#44403C", marginBottom: 8, lineHeight: 1.7, padding: "6px 9px", background: "#F5F5F4", borderRadius: 8 } },
-    "対象 " + ok.length + "件のうち、次の足で直上VAPに届いた記録 " + topHit + "件（" + _pct(ok.length ? topHit / ok.length : null) + "）。",
-    "1件ずつ比べると 基準ラインの方が良い " + vs.line + "件・直上VAPまで待つ方が良い " + vs.top + "件・同じ " + vs.eq + "件。");
   var noteParts = _NXTOP_SKIP.filter(function(o) { return skipN[o[0]]; }).map(function(o) { return o[1] + " " + skipN[o[0]] + "件"; });
   var note = React.createElement("div", { key: "n", style: { fontSize: 10, color: "#78716C", marginBottom: 8, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
     noteParts.length ? React.createElement("span", null, "対象外：" + noteParts.join("・")) : null,
@@ -2496,10 +2539,8 @@ function _ElNextTopSection(props) {
       _xtd(React.createElement("span", null, _amt(x.line), _sub(x.lineIn ? "OS" + (x.lineIdx + 1) + "でα値" : "入らず"))),
       _xtd(React.createElement("span", null, _amt(x.top), _sub(x.topIn ? "直上VAP" : "入らず（①だけ）")))];
   } };
-  var list = React.createElement("div", { key: "l" },
-    React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#1A1714", marginBottom: 6 } }, "📋 記録ごと"),
-    ok.length ? props.recTable(ok.map(function(o) { return o.r; }), extra) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
-  return React.createElement("div", null, head, filt, cards, summary, note, list);
+  return React.createElement(_ElCmpView, { title: _cmpTtl, desc: _cmpDsc, filt: filt, note: note, modes: _NXTOP_MODES, aggs: aggs, best: best, ok: ok, filledLbl: "②が入った件数",
+    valOf: function(x, k) { return x[k]; }, subOf: function(x, k) { return k === "line" ? (x.lineIn ? "OS" + (x.lineIdx + 1) + "でα値" : "入らず") : (x.topIn ? "直上VAP" : "入らず（①だけ）"); }, info: { head: "直上VAP", cell: function(x) { var d = Math.round((x.tp - x.a) * 100) / 100; return React.createElement("span", null, React.createElement("div", { style: { fontWeight: 700 } }, "最終EP+" + d + "円"), React.createElement("div", { style: { fontSize: 9.5, color: "#78716C" } }, "OS" + (x.k0 + 2) + "で" + (x.topIn ? "届いた" : "届かず"))); } }, hitLine: "次の足で直上VAPに届いた " + topHit + "/" + ok.length + "件（" + _pct(ok.length ? topHit / ok.length : null) + "）", diff: ["line", "top"], diffLbl: _cmpTtl.indexOf("⏸") === 0 ? "差（待つ−終値）" : "差（直上VAP−基準ライン）" });
 }
 // ===== ⏸ 終値で入る vs 待つ 2026-11-22（ユーザー要望）。行の計算は app-05 _elCloseWaitRow。⏭ の表と同じ作り（line＝終値で入る・top＝待つ）。=====
 var _CWAIT_MODES = [["line", "終値で入る（今の決まり）", "#C2410C"], ["top", "入らずに次の足で直上VAPまで待つ", "#7C3AED"]];
@@ -2549,11 +2590,10 @@ function _ElCloseWaitSection(props) {
   var _pill = function(on, label, onClick, key) {
     return React.createElement("button", { key: key, type: "button", onClick: onClick, style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#0E7490" : "#D6D3D1"), background: on ? "#ECFEFF" : "#fff", color: on ? "#0E7490" : "#57534E" } }, label);
   };
-  var head = React.createElement("div", { key: "h", style: { marginBottom: 8 } },
-    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⏸ 終値で入る vs 待つ ― 最初の足で直上VAPに届かず終値がEPより上だったとき、その終値で入るか、入らずに次の足で直上VAPまで待つか"),
-    React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
-      "対象＝直上VAPが入っている記録のうち、最初の足（α値に最初に届いた足）で 高値が直上VAPに届かず、終値がEPより上だった記録（⏭ の反対の場面）。EP②の分だけの想定損益（1000株換算・Bの割合は混ぜない）を2通りで比べます。" +
-      "終値で入る＝その足の終値で約定（今の決まり）。待つ＝その足では入らず、次の足1本だけ直上VAPに指値・届けば直上VAPで約定・届かなければ②は入らず0円。"));
+  var _cmpTtl = "⏸ 終値で入る vs 待つ";
+  var _cmpDsc = "⏸ 終値で入る vs 待つ ― 最初の足で直上VAPに届かず終値がEPより上だったとき、その終値で入るか、入らずに次の足で直上VAPまで待つか" + "。" + "対象＝直上VAPが入っている記録のうち、最初の足（α値に最初に届いた足）で 高値が直上VAPに届かず、終値がEPより上だった記録（⏭ の反対の場面）。EP②の分だけの想定損益（1000株換算・Bの割合は混ぜない）を2通りで比べます。" +
+      "終値で入る＝その足の終値で約定（今の決まり）。待つ＝その足では入らず、次の足1本だけ直上VAPに指値・届けば直上VAPで約定・届かなければ②は入らず0円。";
+  var head = React.createElement("div", { key: "h", style: { marginBottom: 8, fontSize: 13, fontWeight: 800, color: "#1A1714" } }, _cmpTtl);
   if (!rows.length) return React.createElement("div", null, head, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "直上VAPが入っている記録がありません"));
   var aggOf = function(key) {
     var o = { n: 0, filled: 0, sum: 0, win: 0, loss: 0, maxLoss: null };
@@ -2576,17 +2616,6 @@ function _ElCloseWaitSection(props) {
     _pill(kf === "C", "確度C " + kdN.C, function() { setKf("C"); }, "k_C"),
     _pill(kf === "D", "確度D(①) " + kdN.D, function() { setKf("D"); }, "k_D"),
     _pill(kf === "none", "確度未設定 " + kdN.none, function() { setKf("none"); }, "k_n"));
-  var cards = React.createElement("div", { key: "k", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } }, _CWAIT_MODES.map(function(m) {
-    var a = aggs[m[0]], isB = best === m[0];
-    return React.createElement("div", { key: m[0], style: { flex: "1 1 220px", minWidth: 0, background: isB ? "#FFFBEB" : "#FAFAF9", border: "1px solid " + (isB ? "#F59E0B" : "#E7E5E4"), borderRadius: 10, padding: "8px 10px" } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: m[2] } }, m[1], isB ? React.createElement("span", { style: { color: "#B45309", marginLeft: 4 } }, "★合計が多い") : null),
-      React.createElement("div", { style: { marginTop: 3, display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" } }, _amt(a.sum, true), React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "1件平均 " + _elPnlFmt(a.avg == null ? null : Math.round(a.avg)))),
-      React.createElement("div", { style: { marginTop: 3, fontSize: 10, color: "#78716C", lineHeight: 1.6 } },
-        "②が入った " + a.filled + "/" + a.n + "件・勝ち/負け " + a.win + "/" + a.loss + "（勝率 " + _pct(a.winRate) + "）", React.createElement("br"), "最大負け ", _amt(a.maxLoss)));
-  }));
-  var summary = React.createElement("div", { key: "s", style: { fontSize: 11, color: "#44403C", marginBottom: 8, lineHeight: 1.7, padding: "6px 9px", background: "#F5F5F4", borderRadius: 8 } },
-    "対象 " + ok.length + "件のうち、次の足で直上VAPに届いた記録 " + topHit + "件（" + _pct(ok.length ? topHit / ok.length : null) + "）。",
-    "1件ずつ比べると 終値で入る方が良い " + vs.line + "件・待つ方が良い " + vs.top + "件・同じ " + vs.eq + "件。");
   var noteParts = _CWAIT_SKIP.filter(function(o) { return skipN[o[0]]; }).map(function(o) { return o[1] + " " + skipN[o[0]] + "件"; });
   var note = React.createElement("div", { key: "n", style: { fontSize: 10, color: "#78716C", marginBottom: 8, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
     noteParts.length ? React.createElement("span", null, "対象外：" + noteParts.join("・")) : null,
@@ -2605,10 +2634,8 @@ function _ElCloseWaitSection(props) {
       _xtd(React.createElement("span", null, _amt(x.line), _sub(x.lineIn ? "OS" + (x.lineIdx + 1) + "の終値" : "入らず"))),
       _xtd(React.createElement("span", null, _amt(x.top), _sub(x.topIn ? "次の足で直上VAP" : "入らず")))];
   } };
-  var list = React.createElement("div", { key: "l" },
-    React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#1A1714", marginBottom: 6 } }, "📋 記録ごと"),
-    ok.length ? (props.recTable ? props.recTable(ok.map(function(o) { return o.r; }), extra) : React.createElement("div", { style: { fontSize: 11, color: "#475569", lineHeight: 1.7 } }, ok.map(function(o, i) { var x = o.x; return React.createElement("div", { key: i }, (o.r.date || "") + "　" + (o.r.time || (o.r.signal && o.r.signal.time) || "") + "　" + (o.r.stock || "") + "　" + ((o.r.signal && (o.r.signal.tags || []).join("・")) || "") + "　終値で入る " + _elPnlFmt(x.line) + "／待つ " + _elPnlFmt(x.top)); }))) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし"));
-  return React.createElement("div", null, head, filt, cards, summary, note, list);
+  return React.createElement(_ElCmpView, { title: _cmpTtl, desc: _cmpDsc, filt: filt, note: note, modes: _CWAIT_MODES, aggs: aggs, best: best, ok: ok, filledLbl: "②が入った件数",
+    valOf: function(x, k) { return x[k]; }, subOf: function(x, k) { return k === "line" ? (x.lineIn ? "OS" + (x.lineIdx + 1) + "の終値" : "入らず") : (x.topIn ? "次の足で直上VAP" : "入らず"); }, info: { head: "直上VAP", cell: function(x) { var d = Math.round((x.tp - x.a) * 100) / 100; return React.createElement("span", null, React.createElement("div", { style: { fontWeight: 700 } }, "最終EP+" + d + "円"), React.createElement("div", { style: { fontSize: 9.5, color: "#78716C" } }, "OS" + (x.k0 + 2) + "で" + (x.topIn ? "届いた" : "届かず"))); } }, hitLine: "次の足で直上VAPに届いた " + topHit + "/" + ok.length + "件（" + _pct(ok.length ? topHit / ok.length : null) + "）", diff: ["line", "top"], diffLbl: _cmpTtl.indexOf("⏸") === 0 ? "差（待つ−終値）" : "差（直上VAP−基準ライン）" });
 }
 // ===== 🎯 直上VAP まとめ 2026-11-22（ユーザー要望「近い分析を同じタブの中で分けて見る」）：🎯 確定待ち vs 直上VAP／⏭ 終値≦EP：次の足／⏸ 終値＞EP：待つか を中で切り替え。=====
 var _TOPVAP_SUBS = [["cetop", "🎯 確定待ち vs 直上VAP"], ["nexttop", "⏭ 終値≦EP：次の足で基準ラインか直上VAPか"], ["cwait", "⏸ 終値＞EP：終値で入るか待つか"]];
