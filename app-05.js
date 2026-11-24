@@ -4309,7 +4309,7 @@ function _epResolve(s, alpha) {
         var _tp = _epCeTopRel(s);
         if (_tp != null && _tp > Number(alpha) && legs[i].h != null && Number(legs[i].h) >= _tp) { ce = true; top = true; px = _tp; epIdx = i; break; }   // 直上VAPに届いた＝即エントリー
         var _cc = legs[i].c;
-        if (_cc != null && !(Number(_cc) > Number(alpha))) { skipIdx = i; continue; }   // 確定足の終値がα以下＝その足では入らない
+        if (_cc != null && !(Number(_cc) > Number(alpha))) { skipIdx = i; if (s.kakudo === "B" && s._epFrom == null) _to = Math.min(_to, i + 2); continue; }   // 確定足の終値がα以下＝その足では入らない。2026-11-24 確度BのEP②は次の足1本だけα値で待ち、届かなければ未達（ユーザー指示・C・Dの①は従来どおりOS3まで）
         if (_cc != null) { ce = true; px = Number(_cc); }                                // 終値未入力は従来どおりα値で約定（保存時は必須）
       }
       epIdx = i; break;
@@ -12824,7 +12824,7 @@ function EntryRecordForm(_ref_erf) {
             } else if (_ef.skipIdx != null && _ef.skipIdx >= 0) {
               var _ci2 = _elCeInfo(_fVSig, _fAlpha, _fCutLine);
               _ciNode = [
-                React.createElement("span", { key: "sk", style: { color: "#B45309", fontWeight: 700 } }, "OS" + (_ef.skipIdx + 1) + ((fCeTopOn && fCeTopPx !== "") ? "で直上VAPに届かず、終値もα以下" : "の終値がα以下") + " → この足では入らず（次の足からα値で約定）"),
+                React.createElement("span", { key: "sk", style: { color: "#B45309", fontWeight: 700 } }, "OS" + (_ef.skipIdx + 1) + ((fCeTopOn && fCeTopPx !== "") ? "で直上VAPに届かず、終値もα以下" : "の終値がα以下") + (fKakudo === "B" ? " → この足では入らず（次の足1本だけα値で待つ・届かなければ未達）" : " → この足では入らず（次の足からα値で約定）")),
                 null
               ];
             }

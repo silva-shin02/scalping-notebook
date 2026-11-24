@@ -2497,7 +2497,7 @@ function _ElNextTopSection(props) {
   };
   var _cmpTtl = "⏭ 次の足：基準ライン vs 直上VAP";
   var _cmpDsc = "⏭ 次の足：基準ライン vs 直上VAP ― 最初の足でEP②が入らなかった（①だけ入った）とき、次の足はどう入るのがよいか" + "。" + "対象＝直上VAPが入っている記録のうち、最初の足（α値に最初に届いた足）で 高値が直上VAPに届かず、終値もEP以下だった記録。EP②の分だけの想定損益（1000株換算・Bの割合は混ぜない）を2通りで比べます。" +
-      "基準ラインで入る＝次の足からα値（最終EP）で約定（今の決まり・OS3まで届かなければ入らず0円）。直上VAPまで待つ＝次の足1本だけ直上VAPに指値・届けば直上VAPで約定・届かなければ②は入らず0円（①だけ）。";
+      "基準ラインで入る＝次の足からα値（最終EP）で約定（今の決まり・OS3まで届かなければ入らず0円。確度Bは次の足1本だけ）。直上VAPまで待つ＝次の足1本だけ直上VAPに指値・届けば直上VAPで約定・届かなければ②は入らず0円（①だけ）。";
   var head = React.createElement("div", { key: "h", style: { marginBottom: 8, fontSize: 13, fontWeight: 800, color: "#1A1714" } }, _cmpTtl);
   if (!rows.length) return React.createElement("div", null, head, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "直上VAPが入っている記録がありません"));
   var aggOf = function(key) {

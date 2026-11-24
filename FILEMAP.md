@@ -407,6 +407,10 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-11-24j 確度BのEP②は次の足1本だけ（app-05/app-06 / sw v726→v727）
+- ユーザー指示「EP②はEP①の次の足以内に入れなければ未達に」。選択＝確度BのEP②だけ・過去も変わってよい。
+- `_epResolve`：確定足の終値がα以下で skip したとき、`s.kakudo === "B" && s._epFrom == null` なら `_to = Math.min(_to, i + 2)`（Bの①は `_elSplitDef` で ceOn を外すので通らない＝②だけに効く）。フォームの skip 文言（B）と ⏭ の説明文も更新。
+
 ### 2026-11-24i 確度Dの②は直上VAP②だけに（app-01/04/05 / sw v725→v726）
 - ユーザー指示「Dは分割エントリーかつEP①が確定待ちor直上VAP①、EP②が直上VAP②」。選択＝既存は直上VAP②に置き換え・EPナビもそろえる。
 - app-05 フォーム：`_fCe2Top = fKakudo === "D"`（`fCe2Mode`/`_modeSeg`/`_in2Off` は未使用で残置）。計算の ce2Off 分岐（`_elSplitDef`）も残置（移行後は通らない）。
