@@ -4269,10 +4269,19 @@ function _epCeBar(s, k) { return s.ceIdx === k && s.ceOn === true; }
 //   その時点で直上VAPの値で即エントリーした扱い（確定を待たない）。届かなければ従来どおり終値エントリー（終値がα以下なら入らず、次の足からα値で約定）。
 //   損切りライン＝直上VAP＋損切り値・接触は次の足から（終値エントリーと同じ）。計算は水準線比なので水準線値(levelPrice)が要る＝無ければ使わない。
 //   直上VAPがα以下（αを試算で動かした場合など）は使わない。
+// 2026-11-24 直上VAPのVAP補正は EP①の例外（EP基準ラインが大RN・中RN×VAP0円）に引きずられない（ユーザー指摘「①はRNなので補正なし・②は入る」）:
+//   ①が例外の記録は補正値が0円で保存されているので、②には設定の補正値（custom.vapAdj・既定−1）を当てる。例外でなければ記録の補正値。
+//   直上VAPの株価そのものが50円単位ちょうど（大RN・中RN）ならマイナス補正なし。実エントリーも含む（ユーザー選択）。
+//   設定値は App のレンダー時に _SN_VAP_ADJ_SET へ写す（app-08・_elAmtStocksSet の直後）。
+var _SN_VAP_ADJ_SET = null;
+function _ceTopVapAdj(baseAdj, exempt1, topPx) {
+  var a = exempt1 ? (_SN_VAP_ADJ_SET != null ? _SN_VAP_ADJ_SET : _VAP_ADJ_DEF) : (Number(baseAdj) || 0);
+  return _vapAdjEff(a, _vapLvBigRn(topPx));
+}
 function _epCeTopRel(s) {
   if (!s || s.ceTopPx == null || s.ceTopPx === "" || s.levelPrice == null || s.levelPrice === "") return null;
   var p = Number(s.ceTopPx), lv = Number(s.levelPrice);
-  var adj = (_vapOf(s) != null) ? _vapAdjEff(_vapAdjOf(s), _vapAdjExemptSig(s)) : 0;   // 2026-11-20v 直上VAPにもVAP補正を当てる（ユーザー指示・RN補正は当てない）
+  var adj = (_vapOf(s) != null) ? _ceTopVapAdj(_vapAdjOf(s), _vapAdjExemptSig(s), p) : 0;   // 2026-11-20v 直上VAPにもVAP補正を当てる（ユーザー指示・RN補正は当てない）・2026-11-24 ①の例外とは別に判定
   return (isNaN(p) || isNaN(lv)) ? null : Math.round((p - lv + adj) * 100) / 100;
 }
 // 確度D の②（さらに上の直上VAP＝signal.ce2TopPx・株価）の EP基準ライン比。直上VAPと同じくVAP補正を当てる（RN補正は当てない）2026-11-22
@@ -10581,7 +10590,7 @@ function EntryRecordForm(_ref_erf) {
   var _fCeTopRel = (function() {
     if (!fCeTopOn || fCeTopPx === "" || fLevelPrice === "" || fLevelPrice == null) return null;
     var p = Number(fCeTopPx), lv = Number(fLevelPrice);
-    var adj = (_vapMode && fVap !== "" && !isNaN(Number(fVap))) ? (Number(fVapAdj) || 0) : 0;   // 2026-11-20v 直上VAPにもVAP補正（保存値 _epCeTopRel と同じ）
+    var adj = (_vapMode && fVap !== "" && !isNaN(Number(fVap))) ? _ceTopVapAdj(fVapAdj, _fVapEx, p) : 0;   // 2026-11-24 ①の例外とは別に判定（_epCeTopRel と同じ）。2026-11-20v 直上VAPにもVAP補正（保存値 _epCeTopRel と同じ）
     return (isNaN(p) || isNaN(lv)) ? null : Math.round((p - lv + adj) * 100) / 100;
   })();
   // 確度D の②＝EP①の約定値より〇円上（signal.ce2Off）2026-11-22b。初期値＝設定 custom.ce2OffDef（既定10円）。
