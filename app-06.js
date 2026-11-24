@@ -8372,7 +8372,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     return { n: (x || []).length, tot: totOf(x), sp: stopsOf(x), wt: winTakeOf(x), gp: gp, gl: gl, gpN: gpN, glN: glN,
              collX: cx, days: Object.keys(dset).length };
   };
-  var _STK_SHARE_COLORS = ["#0369A1", "#9A3412", "#B45309", "#0F766E", "#7C3AED", "#BE185D", "#15803D", "#CA8A04", "#475569", "#0891B2", "#C2410C", "#4F46E5"];
+  var _STK_SHARE_COLORS = ["#2563EB", "#B91C1C", "#D97706", "#0F766E", "#7C3AED", "#DB2777", "#65A30D", "#0891B2", "#78350F", "#475569", "#F472B6", "#1E3A8A"];
   var _stkShareSection = function(rs, rsoKey) {   // rsoKey＝日替わり内訳の開閉キー（月別表示 2026-10-18）
     if (!rs || !rs.length) return null;
     var bk = _stkShareBuckets(), fixed = bk.fixed;
@@ -8387,9 +8387,20 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     });
     var _cOrd = fixed.concat(bk.rot);
     allStocks.forEach(function(s) { if (_cOrd.indexOf(s) < 0) _cOrd.push(s); });
-    groups.forEach(function(g) {
-      var i = _cOrd.indexOf(g.key);
-      g.color = i >= 0 ? _STK_SHARE_COLORS[i % _STK_SHARE_COLORS.length] : "#94A3B8";
+    // 2026-11-24b 色かぶり対策: 第一希望＝銘柄リストの位置の色。同じ月の表の中で既に使われていたら空いている次の色へずらす
+    //   ＝1つの表の中では必ず別の色（12銘柄を超えたときだけ一巡して重なる）。リストに無い銘柄も空き色をもらう。
+    var _used = {}, _nC = _STK_SHARE_COLORS.length;
+    groups.slice().sort(function(x, y) {
+      var ix = _cOrd.indexOf(x.key), iy = _cOrd.indexOf(y.key);
+      return (ix < 0 ? 1e9 : ix) - (iy < 0 ? 1e9 : iy) || x.key.localeCompare(y.key);
+    }).forEach(function(g) {
+      var i0 = _cOrd.indexOf(g.key); if (i0 < 0) i0 = 0;
+      i0 = i0 % _nC;
+      var k = 0;
+      while (k < _nC && _used[(i0 + k) % _nC]) k++;
+      var ci = (i0 + (k < _nC ? k : 0)) % _nC;
+      _used[ci] = 1;
+      g.color = _STK_SHARE_COLORS[ci];
     });
     groups.sort(function(x, y) { return y.recs.length - x.recs.length || x.key.localeCompare(y.key); });
     var shown = groups.filter(function(g) { return g.recs.length > 0; });
