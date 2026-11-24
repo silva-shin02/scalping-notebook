@@ -8337,7 +8337,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   };
   // ===== 🏷 銘柄別の損益割合（2026-08-03 ユーザー要望「銘柄別での損益割合分析も欲しい」）=====
   // 行は固定順（毎回同じ位置で読めるよう損益順に並べ替えない）: 固定銘柄＝custom.epnStocks（EPナビ⚙表示銘柄・最大3）を1行ずつ／
-  //   📅日替わり＝custom.rotatingStocks をまとめて1行（展開で中の銘柄別内訳）／その他＝どちらにも属さない銘柄（0件なら行ごと出さない）。
+  //   ※2026-11-24 以降は全銘柄を1行ずつ・件数順（日替わりのひとまとめ・▶内訳は廃止）。バケツは色の順番と「選定N日」の判定にだけ使う。
   // 銘柄名はハードコードしない＝設定を変えれば分析も追従する（2026-07-23に古河電工を日替わりへ足したような変更が実際に起きている）。
   // 日経平均株価は「取引しない指数」なので**固定バケツの導出からは必ず外す**: epnStocks未設定時の既定はマスターの先頭3（app-04:4508）だが、
   //   マスターの先頭が日経平均株価なので外さないと固定3枠が1つ潰れてSBG等が押し出される（app-04側の既定計算はこの除外を持っていない）。
@@ -8372,20 +8372,26 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     return { n: (x || []).length, tot: totOf(x), sp: stopsOf(x), wt: winTakeOf(x), gp: gp, gl: gl, gpN: gpN, glN: glN,
              collX: cx, days: Object.keys(dset).length };
   };
-  var _STK_SHARE_COLORS = ["#0369A1", "#9A3412", "#B45309", "#0F766E", "#94A3B8"];
+  var _STK_SHARE_COLORS = ["#0369A1", "#9A3412", "#B45309", "#0F766E", "#7C3AED", "#BE185D", "#15803D", "#CA8A04", "#475569", "#0891B2", "#C2410C", "#4F46E5"];
   var _stkShareSection = function(rs, rsoKey) {   // rsoKey＝日替わり内訳の開閉キー（月別表示 2026-10-18）
     if (!rs || !rs.length) return null;
     var bk = _stkShareBuckets(), fixed = bk.fixed;
     var isRot = {}; bk.rot.forEach(function(s) { isRot[s] = 1; });
+    // 2026-11-24 日替わりをまとめず全銘柄を1行ずつ・件数の多い順（ユーザー選択「全銘柄を件数順」「印なし」「帯も銘柄ごとに色分け」）。
+    //   色は月をまたいで同じ銘柄が同じ色になるよう、固定→日替わり→その他の順の銘柄リストの位置で決める。
     var groups = [], byKey = {};
-    var mk = function(key, label, color) { var g = { key: key, label: label, color: color, recs: [] }; groups.push(g); byKey[key] = g; return g; };
-    fixed.forEach(function(s, i) { mk(s, s, _STK_SHARE_COLORS[i] || "#64748B"); });
-    var gRot = mk("__rot__", "📅 日替わり", _STK_SHARE_COLORS[3]);
-    var gOther = mk("__other__", "その他", _STK_SHARE_COLORS[4]);
     rs.forEach(function(r) {
-      var st = r && r.stock;
-      (fixed.indexOf(st) >= 0 ? byKey[st] : isRot[st] ? gRot : gOther).recs.push(r);
+      var st = (r && r.stock) || "(不明)";
+      if (!byKey[st]) { byKey[st] = { key: st, label: st, recs: [] }; groups.push(byKey[st]); }
+      byKey[st].recs.push(r);
     });
+    var _cOrd = fixed.concat(bk.rot);
+    allStocks.forEach(function(s) { if (_cOrd.indexOf(s) < 0) _cOrd.push(s); });
+    groups.forEach(function(g) {
+      var i = _cOrd.indexOf(g.key);
+      g.color = i >= 0 ? _STK_SHARE_COLORS[i % _STK_SHARE_COLORS.length] : "#94A3B8";
+    });
+    groups.sort(function(x, y) { return y.recs.length - x.recs.length || x.key.localeCompare(y.key); });
     var shown = groups.filter(function(g) { return g.recs.length > 0; });
     if (!shown.length) return null;
     shown.forEach(function(g) { g.a = _stkShareAgg(g.recs); });
@@ -8457,28 +8463,9 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         _elv2Td(a.tot.realCnt ? _amt(a.tot.realRaw) : "—")   // 2026-08-05y totOfをrealPair経路へ変えたので t.real は1000株換算・実額は t.realRaw。この列は実額のまま維持（ユーザー選択）＝見た目不変
       ];
     };
-    var rowOf = function(g) { return React.createElement.apply(null, ["tr", { key: g.key }].concat(cellsOf(g.label, g.color, g.a))); };
     var totRow = React.createElement.apply(null, ["tr", { key: "__tot__", style: { background: "#FFF7ED", fontWeight: 700 } }].concat(cellsOf("合計", null, all)));
-    // 日替わりの中身（銘柄別）。1行にまとめている分どの銘柄が効いているか見えなくなるので、
-    //   「📅 日替わり」行の▶で**同じ表の中に**内訳行を差し込む（2026-08-06G ユーザー要望。旧＝表の下に別枠の_SNCollapse）。
-    //   内訳行は cellsOf(indent=true) ＝親行と同じ列・同じ計算なので、内訳の合計が親行と食い違いようがない。
-    var _rotByStk = null, _rotKeys = [];
-    if (gRot.recs.length) {
-      _rotByStk = {};
-      gRot.recs.forEach(function(r) { var k = r.stock || "(不明)"; (_rotByStk[k] = _rotByStk[k] || []).push(r); });
-      _rotKeys = Object.keys(_rotByStk).sort(function(x, y) { return _rotByStk[y].length - _rotByStk[x].length || x.localeCompare(y); });
-    }
-    var _rsoOn = !!(rotShareOpen && rotShareOpen[rsoKey]);
-    var rows = [];
-    shown.forEach(function(g) {
-      if (g.key !== "__rot__" || !_rotKeys.length) { rows.push(rowOf(g)); return; }
-      rows.push(React.createElement.apply(null, ["tr", { key: g.key }].concat(
-        cellsOf(g.label, g.color, g.a, false, { open: _rsoOn, n: _rotKeys.length, onClick: function() { setRotShareOpen(function(p) { var n = Object.assign({}, p); if (n[rsoKey]) delete n[rsoKey]; else n[rsoKey] = true; return n; }); } }, _selDaysOf(bk.rot)))));
-      if (!_rsoOn) return;
-      _rotKeys.forEach(function(k) {
-        rows.push(React.createElement.apply(null, ["tr", { key: "__rot_" + k, style: { background: "#FAFAF9" } }].concat(
-          cellsOf(k, g.color, _stkShareAgg(_rotByStk[k]), true, null, _selDaysOf([k])))));
-      });
+    var rows = shown.map(function(g) {
+      return React.createElement.apply(null, ["tr", { key: g.key }].concat(cellsOf(g.label, g.color, g.a, false, null, isRot[g.key] ? _selDaysOf([g.key]) : null)));
     });
     rows.push(totRow);
     return React.createElement("div", null,
