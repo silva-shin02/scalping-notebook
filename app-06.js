@@ -8372,7 +8372,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     return { n: (x || []).length, tot: totOf(x), sp: stopsOf(x), wt: winTakeOf(x), gp: gp, gl: gl, gpN: gpN, glN: glN,
              collX: cx, days: Object.keys(dset).length };
   };
-  var _STK_SHARE_COLORS = ["#2563EB", "#B91C1C", "#D97706", "#0F766E", "#7C3AED", "#DB2777", "#65A30D", "#0891B2", "#78350F", "#475569", "#F472B6", "#1E3A8A"];
+  var _STK_SHARE_COLORS = ["#2563EB", "#B91C1C", "#D97706", "#0F766E", "#7C3AED", "#DB2777", "#65A30D", "#0891B2", "#78350F", "#EAB308", "#F472B6", "#1E3A8A"];
   var _stkShareSection = function(rs, rsoKey) {   // rsoKey＝日替わり内訳の開閉キー（月別表示 2026-10-18）
     if (!rs || !rs.length) return null;
     var bk = _stkShareBuckets(), fixed = bk.fixed;
