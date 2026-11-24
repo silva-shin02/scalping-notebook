@@ -407,6 +407,13 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-11-24g 確度DのEP②に直上VAP②（株価指定）方式を追加（app-05 / sw v723→v724）
+- ユーザー要望「DのEP②を『EP①の約定値＋〇円』のほかに直上VAP②でも入力したい・①の直上VAPは直上VAP①に」。選択＝ノブで2択・新規の初期は直上VAP②／VAP補正あり／初期値＝直上VAP①＋10円（無ければEP基準ライン＋20円）／②が①の約定値以下なら入らない。
+- 保存：signal.ce2TopPx（株価）か ce2Off のどちらか一方（`_ce2IsTop(s)`＝ce2TopPx の有無で方式を判定）。旧 _migKakudoD2Off1122（一回性・済み）は再実行されない。
+- 計算 `_elSplitDef`：top2 のとき a2＝`_epCe2Rel(s)`（`_epCeTopRel` 経由＝`_ceTopVapAdj`）。①が入ったら from＝①のEP足（終値エントリーなら次の足）・a2≦①の約定値（r1.px）なら le1=true で from=99（入らない）。戻り値に top2/le1。
+- フォーム：`fCe2Mode`（"top"/"off"）・`fCe2TopPx`（未編集は `_ce2AutoVal` に追従）・`_fCe2Rel`・`_in2Top`/`_in2Off`/`_modeSeg`・保存値 `_fCe2SaveOff`/`_fCe2SaveTop`・必須チェックは方式ごと（`_fCe2OffOk`）。推奨損切り値の②も方式どおり。Dの①の表示は「直上VAP①」。
+- 表のEライン欄（`_elLineInner`）：直上VAP②で未約定は株価を出す（＋〇円方式は従来どおり「①+〇」）。EPナビ（app-04 `_EpnKakudoBox`）は未対応。
+
 ### 2026-11-24f 記録フォームのシグナルをドラッグで並べ替え＋並び順が戻る不具合（app-05/app-01 / sw v722→v723）
 - ユーザー要望「記録フォームでもシグナルの順番を変えたい」（選択＝いつでもドラッグ・仮シグナルの段も）。EntryRecordForm に `_sgDragProps(t, k, base, style)`（チップを包む span に付ける・作りは app-04 `_EpnChipMgr` と同じ・7px で開始・`[data-sgchip="k|名前"]` で段をまたがない・離したら save で custom[k] を書き換え・途中で増えた名前は落とさない）。ドラッグ直後のクリックは `_sgMovedRef` で無視。
 - ユーザー報告「入れ替えたはずの順番が元に戻ってしまうときがある（選択肢が並ぶ所すべて）」。原因＝app-01 `_m3` の文字列配列の統合が、並びを常にこの端末のまま＋サーバーの追加を末尾にしていた。片方で並べ替え・もう片方で名前の出し入れ、または基準が読めない（iPadでIndexedDB 3秒時間切れ→基準なし・pl=true）と古い並びの端末が送り返して戻していた。
