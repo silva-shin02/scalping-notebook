@@ -9390,6 +9390,56 @@ function EntryRecordForm(_ref_erf) {
   // 仮シグナル 2026-09-22: 通常シグナルとは別リストで、チップ欄の下段に並ぶ。通常/カスタムとは排他。
   var provTags = Array.isArray(custom.provSignalTags) ? custom.provSignalTags : [];
   var _isProvT = function(t) { return provTags.indexOf(t) >= 0; };
+  // 2026-11-24 記録フォームのシグナルのチップをドラッグで並べ替え（ユーザー選択「いつでもドラッグ」・仮シグナルの段も・段をまたぐ移動は⬆⬇のまま）。
+  //   7px 動かしてから並べ替え開始（短く押すだけなら今どおり選択）。離したら custom.signalTags / provSignalTags を書き換え（設定の📡シグナル管理と同じ並び）。
+  //   作りは app-04 _EpnChipMgr のドラッグと同じ。
+  var _useStateSGO = useState(null), _sgOrd = _useStateSGO[0], setSgOrd = _useStateSGO[1];   // ドラッグ中だけ {k, list}
+  var _sgDragRef = useRef(null), _sgMovedRef = useRef(false);
+  var _sgList = function(k, base) { return (_sgOrd && _sgOrd.k === k) ? _sgOrd.list : base; };
+  var _sgDragProps = function(t, k, base, style) {
+    var d0 = _sgDragRef.current, dragging = !!(d0 && d0.started && d0.name === t && d0.k === k);
+    return {
+      "data-sgchip": k + "|" + t,
+      onPointerDown: function(e) { if (e.button != null && e.button !== 0) return; _sgDragRef.current = { name: t, k: k, sx: e.clientX, sy: e.clientY, started: false, list: null }; },
+      onPointerMove: function(e) {
+        var d = _sgDragRef.current; if (!d || d.name !== t || d.k !== k) return;
+        if (!d.started) {
+          if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
+          d.started = true;
+          try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
+          d.list = base.slice(); _sgMovedRef.current = true; setSgOrd({ k: k, list: d.list.slice() }); return;
+        }
+        var el = document.elementFromPoint(e.clientX, e.clientY);
+        var chip = (el && el.closest) ? el.closest("[data-sgchip]") : null;
+        if (!chip) return;
+        var ov = chip.getAttribute("data-sgchip") || "", bar = ov.indexOf("|");
+        if (ov.slice(0, bar) !== k) return;   // 段をまたぐ移動はしない
+        var over = ov.slice(bar + 1);
+        if (!over || over === d.name) return;
+        var lst = d.list.slice(), fi = lst.indexOf(d.name), ti = lst.indexOf(over);
+        if (fi < 0 || ti < 0 || fi === ti) return;
+        lst.splice(fi, 1); lst.splice(ti, 0, d.name); d.list = lst; setSgOrd({ k: k, list: lst.slice() });
+      },
+      onPointerUp: function() {
+        var d = _sgDragRef.current; _sgDragRef.current = null;
+        if (d && d.started && d.list) {
+          var fin = d.list.slice();
+          save(function(prev) {
+            var _c = Object.assign({}, prev.custom || {});
+            var cur = Array.isArray(_c[k]) ? _c[k] : [];
+            var nx = fin.filter(function(x) { return cur.indexOf(x) >= 0; });
+            cur.forEach(function(x) { if (nx.indexOf(x) < 0) nx.push(x); });   // 途中で増えた名前は落とさない
+            _c[k] = nx;
+            return Object.assign({}, prev, { custom: _c });
+          });
+          setTimeout(function() { _sgMovedRef.current = false; }, 0);
+        }
+        setSgOrd(null);
+      },
+      onPointerCancel: function() { _sgDragRef.current = null; _sgMovedRef.current = false; setSgOrd(null); },
+      style: Object.assign({}, style || {}, { touchAction: "none", boxShadow: dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null, transform: dragging ? "scale(1.06)" : null, opacity: dragging ? 0.9 : null, borderRadius: 6 })
+    };
+  };
   var isEdit = !!(initial && initial.signal);
   // 二重送信ガード: 新規記録の保存中に保存ボタンを連打しても重複作成しない。2026-06-20
   var _savingRef = useRef(false);
@@ -11566,12 +11616,13 @@ function EntryRecordForm(_ref_erf) {
         _rnMode ? React.createElement("span", { style: { fontSize: 10, fontWeight: 600, letterSpacing: 0, textTransform: "none", color: "#0369A1" } },
           "シグナルを押す＝名前変更／✕＝一覧から削除／⬆＝仮を通常へ昇格") : null),
       React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 } },
-        signalTags.concat(fTags.filter(function(_o) { return signalTags.indexOf(_o) < 0 && !_isProvT(_o); })).map(function(t) {
+        _sgList("signalTags", signalTags).concat(fTags.filter(function(_o) { return signalTags.indexOf(_o) < 0 && !_isProvT(_o); })).map(function(t) {
           // 孤児タグ（マスターから消えたタグ）の一覧から**仮タグは除く**＝下段に出るので上段で「✕削除」扱いにしない。
           var on = fTags.includes(t);
           var _chip = React.createElement("button", {
             key: t,
             onClick: function() {
+              if (_sgMovedRef.current) { _sgMovedRef.current = false; return; }   // ドラッグで並べ替えた直後のクリックは無視 2026-11-24
               // 名前変更モード中は選択ではなく改名。マスターに無い孤児タグは改名対象にしない（消す対象なので）。
               if (_rnMode) { if (signalTags.indexOf(t) >= 0) _renameSigTag(t, false); return; }
               if (signalTags.indexOf(t) >= 0) { setFSigTfPop(fSigTfPop === t ? null : t); return; }   // 2026-11-22 押すと分足の小窓（選ぶと選択）
@@ -11588,10 +11639,10 @@ function EntryRecordForm(_ref_erf) {
             }
           }, signalTags.indexOf(t) < 0 ? React.createElement("span", null, t, React.createElement("span", { style: { color: "#B91C1C", fontWeight: 800, marginLeft: 4 } }, "✕削除")) : _sigTfChipLbl(t, on));
           // 編集中はチップの右に削除ボタンを並べる（マスターにあるタグだけ＝孤児タグはここでは消さない）。
-          if (!_rnMode && signalTags.indexOf(t) >= 0) return React.createElement("span", { key: "sw_" + t, style: { position: "relative", display: "inline-flex" } }, _chip,
+          if (!_rnMode && signalTags.indexOf(t) >= 0) return React.createElement("span", Object.assign({ key: "sw_" + t }, _sgDragProps(t, "signalTags", signalTags, { position: "relative", display: "inline-flex" })), _chip,
             _sigTfPopEl(t, on, function() { setFTags(function(prev) { return prev.indexOf(t) >= 0 ? prev : prev.concat([t]); }); setFIsCustom(false); }, function() { setFTags(function(prev) { return prev.filter(function(x) { return x !== t; }); }); }, "#C2410C"));
           if (!_rnMode || signalTags.indexOf(t) < 0) return _chip;
-          return React.createElement("span", { key: "w_" + t, style: { display: "inline-flex", alignItems: "center", gap: 2 } },
+          return React.createElement("span", Object.assign({ key: "w_" + t }, _sgDragProps(t, "signalTags", signalTags, { display: "inline-flex", alignItems: "center", gap: 2 })),
             _chip,
             React.createElement("button", {   // 仮へ降格 2026-11-05（⬆昇格の逆）
               onClick: function() { _demoteSigTag(t); },
@@ -11641,11 +11692,12 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#15803D", background: "#DCFCE7", border: "1px solid #86EFAC", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "仮シグナル"),
           React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "合計損益には算入しません（件数・到達・勝率と分析には残ります）")),
         React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
-          provTags.map(function(t) {
+          _sgList("provSignalTags", provTags).map(function(t) {
             var on = fTags.includes(t);
             var _chip = React.createElement("button", {
               key: "prov_" + t,
               onClick: function() {
+                if (_sgMovedRef.current) { _sgMovedRef.current = false; return; }   // ドラッグ直後のクリックは無視 2026-11-24
                 if (_rnMode) { _renameSigTag(t, true); return; }
                 setFSigTfPop(fSigTfPop === t ? null : t); return;   // 2026-11-22 押すと分足の小窓（選ぶと選択）
                 // 排他: 仮シグナルを付けたら通常シグナルとカスタムタグは外す。仮同士は複数選べる。
@@ -11660,9 +11712,9 @@ function EntryRecordForm(_ref_erf) {
                 borderRadius: 6, cursor: "pointer"
               }
             }, _sigTfChipLbl(t, on));
-            if (!_rnMode) return React.createElement("span", { key: "spw_" + t, style: { position: "relative", display: "inline-flex" } }, _chip,
+            if (!_rnMode) return React.createElement("span", Object.assign({ key: "spw_" + t }, _sgDragProps(t, "provSignalTags", provTags, { position: "relative", display: "inline-flex" })), _chip,
               _sigTfPopEl(t, on, function() { setFTags(function(prev) { return prev.indexOf(t) >= 0 ? prev : prev.concat([t]); }); setFIsCustom(false); }, function() { setFTags(function(prev) { return prev.filter(function(x) { return x !== t; }); }); }, "#15803D"));
-            return React.createElement("span", { key: "wp_" + t, style: { display: "inline-flex", alignItems: "center", gap: 2 } },
+            return React.createElement("span", Object.assign({ key: "wp_" + t }, _sgDragProps(t, "provSignalTags", provTags, { display: "inline-flex", alignItems: "center", gap: 2 })),
               _chip,
               React.createElement("button", {
                 onClick: function() { _promoteSigTag(t); },
