@@ -407,6 +407,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-11-24i 確度Dの②は直上VAP②だけに（app-01/04/05 / sw v725→v726）
+- ユーザー指示「Dは分割エントリーかつEP①が確定待ちor直上VAP①、EP②が直上VAP②」。選択＝既存は直上VAP②に置き換え・EPナビもそろえる。
+- app-05 フォーム：`_fCe2Top = fKakudo === "D"`（`fCe2Mode`/`_modeSeg`/`_in2Off` は未使用で残置）。計算の ce2Off 分岐（`_elSplitDef`）も残置（移行後は通らない）。
+- app-01 一回性 `_migKakudoD2Top1124`：kakudo D・ce2Off あり・ce2TopPx なしの記録/EPナビ保存EPに ce2TopPx＝（ceTopPx か 記録＝levelPrice＋alphaVal／EPナビ＝ep）＋ce2Off、ce2Off=null、元値を `_ce2OffOrig`。
+- app-04 EPナビ：`nCe2Off`→`nCe2TopRaw`/`nCe2Top`（未編集は `_nCe2Auto`＝直上VAP①＋10円・無ければ ep＋20円）・保存 ce2TopPx・`_EpnKakudoBox` の②欄は株価（①以下なら赤）・`_EpnKakudoCard` は「EP② 直上VAP② 〇円」。
+
 ### 2026-11-24h 🎯 直上VAP の3つの比較を表に（app-06 / sw v724→v725）
 - ユーザー要望「レイアウトが見づらい・表などで端的に」。選択＝説明はⓘでたたむ・カード＋灰色の一行→1つの比較表・記録ごとも表・3つともそろえる・記録帳の中も新しい表。
 - 新設 `_ElCmpView(p)`（`_ElCeTopSection` の直前）：見出し＋ⓘ説明／確度の絞り（filt）／比較表（行＝合計・1件平均・入った件数・勝ち負け・最大負け・1件ずつ比べて良い件数、列＝やり方、合計最大の列に★と淡黄）／届いた件数・同じ額の件数／対象外の注記（note・CAから終値を補うボタン含む）／記録ごとの表（日付・時刻・銘柄・シグナル・直上VAP・各やり方の額と内訳・差。行ごとに良い方を黄色）。
