@@ -2756,14 +2756,43 @@ function _m3(b, l, r, pl) {
       });
       return res;
     }
-    if (_m3IsStrArr(l) && _m3IsStrArr(r)) {
-      var bs = _m3IsStrArr(b) ? b : [];
-      var kept = l.filter(function(x) { return !(bs.indexOf(x) >= 0 && r.indexOf(x) < 0); });   // サーバーで消された名前は消す
-      r.forEach(function(x) { if (kept.indexOf(x) < 0 && bs.indexOf(x) < 0) kept.push(x); });   // サーバーで足された名前は足す
-      return kept;
-    }
+    if (_m3IsStrArr(l) && _m3IsStrArr(r)) return _m3StrArr(b, l, r, pl);
   }
   return pl ? l : r;
+}
+// 名前の一覧（シグナル・理由の選択肢・銘柄など）の統合 2026-11-24（ユーザー報告「入れ替えたはずの順番が元に戻ってしまうときがある」）。
+//   旧: 並びは常にこの端末(l)のまま＋サーバーで足された名前を末尾へ＝①片方で並べ替え・もう片方で名前を足す/消すと並べ替えが消える
+//   ②基準が読めない（iPadでIndexedDBが時間切れ）と、古い並びの端末がそのまま送り返して他端末の並べ替えを戻す。
+//   新: 名前の出し入れ（足す・消す）は今までどおり。並びは「基準から並びを変えた側」を採る（両方変えたら pl の側）。
+//   基準が無いときは後から保存した側（_m3NoBaseOrdLocal＝_fbResolveRemote が版数で決める・それ以外は pl）。
+var _m3NoBaseOrdLocal = null;
+function _m3SameOrd(a, c) {
+  var a2 = a.filter(function(x) { return c.indexOf(x) >= 0; }), c2 = c.filter(function(x) { return a.indexOf(x) >= 0; });
+  if (a2.length !== c2.length) return false;
+  for (var i = 0; i < a2.length; i++) { if (a2[i] !== c2[i]) return false; }
+  return true;
+}
+function _m3StrArr(b, l, r, pl) {
+  var hasB = _m3IsStrArr(b), bs = hasB ? b : [];
+  var keep = function(x) {
+    var inL = l.indexOf(x) >= 0, inR = r.indexOf(x) >= 0, inB = bs.indexOf(x) >= 0;
+    if (inL && inR) return true;
+    return !inB;   // 片方にだけある＝基準に無ければ足した（残す）／基準にあれば消した（消す）
+  };
+  var useL;
+  if (hasB) {
+    var lCh = !_m3SameOrd(l, bs), rCh = !_m3SameOrd(r, bs);
+    useL = (lCh && !rCh) ? true : (!lCh && rCh) ? false : !!pl;
+  } else useL = (_m3NoBaseOrdLocal != null) ? _m3NoBaseOrdLocal : !!pl;
+  var pri = useL ? l : r, sec = useL ? r : l, out = [];
+  pri.forEach(function(x) { if (out.indexOf(x) < 0 && keep(x)) out.push(x); });
+  sec.forEach(function(x, i) {   // 片方にしか無い名前は、その側で直前にあった名前の後ろへ
+    if (out.indexOf(x) >= 0 || !keep(x)) return;
+    var at = -1;
+    for (var j = i - 1; j >= 0; j--) { at = out.indexOf(sec[j]); if (at >= 0) break; }
+    out.splice(at + 1, 0, x);
+  });
+  return out;
 }
 // 削除トムストーン（_delSig/_delItem/_delEpNavi）を統合後に当て直す＝基準が無いときの和集合で消した記録が復活しないように。
 function _m3Tomb(d) {
@@ -2807,7 +2836,9 @@ function _fbResolveRemote(local, remote) {
   }
   var lv = (local && typeof local._v === "number") ? local._v : 0, rv = (remote && typeof remote._v === "number") ? remote._v : 0;
   var pl = _fbSyncBase ? (lv > rv) : true;
-  var merged = _fbMerge3(local, remote, pl);
+  _m3NoBaseOrdLocal = lv > rv;   // 基準が無いときの一覧の並び＝後から保存した側（記録の出し入れは今までどおり pl）2026-11-24
+  var merged;
+  try { merged = _fbMerge3(local, remote, pl); } finally { _m3NoBaseOrdLocal = null; }
   var needPush = !_m3Eq(merged, _fbBaseClean(remote));
   merged._v = needPush ? Math.max(lv, rv) : rv;
   if (!needPush) { try { _fbBaseSet(remote, rv); } catch (e) {} }
