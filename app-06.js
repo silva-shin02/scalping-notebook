@@ -8457,14 +8457,14 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           color ? React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: color, display: "inline-block", flexShrink: 0 } }) : null,
           React.createElement("span", { style: { fontWeight: 700, color: "#334155" } }, label),
           tgl ? React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 600 } }, tgl.n + "銘柄") : null), { textAlign: "left", paddingLeft: 8 }),
+        _elv2Td(React.createElement("span", {
+          title: sel != null ? ("記録があった日数。うちこの銘柄が「本日の取引銘柄」に選ばれた日は" + sel + "日（選ばれた日だけ取引しているので、常時見ている固定銘柄と勝率・1件平均をそのまま比べると日替わり側が有利に出ます）") : "記録があった日数（重複なし）"
+        }, a.days + "日", sel != null ? _sub("選定 " + sel + "日") : null)),
         // 件数の下に「被り除外N件」＝右の金額列（総利益/総損失/純損益/1件平均）だけがこのN件を落としている、という注記。
         //   到達・勝率は被り除外しない規約なので、これが無いと到達と総利益件数＋総損失件数の差が読めない（2026-08-07）。
         _elv2Td(React.createElement("span", {
           title: a.collX ? ("この" + a.n + "件のうち" + a.collX + "件は時間かぶり（早い方の保有中に入った遅い方）で、総利益・総損失・純損益・1件平均・実現損益から除外されています。件数・到達・勝率は除外していません（アプリ共通の規約）") : null
         }, a.n + "件", a.collX ? _sub("被り除外 " + a.collX + "件") : null)),
-        _elv2Td(React.createElement("span", {
-          title: sel != null ? ("記録があった日数。うちこの銘柄が「本日の取引銘柄」に選ばれた日は" + sel + "日（選ばれた日だけ取引しているので、常時見ている固定銘柄と勝率・1件平均をそのまま比べると日替わり側が有利に出ます）") : "記録があった日数（重複なし）"
-        }, a.days + "日", sel != null ? _sub("選定 " + sel + "日") : null)),
         _elv2Td((a.sp.wn || 0) + "件"),
         _elv2Td(a.wt.rate != null ? a.wt.rate + "%" : "—"),
         _elv2Td(React.createElement("span", null, _amt(a.gp), _sub(a.gpN + "件・全体の" + _pctS(a.gp, _gpTot)))),
@@ -8482,7 +8482,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     return React.createElement("div", null,
       bar("利益の内訳（全体の総利益 " + _elPnlFmt(_gpTot) + " に占める割合）", function(g) { return g.a.gp; }, _gpTot),
       bar("損失の内訳（全体の総損失 " + _elPnlFmt(-_glTot) + " に占める割合）", function(g) { return Math.abs(g.a.gl); }, _glTot),
-      _elv2Table(["銘柄", "件数", "日数", "到達", "勝率", "総利益（内訳）", "総損失（内訳）", "純損益", "1件平均", "実現損益"], rows));
+      _elv2Table(["銘柄", "日数", "件数", "到達", "勝率", "総利益（内訳）", "総損失（内訳）", "純損益", "1件平均", "実現損益"], rows));
   };
   // 🏷銘柄別の損益割合を月別に縦に並べる 2026-10-18（ユーザー選択「月別のみ・全部開く」＝全期間の表は出さない）。新しい月が上。
   //   VAP枠の切替月(8月)は全体損益（期間別）と同じく8/19以前(_preVapRecs)も合算＝月の合計行が期間別表の月行と一致する。
