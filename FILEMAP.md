@@ -407,6 +407,10 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-11-24e 直上VAP（EP②）のVAP補正を①の例外と切り離す（app-05/app-08 / sw v721→v722）
+- ユーザー指摘「EP①はRNなのでVAP補正なし、②は入るのでは（5210→5209）」。原因＝`_epCeTopRel`・フォーム `_fCeTopRel` が記録の補正値（①が例外だと0円で保存）を使い、さらに①の例外判定で0にしていた。
+- 新設 `_ceTopVapAdj(baseAdj, exempt1, topPx)`：①が例外なら設定の補正値（`_SN_VAP_ADJ_SET`＝app-08 App のレンダー時に `_vapAdjSetting(data)` を写す・未設定は `_VAP_ADJ_DEF`）、そうでなければ記録の補正値。直上VAPの株価が50円単位ちょうど（`_vapLvBigRn`）ならマイナス補正なし。実エントリーも含む（計算時に効くので過去記録も変わる）。
+
 ### 2026-11-24d 🏷銘柄別の損益割合＝灰色系の色を使わない（app-06 / sw v720→v721）
 - ユーザー指定。`_STK_SHARE_COLORS` の #475569（灰色）を #EAB308（黄色）に差し替え。
 

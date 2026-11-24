@@ -225,6 +225,7 @@ function App() {
     _useState156 = _slicedToArray(_useState155, 2),
     loading = _useState156[0],
     setLoading = _useState156[1];
+  _SN_VAP_ADJ_SET = _vapAdjSetting(data);   // 直上VAPのVAP補正（①が例外の記録）に使う設定値 2026-11-24＝app-05 _ceTopVapAdj。レンダー時に書く
   _elAmtStocksSet(data && data.custom && data.custom.amtStocks, data && data.custom && data.custom.rotatingStocks, data);   // 算入銘柄フィルタを金額の単一源へ渡す（上のコメント参照）2026-10-01
   // 旧: 数値根拠名の_EL_NUM_REASON同期（2026-06-24i）は浮き足フィールド化（signal.ukiUsed 2026-07-03）で廃止＝_elHasNumReason(app-06)はsignal.ukiUsedを直接判定。
   var _useState157 = useState(function(){
