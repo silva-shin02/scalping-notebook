@@ -9934,98 +9934,12 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
               style: { fontSize: 10, fontWeight: 700, background: _uk ? "#ECFDF5" : "#fff", border: "1px solid " + (_uk ? "#86EFAC" : "#DDD6FE"), borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap", cursor: "pointer", color: "#5B21B6" } },
               (r.date || "").slice(5) + " " + r.stock + " " + ((r.signal && r.signal.time) || "") + (_uk ? " ⚡浮き足" : ""));
           }))) : null;
-      // 確定待ち（旧5分足確定足 2026-10-17→2026-10-19改称・手動のみ）: 終値約定／確定待ちで入らなかった記録の件数と、α値約定と比べた想定損益の差の合計（今月・累計）。
-      //   母数は合計表と同じ除外（算入外・データのみ・被り除外・仮シグナル・算入銘柄）。0件なら出さない。
-      var _ceNote = (function() {
-        var _agg = function(rs) {
-          var o = { n: 0, ce: 0, skip: 0, diff: 0 };
-          (rs || []).forEach(function(r) {
-            if (!r || !r.signal || !_elInclTotal(r.signal) || _elIsProvisional(r.signal) || !_elAmtRecOk(r) || _elCollExcluded(data, r, _collScope)) return;
-            var _a = _ai(r), ci = _elCeInfo(r.signal, _a.alpha, _a.cutLine);
-            if (!ci) return;
-            o.n++; if (ci.ce) o.ce++; else o.skip++; o.diff += ci.diff;
-          });
-          return o;
-        };
-        var _m = _agg(_sumMonthRecs2), _all = _agg(_v2recsAmt);
-        // 確定待ちを付けた記録すべて（期間フィルタ内）。新しい順・押すと編集フォーム。
-        var _cands = v2recs.map(function(r) { var _a = _ai(r), c = _elCeCand(r.signal, _a.alpha); return c ? { r: r, c: c, a: _a } : null; }).filter(Boolean)
-          .sort(function(x, y) { return _byDateDescTimeAsc(x.r, y.r); });
-        if (!_all.n && !_cands.length) return null;
-        var _part = function(lbl, o) {
-          return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
-            React.createElement("span", { style: { color: "#64748B" } }, lbl),
-            React.createElement("b", null, o.n + "件"),
-            o.skip ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "（うち入らず" + o.skip + "）") : null,
-            React.createElement("span", { style: { color: "#64748B" } }, "α約定比"),
-            React.createElement("b", { style: { color: _elPnlColor(o.diff) } }, (o.diff > 0 ? "+" : "") + o.diff.toLocaleString() + "円"));
-        };
-        return React.createElement("div", { key: "cenote", title: "確定待ち：α値に届いた足（OS足）の確定を待った記録＝その足の終値でエントリーした扱い。α約定比＝想定損益の「確定待ちエントリー − α値で約定した場合」の差の合計。", style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "5px 11px", background: "#ECFEFF", border: "1px solid #A5F3FC", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#155E75", fontWeight: 600 } },
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", width: "100%" } },
-            React.createElement("span", { style: { fontWeight: 800 } }, "確定待ち"),
-            _part(_curSumYM.m + "月", _m),
-            _part("累計", _all),
-            _cands.length ? React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "確定待ちの記録 " + _cands.length + "件") : null),
-          _cands.length ? React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", width: "100%" } },
-            _cands.map(function(x, i) {
-              var r = x.r, on = true;
-              var d = (function() { var ci = _elCeInfo(r.signal, x.a.alpha, x.a.cutLine); return ci ? ci.diff : null; })();
-              return React.createElement("button", { key: "ce_" + i, type: "button", onClick: function() { setEditTarget(r); },
-                title: ((r.signal && Array.isArray(r.signal.ceReasons) && r.signal.ceReasons.length) ? "理由: " + r.signal.ceReasons.join("・") + "・" : "") + "押すと編集フォームを開きます",
-                style: { fontSize: 10, fontWeight: 700, cursor: "pointer", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap",
-                  background: on ? "#CFFAFE" : "#fff", color: on ? "#155E75" : "#67B7C7", border: "1px " + (on ? "solid #22D3EE" : "dashed #A5F3FC") } },
-                (r.date || "").slice(5) + " " + r.stock + " OS" + (x.c.k0 + 1) + "=" + (x.c.time || "") + (on ? "" : "（未）"),
-                d != null ? React.createElement("span", { style: { marginLeft: 4, color: on ? _elPnlColor(d) : (d > 0 ? "#E08A80" : d < 0 ? "#6FB58A" : "#aaa") } }, (d > 0 ? "+" : d < 0 ? "−" : "±") + Math.abs(d).toLocaleString()) : null);
-            })) : null);
-      })();
-      // スルーの理由別の件数 2026-10-17（ユーザー要望）。期間フィルタ内のスルー記録（合計・分析には入らない）を理由ごとに数える。複数選択なので合計は件数より多くなり得る。
-      //   押すとその理由の記録を新しい順にボタンで並べる（押すと編集フォーム）。理由なし＝選択肢の無いスルー（2026-10-17より前の記録など）。
-      // 2026-10-17b 要審議も同じ帯を出すため関数化（_rsnNoteOf）。o: {k, flag, sigKey, masterKey, defs, title, unit}
-      var _rsnNoteOf = function(o) {
-        var _th = filtered.filter(function(r) { return r.signal && r.signal[o.flag] === true; });
-        if (!_th.length) return null;
-        var _cnt = {}, _ord = [], _none = [];
-        var _mst = (data.custom && Array.isArray(data.custom[o.masterKey])) ? data.custom[o.masterKey] : o.defs;
-        _mst.forEach(function(n) { _cnt[n] = []; _ord.push(n); });
-        _th.forEach(function(r) {
-          var l = Array.isArray(r.signal[o.sigKey]) ? r.signal[o.sigKey].filter(Boolean) : [];
-          if (!l.length) { _none.push(r); return; }
-          l.forEach(function(n) { if (!_cnt[n]) { _cnt[n] = []; _ord.push(n); } _cnt[n].push(r); });
-        });
-        var _chip = function(key, label, rs) {
-          var on = thruOpen === o.k + ":" + key;
-          return React.createElement("button", { key: o.k + "_c_" + key, type: "button", disabled: !rs.length, onClick: function() { setThruOpen(on ? null : o.k + ":" + key); },
-            style: { fontSize: 10, fontWeight: 700, cursor: rs.length ? "pointer" : "default", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap",
-              background: on ? "#4B5563" : "#fff", color: on ? "#fff" : (rs.length ? "#374151" : "#bbb"), border: "1px solid " + (on ? "#4B5563" : "#D1D5DB") } },
-            label + " " + rs.length + "件");
-        };
-        var _op = (thruOpen && thruOpen.indexOf(o.k + ":") === 0) ? thruOpen.slice(o.k.length + 1) : null;
-        var _openRs = _op == null ? null : (_op === "__none__" ? _none : (_cnt[_op] || []));
-        return React.createElement("div", { key: o.k + "note", style: { padding: "5px 11px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#374151", fontWeight: 600 } },
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
-            React.createElement("span", { style: { fontWeight: 800 } }, o.title),
-            React.createElement("span", { style: { fontSize: 10, color: "#6B7280" } }, "（" + o.unit + " " + _th.length + "件・複数選択あり）"),
-            _ord.map(function(n) { return _chip(n, n, _cnt[n]); }),
-            _none.length ? _chip("__none__", "理由なし", _none) : null),
-          (_openRs && _openRs.length) ? React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 } },
-            _openRs.slice().sort(_byDateDescTimeAsc).map(function(r, i) {
-              return React.createElement("button", { key: o.k + "_r_" + i, type: "button", onClick: function() { setEditTarget(r); }, title: "押すと編集フォームを開きます",
-                style: { fontSize: 10, fontWeight: 700, cursor: "pointer", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap", background: "#fff", color: "#4B5563", border: "1px solid #D1D5DB" } },
-                (r.date || "").slice(5) + " " + r.stock + " " + ((r.signal && r.signal.time) || ""));
-            })) : null);
-      };
-      var _thruNote = _rsnNoteOf({ k: "thru", flag: "passThrough", sigKey: "thruReasons", masterKey: "thruReasons", defs: _DEF_THRU_REASONS, title: "スルー理由", unit: "スルー" });
-      var _ceRsnNote = _rsnNoteOf({ k: "ce", flag: "ceOn", sigKey: "ceReasons", masterKey: "ceReasons", defs: _DEF_CE_REASONS, title: "確定待ちの理由", unit: "確定待ち" });   // 2026-10-19
-      var _reviewNote = _rsnNoteOf({ k: "review", flag: "review", sigKey: "reviewReasons", masterKey: "reviewReasons", defs: _DEF_REVIEW_REASONS, title: "要審議の理由", unit: "要審議" });
+      // 集計タブの「確定待ち」「確定待ちの理由」「スルー理由」「要審議の理由」の帯は撤去 2026-11-24（月の早見の下で全期間を数えていて紛らわしい・ユーザー指定）
       var _sinceRecs = _elSinceRecs(_v2recsAmt);   // 🏷銘柄別の損益割合／🎯グレード別の件数だけ2026年7月以降に限定 2026-08-03b→08-03c
       _tabBody = _cardify([
         _sumMonthNav,
         _sumMonthRecs2.length ? _kpiBlockOf(_sumMonthRecs2)
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
-        _ceNote,
-        _ceRsnNote,
-        _thruNote,
-        _reviewNote,
         _oldRecNote,
         _vapNote,
         [
