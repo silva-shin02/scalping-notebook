@@ -5006,7 +5006,7 @@ function _EpnCalcForm(_p) {
   var _useStateEPNc2 = useState(null), nCe2TopRaw = _useStateEPNc2[0], setNCe2Top = _useStateEPNc2[1];
   // 2026-11-25 確度Dの直上VAP①オン/オフ（記録フォームと同じ）。オフ＝EP①は確定待ちだけ・②＝EP①の約定値＋〇円（ce2Off・null＝設定の初期値）
   var _useStateEPNct = useState(true), nCeTopOn = _useStateEPNct[0], setNCeTopOn = _useStateEPNct[1];
-  var _useStateEPNcu = useState(true), nCe2UseOff = _useStateEPNcu[0], setNCe2UseOff = _useStateEPNcu[1];   // 2026-11-25b 確度Dの②＝EP①の約定値＋〇円（true・初期）／直上VAP②（false）。直上VAP①オンのときだけ選べる
+  var _useStateEPNcu = useState(false), nCe2UseOff = _useStateEPNcu[0], setNCe2UseOff = _useStateEPNcu[1];   // 2026-11-25b 確度Dの②＝EP①の約定値＋〇円（true・初期）／直上VAP②（false）。直上VAP①オンのときだけ選べる
   var _useStateEPNco = useState(null), nCe2OffRaw = _useStateEPNco[0], setNCe2Off = _useStateEPNco[1];   // 確度Dの②＝直上VAP②（株価）2026-11-24（旧＝EP①より〇円上）。null＝未編集＝初期値（直上VAP①＋10円・無ければEP＋20円）に追従
   var _useStateEPNed = useState(null), _useStateEPNedA = _slicedToArray(_useStateEPNed, 2), editId = _useStateEPNedA[0], setEditId = _useStateEPNedA[1];
   var _useStateEPNea = useState(null), _useStateEPNeaA = _slicedToArray(_useStateEPNea, 2), editAt = _useStateEPNeaA[0], setEditAt = _useStateEPNeaA[1];
@@ -5144,7 +5144,7 @@ function _EpnCalcForm(_p) {
   var _resetForm = function() {
     setEditId(null); setEditAt(null); setEditDone(false); setNMinBars(["1"]); setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]);
     setNBase(_vapWorld(date) ? "0" : ""); setNVapAdj(_vapAdjSetting(data)); setNSpecialUsed("×"); setNSpecialAlpha(""); setNSpecialReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNUkiPrev(""); setNUkiPct(""); setNUkiSpecial(false); setNRnUsed("×"); setNRnVal(""); setNRnAuto(true); setNLevel(""); setNLineCoexist(false); setDetOpen(false);
-    setNKakudo(null); setNBRatio(_bRatioDef(data)); setNDShares(_dSharesDef(data)); setNCeTopPx(null); setNCe2Top(null); setNCeTopOn(true); setNCe2Off(null); setNCe2UseOff(true);
+    setNKakudo(null); setNBRatio(_bRatioDef(data)); setNDShares(_dSharesDef(data)); setNCeTopPx(null); setNCe2Top(null); setNCeTopOn(true); setNCe2Off(null); setNCe2UseOff(false);
     _kyozPrevRef.current = false;
   };
   var doSave = function() {
@@ -5183,7 +5183,7 @@ function _EpnCalcForm(_p) {
     setNRnUsed(hasRn ? "○" : "×"); setNRnVal(hasRn ? String(Number(e.rn) || 0) : ""); setNRnAuto(e.rnAuto !== false);   // 2026-07-30 未設定＝自動（早見カードの_epnApplyRnAutoと同じ扱い）。明示的なfalse＝カード/フォームで手動に倒した分だけ手動を維持（旧: ===true＝保存済みカードは既定手動 2026-07-20b）
     setNLevel(e.level != null ? String(e.level) : "");
     setNLineCoexist(e.lineCoexist === true);
-    setNKakudo(_kakudoOf(e)); setNBRatio(e.bRatio != null ? _bRatioOf(e) : _bRatioDef(data)); setNDShares(e.dShares != null ? _dSharesOf(e) : _dSharesDef(data)); setNCeTopPx(e.ceTopPx != null ? String(e.ceTopPx) : null); setNCe2Top(_ce2IsTop(e) ? String(e.ce2TopPx) : null); setNCeTopOn(!(_kakudoOf(e) === "D" && e.ceTopPx == null && !_ce2IsTop(e))); setNCe2Off(_ce2OffOf(e) != null ? String(_ce2OffOf(e)) : null); setNCe2UseOff(!_ce2IsTop(e));   // エントリー確度 2026-11-20
+    setNKakudo(_kakudoOf(e)); setNBRatio(e.bRatio != null ? _bRatioOf(e) : _bRatioDef(data)); setNDShares(e.dShares != null ? _dSharesOf(e) : _dSharesDef(data)); setNCeTopPx(e.ceTopPx != null ? String(e.ceTopPx) : null); setNCe2Top(_ce2IsTop(e) ? String(e.ce2TopPx) : null); setNCeTopOn(!(_kakudoOf(e) === "D" && e.ceTopPx == null && !_ce2IsTop(e))); setNCe2Off(_ce2OffOf(e) != null ? String(_ce2OffOf(e)) : null); setNCe2UseOff(!_ce2IsTop(e) && _ce2OffOf(e) != null);   // エントリー確度 2026-11-20
     setDetOpen(!!(e.b || e.k || (Array.isArray(e.f) && e.f.length) || e.lineCoexist === true));   // 詳細入りの保存EPは③〜⑤を自動展開＝入力済みが隠れたまま上書き保存される事故を防ぐ（案A 2026-07-10）
     setEditId(e.id); setEditAt(e.at || null); setEditDone(!!e.done);
     _kyozPrevRef.current = (e.lineCoexist === true);
@@ -5438,7 +5438,7 @@ function _EpnCalcForm(_p) {
 function _EpnKakudoBox(p) {
   var k = p.kakudo, c = k ? _KAKUDO_COL[k] : null;
   var _d2Off = k === "D" && p.ceTopOn === false;   // 2026-11-25 Dで直上VAP①オフ＝EP①は確定待ちだけ・②＝EP①の約定値＋〇円
-  var _d2Mode = _d2Off || (k === "D" && p.ce2UseOff !== false);   // 2026-11-25b ②＝EP①の約定値＋〇円（直上VAP①オンでも選べる）
+  var _d2Mode = _d2Off || (k === "D" && p.ce2UseOff === true);   // 2026-11-25b ②＝EP①の約定値＋〇円（直上VAP①オンでも選べる）
   var _ctp = (!_d2Off && p.ceTopPx !== "" && p.ceTopPx != null && !isNaN(Number(p.ceTopPx))) ? Number(p.ceTopPx) : null;
   var _off2 = (p.ce2Off !== "" && p.ce2Off != null && !isNaN(Number(p.ce2Off)) && Number(p.ce2Off) > 0) ? Number(p.ce2Off) : null;
   var _sbO = function(lbl, d) { return React.createElement("button", { type: "button", onClick: function() { if (p.onCe2Off) p.onCe2Off(String(Math.max(1, Math.round(((_off2 || 0) + d) * 10) / 10))); }, style: { padding: "0 5px", fontSize: 10, fontWeight: 800, lineHeight: 1.5, border: "1px solid #D8B4FE", background: "#fff", color: "#7E22CE", borderRadius: 4, cursor: "pointer" } }, lbl); };
