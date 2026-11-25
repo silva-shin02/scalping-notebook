@@ -2655,7 +2655,130 @@ function _ElTopVapTabs(props) {
   }));
   return React.createElement("div", null, bar, sub === "nexttop" ? React.createElement(_ElNextTopSection, props) : sub === "cwait" ? React.createElement(_ElCloseWaitSection, props) : React.createElement(_ElCeTopSection, props));
 }
-var _CE_SUBTABS = [["five", "⏳ 5分確定待ち"], ["good", "✅ 待つべき場面"], ["bad", "⛔ 待たない場面"], ["detail", "📊 条件ごとの内訳"], ["bsplit", "⚖ 分割の割合"], ["topvap", "🎯 直上VAP（確定待ち・次の足・待つか）"]];   // 2026-11-22 🎯・⏭・⏸ は1つにまとめて中で切替（_ElTopVapTabs）
+// 📈 EP①の次の足 2026-11-25（ユーザー要望「分割エントリーでEP①から次の足で最高値を何円上げることが多いか」）：⏳ のサブタブ "nexthi"。
+//   対象＝確度B・D・F（分割）の記録。①＝_elSplitDef の sA/aA（B・F＝基準ライン（α値）・D＝確定待ちor直上VAP）で _epResolve し、
+//   ①が入った足（epIdx）の次の足 legs[epIdx+1] の高値 − ①の約定値（px）＝「何円上げたか」。0円以下は「上げず」。次の足の高値が無い記録は除く。
+function _elNextHiRow(s, alpha) {
+  if (!s || alpha == null || !_kdSplit(_kakudoOf(s)) || !_epIsV2(s)) return null;
+  var A = Number(alpha); if (isNaN(A)) return null;
+  var D = _elSplitDef(s, A), s1 = D ? D.sA : s, a1 = D ? D.aA : A;
+  var r1 = _epResolve(s1, a1);
+  if (!r1 || r1.epIdx < 0) return { skip: "noep" };
+  if (r1.judge !== "ok") return { skip: "x" };
+  var nx = r1.legs[r1.epIdx + 1], hi = nx ? Number(nx.h) : NaN, px = Number(r1.px);
+  if (!nx || nx.h == null || isNaN(hi) || isNaN(px)) return { skip: "nonext", k0: r1.epIdx };
+  return { k0: r1.epIdx, px: px, hi: hi, d: Math.round((hi - px) * 100) / 100, ce: !!r1.ce, top: !!r1.top };
+}
+var _NEXTHI_TH = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30];
+function _ElNextHiSection(props) {
+  var recs = props.recs || [], aiOf = props.aiOf, data = props.data || {};
+  var _uF = useState("all"), fil = _uF[0], setFil = _uF[1];
+  var _uO = useState(false), open = _uO[0], setOpen = _uO[1];
+  var all = [];
+  recs.forEach(function(r) {
+    var a = aiOf(r) || {}, x = _elNextHiRow(r.signal, a.alpha);
+    if (x) all.push({ r: r, x: x, kd: _kakudoOf(r.signal) });
+  });
+  var kdN = { B: 0, D: 0, F: 0 };
+  all.forEach(function(o) { if (!o.x.skip) kdN[o.kd] = (kdN[o.kd] || 0) + 1; });
+  var rows = all.filter(function(o) { return fil === "all" || o.kd === fil; });
+  var ok = rows.filter(function(o) { return !o.x.skip; });
+  var skipN = { noep: 0, x: 0, nonext: 0 }; rows.forEach(function(o) { if (o.x.skip) skipN[o.x.skip]++; });
+  var ds = ok.map(function(o) { return o.x.d; }).sort(function(a, b) { return a - b; });
+  var n = ds.length;
+  var med = n ? (n % 2 ? ds[(n - 1) / 2] : (ds[n / 2 - 1] + ds[n / 2]) / 2) : null;
+  var avg = n ? ds.reduce(function(a, b) { return a + b; }, 0) / n : null;
+  var bk = {}, noUp = 0;
+  ds.forEach(function(d) { if (d <= 0) { noUp++; return; } var k = Math.max(1, Math.round(d)); bk[k] = (bk[k] || 0) + 1; });
+  var mode = null; Object.keys(bk).forEach(function(k) { if (mode == null || bk[k] > bk[mode] || (bk[k] === bk[mode] && Number(k) < Number(mode))) mode = k; });
+  var off = _ce2OffDef(data);
+  var _yen = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + (Math.round(v * 10) / 10) + "円"; };
+  var _pct = function(c) { return n ? Math.round(c / n * 1000) / 10 + "%" : "—"; };
+  var _pill = function(on, label, onClick, key) {
+    return React.createElement("button", { key: key, type: "button", onClick: onClick, style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#0E7490" : "#D6D3D1"), background: on ? "#ECFEFF" : "#fff", color: on ? "#0E7490" : "#57534E" } }, label);
+  };
+  var _card = function(title, main, sub, key) {
+    return React.createElement("div", { key: key, style: { flex: "1 1 130px", minWidth: 0, background: "#FAFAF9", border: "1px solid #E7E5E4", borderRadius: 10, padding: "8px 10px" } },
+      React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#78716C" } }, title),
+      React.createElement("div", { style: { marginTop: 3, fontSize: 15, fontWeight: 800, color: "#1C1917", fontVariantNumeric: "tabular-nums" } }, main),
+      sub ? React.createElement("div", { style: { marginTop: 3, fontSize: 10, color: "#78716C", lineHeight: 1.5 } }, sub) : null);
+  };
+  var head = React.createElement("div", { key: "h", style: { marginBottom: 8 } },
+    React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#57534E", marginRight: 2 } }, "確度"),
+      _pill(fil === "all", "B・D・F すべて", function() { setFil("all"); }, "f_all"),
+      ["B", "D", "F"].map(function(k) { return _pill(fil === k, k + "（" + (kdN[k] || 0) + "件）", function() { setFil(k); }, "f_" + k); })),
+    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "📈 EP①の次の足 ― EP①の約定値から、次の足で高値を何円上げたか"),
+    React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
+      "対象＝確度B・D・F（分割）の記録で、EP①が入った記録。EP①の約定値（B・F＝基準ライン（α値）・D＝確定待ちor直上VAP）から、EP①が入った足のすぐ次の足1本の高値までの差です。0円以下は「上げず」。次の足の高値が記録に無い記録は除きました。対象＝合計損益に入る記録（期間は上の選択どおり）。"));
+  if (!n) return React.createElement("div", null, head, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "対象の記録がありません"),
+    rows.length ? React.createElement("div", { style: { fontSize: 10, color: "#A8A29E", textAlign: "center" } }, "除いた記録：EP①が入らず " + (skipN.noep + skipN.x) + "件・次の足の高値なし " + skipN.nonext + "件") : null);
+  var kpi = React.createElement("div", { key: "k", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
+    _card("対象", n + "件", "除外：EP①入らず " + (skipN.noep + skipN.x) + "件・次の足の高値なし " + skipN.nonext + "件", "k1"),
+    _card("いちばん多い上げ幅", mode != null ? "+" + mode + "円（" + bk[mode] + "件）" : "—", "1円きざみで数えて最多（上げずは除く）", "k2"),
+    _card("真ん中（中央値）", _yen(med), "平均 " + _yen(avg), "k3"),
+    _card("上げず（0円以下）", noUp + "件", "割合 " + _pct(noUp), "k4"));
+  var _bar = function(c, col) {
+    return React.createElement("div", { style: { height: 10, width: (n ? Math.max(c ? 2 : 0, c / n * 100) : 0) + "%", background: col, borderRadius: 3 } });
+  };
+  var th = { padding: "4px 6px", fontSize: 10.5, fontWeight: 800, color: "#57534E", borderBottom: "1px solid #E7E5E4", textAlign: "right", whiteSpace: "nowrap" };
+  var td = { padding: "3px 6px", fontSize: 11.5, textAlign: "right", borderBottom: "1px solid #F5F5F4", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+  // ① 〇円以上上げた割合（届いた率）
+  var reachTbl = React.createElement("div", { key: "t1", style: { flex: "1 1 300px", minWidth: 0 } },
+    React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#1C1917", marginBottom: 4 } }, "〇円以上上げた割合（EP①＋〇円の指値なら届いた率）"),
+    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse" } },
+      React.createElement("thead", null, React.createElement("tr", null,
+        React.createElement("th", { style: th }, "上げ幅"), React.createElement("th", { style: th }, "件数"), React.createElement("th", { style: th }, "割合"), React.createElement("th", { style: Object.assign({}, th, { width: "45%" }) }, ""))),
+      React.createElement("tbody", null, _NEXTHI_TH.map(function(t) {
+        var c = ds.filter(function(d) { return d >= t; }).length, cur = t === off;
+        return React.createElement("tr", { key: t, style: cur ? { background: "#F3E8FF" } : null },
+          React.createElement("td", { style: Object.assign({}, td, { fontWeight: 800 }) }, "+" + t + "円以上", cur ? React.createElement("span", { style: { marginLeft: 4, fontSize: 9.5, color: "#7E22CE" } }, "D初期値") : null),
+          React.createElement("td", { style: td }, c + "件"),
+          React.createElement("td", { style: Object.assign({}, td, { fontWeight: 800 }) }, _pct(c)),
+          React.createElement("td", { style: Object.assign({}, td, { textAlign: "left" }) }, _bar(c, "#0E7490")));
+      }))));
+  // ② 上げ幅の分布（1円きざみ）
+  var ks = Object.keys(bk).map(Number).sort(function(a, b) { return a - b; });
+  var maxK = ks.length ? ks[ks.length - 1] : 0, dist = [["上げず（0円以下）", noUp, "#A8A29E", "z"]];
+  var cap = 30, over = 0;
+  for (var k = 1; k <= Math.min(maxK, cap); k++) dist.push(["+" + k + "円", bk[k] || 0, String(k) === String(mode) ? "#C2410C" : "#F59E0B", k]);
+  ks.forEach(function(k) { if (k > cap) over += bk[k]; });
+  if (over) dist.push(["+" + (cap + 1) + "円以上", over, "#F59E0B", "o"]);
+  var distTbl = React.createElement("div", { key: "t2", style: { flex: "1 1 300px", minWidth: 0 } },
+    React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#1C1917", marginBottom: 4 } }, "上げ幅の分布（1円きざみ・四捨五入・濃い橙＝いちばん多い）"),
+    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse" } },
+      React.createElement("thead", null, React.createElement("tr", null,
+        React.createElement("th", { style: th }, "上げ幅"), React.createElement("th", { style: th }, "件数"), React.createElement("th", { style: th }, "割合"), React.createElement("th", { style: Object.assign({}, th, { width: "45%" }) }, ""))),
+      React.createElement("tbody", null, dist.map(function(o) {
+        return React.createElement("tr", { key: o[3] },
+          React.createElement("td", { style: Object.assign({}, td, { fontWeight: 800 }) }, o[0]),
+          React.createElement("td", { style: td }, o[1] + "件"),
+          React.createElement("td", { style: td }, _pct(o[1])),
+          React.createElement("td", { style: Object.assign({}, td, { textAlign: "left" }) }, _bar(o[1], o[2])));
+      }))));
+  // ③ 記録ごと（たたみ）
+  var list = ok.slice().sort(function(a, b) { return String(b.r.date).localeCompare(String(a.r.date)) || String(b.r.signal.time || "").localeCompare(String(a.r.signal.time || "")); });
+  var _how = function(x) { return x.top ? "直上VAP" : x.ce ? "終値" : "α値"; };
+  var recBox = React.createElement("div", { key: "t3", style: { marginTop: 10 } },
+    React.createElement("button", { type: "button", onClick: function() { setOpen(!open); }, style: { padding: "4px 10px", fontSize: 11, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "1px solid #D6D3D1", background: "#fff", color: "#57534E" } }, (open ? "▼" : "▶") + " 記録ごと（" + n + "件）"),
+    open ? React.createElement("div", { style: { overflowX: "auto", marginTop: 6 } }, React.createElement("table", { style: { borderCollapse: "collapse", minWidth: 480 } },
+      React.createElement("thead", null, React.createElement("tr", null, ["日付", "時刻", "銘柄", "確度", "EP①の足", "EP①の約定（基準ライン比）", "次の足の高値（基準ライン比）", "上げ幅"].map(function(h, i) { return React.createElement("th", { key: i, style: Object.assign({}, th, i < 3 ? { textAlign: "left" } : null) }, h); }))),
+      React.createElement("tbody", null, list.map(function(o, i) {
+        var x = o.x, c = _KAKUDO_COL[o.kd] || {};
+        return React.createElement("tr", { key: i },
+          React.createElement("td", { style: Object.assign({}, td, { textAlign: "left" }) }, o.r.date),
+          React.createElement("td", { style: Object.assign({}, td, { textAlign: "left" }) }, o.r.signal.time || ""),
+          React.createElement("td", { style: Object.assign({}, td, { textAlign: "left" }) }, o.r.stock),
+          React.createElement("td", { style: td }, React.createElement("span", { style: { fontWeight: 800, color: c.fg, background: c.bg, borderRadius: 4, padding: "0 5px" } }, o.kd)),
+          React.createElement("td", { style: td }, "OS" + (x.k0 + 1) + "（" + _how(x) + "）"),
+          React.createElement("td", { style: td }, _yen(x.px)),
+          React.createElement("td", { style: td }, _yen(x.hi)),
+          React.createElement("td", { style: Object.assign({}, td, { fontWeight: 800, color: x.d > 0 ? "#C2410C" : "#78716C" }) }, x.d > 0 ? _yen(x.d) : "上げず（" + _yen(x.d) + "）"));
+      })))) : null);
+  return React.createElement("div", null, head, kpi,
+    React.createElement("div", { style: { display: "flex", gap: 14, flexWrap: "wrap" } }, reachTbl, distTbl), recBox);
+}
+var _CE_SUBTABS = [["five", "⏳ 5分確定待ち"], ["good", "✅ 待つべき場面"], ["bad", "⛔ 待たない場面"], ["detail", "📊 条件ごとの内訳"], ["bsplit", "⚖ 分割の割合"], ["nexthi", "📈 EP①の次の足"], ["topvap", "🎯 直上VAP（確定待ち・次の足・待つか）"]];   // 2026-11-22 🎯・⏭・⏸ は1つにまとめて中で切替（_ElTopVapTabs）
 function _ElCeTabs(props) {
   var _u = _snUseSess("elv.ceSub", _snBSplitReq ? "bsplit" : "five"), sub = _u[0], setSub = _u[1];
   useEffect(function() {
@@ -2669,7 +2792,7 @@ function _ElCeTabs(props) {
     return React.createElement("button", { key: t[0], type: "button", onClick: function() { setSub(t[0]); }, style: { padding: "5px 12px", fontSize: 12, fontWeight: 800, borderRadius: 8, cursor: "pointer", border: "1px solid " + (on ? "#0E7490" : "#D6D3D1"), background: on ? "#0E7490" : "#fff", color: on ? "#fff" : "#57534E" } }, t[1]);
   }));
   return React.createElement("div", null, bar,
-    sub === "five" ? React.createElement(_ElAllCeSection, props) : sub === "bsplit" ? React.createElement(_ElBSplitSection, props) : (sub === "topvap" || sub === "cetop" || sub === "nexttop") ? React.createElement(_ElTopVapTabs, props) : React.createElement(_ElCeSitSection, Object.assign({}, props, { mode: sub, key: "sit" })));
+    sub === "five" ? React.createElement(_ElAllCeSection, props) : sub === "bsplit" ? React.createElement(_ElBSplitSection, props) : sub === "nexthi" ? React.createElement(_ElNextHiSection, props) : (sub === "topvap" || sub === "cetop" || sub === "nexttop") ? React.createElement(_ElTopVapTabs, props) : React.createElement(_ElCeSitSection, Object.assign({}, props, { mode: sub, key: "sit" })));
 }
 // ===== 🕯 寄り足 タブ 2026-11-12（📡シグナル総合 → 寄り足ライン の中・ユーザー要望）=====
 // ①寄り足（9:00の1分足・5分足の両方）が陽線／陰線／同時線で、件数・勝率・損切り率・合計／平均の想定損益を比べる。
