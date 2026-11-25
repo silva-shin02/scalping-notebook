@@ -3379,7 +3379,7 @@ function _elBasisW() { return _EL_UI_VAP ? "VAP基準" : "採用α基準"; }
 var _EL_AMT_DATA = null;
 function _elAmtStocksSet(list, pool, data) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; _EL_AMT_POOL = Array.isArray(pool) ? pool : null; _EL_AMT_DATA = data || null; _EL_AMT_BYPASS = false; _EL_UI_VAP = false; }
 function _elAmtStockOk(stock, date) {
-  if (stock && _EL_AMT_DATA && _dsTrioMode(date)) return _dailyStockHas(_EL_AMT_DATA, date, stock);   // 3銘柄の日(2026-11-11〜)＝その日の3銘柄だけ算入（算入銘柄設定より優先）
+  if (stock && _EL_AMT_DATA && _dsTrioMode(date)) return _dsInTotal(_EL_AMT_DATA, date, stock);   /* ＋スポット 2026-11-25 */   // 3銘柄の日(2026-11-11〜)＝その日の3銘柄だけ算入（算入銘柄設定より優先）
   if (!_EL_AMT_STOCKS || !stock) return true;
   if (!date || String(date) < _EL_AMT_SINCE) return true;   // 境界より前は従来どおり全銘柄算入
   if (_EL_AMT_STOCKS.indexOf(stock) >= 0) return true;
@@ -3586,7 +3586,7 @@ function _elAmtStockPicker(props) {
     var _pk = _dailyStockList(data, props.date);
     return React.createElement("div", { style: { margin: compact ? "2px 0" : "6px 0" } },
       React.createElement("span", { title: "合計損益に算入するのはその日の選定銘柄です（EPナビの▽で変更）", style: { display: "inline-block", fontSize: compact ? 10 : 11, fontWeight: 700, color: "#1E3A8A", background: "#DBEAFE",
-        border: "1px solid #93C5FD", borderRadius: 5, padding: "2px 8px", whiteSpace: "nowrap" } }, "算入: " + (_pk.length ? _pk.map(_stkLbl).join("・") : "なし")));
+        border: "1px solid #93C5FD", borderRadius: 5, padding: "2px 8px", whiteSpace: "nowrap" } }, "算入: " + (_pk.length ? _pk.map(_stkLbl).join("・") : "なし") + (function() { var _sp = _spotList(data, props.date); return _sp.length ? "　◇スポット: " + _sp.map(_stkLbl).join("・") : ""; })()));   // スポット銘柄も算入 2026-11-25
   }
   var _toggle = function(st) {
     save(function(prev) {
@@ -3633,7 +3633,7 @@ function _isDataOnly(data, r) {
   // ＝候補でも「合計算入ON」にチェックすれば合計に入り（return false）、「OFF」なら_elInclTotalが別途除外。未設定(null)の旧記録だけ下の動的自動判定にフォールバック（遡及・後方互換）。
   if (r.signal.includeInTotal != null) return false;
   if (!r.stock || !_dsPoolHas(data, r.date, r.stock)) return false;   // 3銘柄の日(2026-11-11〜)は全銘柄が候補／それ以前は候補プール外（固定銘柄）＝従来通り
-  return !_dailyStockHas(data, r.date, r.stock);   // その日の指定銘柄（複数可 2026-08-06・_dailyStockHasで正規化）でない候補＝データのみ。未指定日は候補すべてがデータのみ＝合計除外（2026-07-23 ユーザー選択B＝旧2026-07-22iの未指定日カーブアウトを撤回・指定銘柄のみ算入）
+  return !(_dsTrioMode(r.date) ? _dsInTotal(data, r.date, r.stock) : _dailyStockHas(data, r.date, r.stock));   // ＋スポット 2026-11-25   // その日の指定銘柄（複数可 2026-08-06・_dailyStockHasで正規化）でない候補＝データのみ。未指定日は候補すべてがデータのみ＝合計除外（2026-07-23 ユーザー選択B＝旧2026-07-22iの未指定日カーブアウトを撤回・指定銘柄のみ算入）
 }
 // 合計額算入（金額版）: 従来の_elInclTotal（スルー/手動不算入）に加え、②データのみ（候補で未指定）も合計から外す。
 // グランド/銘柄横断の合計を出す消費側だけで使う（銘柄別の自タブ・分析母数は_elInclTotalのまま）。dataとr（.stock/.date/.signalを持つ記録）を渡す。
@@ -3968,7 +3968,7 @@ function _elProvBadge(extra) {
 var _SN_SEL_DATA = null, _selLocCache = { ch: null, obj: null, id: null };
 function _elSelOutRec(data, r) {
   if (!data || !r || !r.stock || !r.date || typeof _dsTrioMode !== "function" || !_dsTrioMode(r.date)) return false;
-  return !_dailyStockHas(data, r.date, r.stock);
+  return !_dsInTotal(data, r.date, r.stock);   // スポット銘柄は選定外にしない 2026-11-25
 }
 function _elSelOutSig(s) {
   var d = _SN_SEL_DATA;
@@ -10436,7 +10436,7 @@ function EntryRecordForm(_ref_erf) {
   // 「本日の取引銘柄」に選ばれていない候補銘柄（rotatingStocksに属しdailyStock[日]でない＝データのみ）の新規記録は、既定で【合計算入OFF・データ算入ON】＝合計から外れ分析に残る（ユーザー要望 2026-07-22f・見た目でも除外が分かるようチェックを外す）。明示設定(includeInTotal/InData)があればそれを優先。
   var _indDataOnlyCand = (function() {
     if (!fStock || !_dsPoolHas(data, fDate, fStock)) return false;   // 3銘柄の日(2026-11-11〜)は全銘柄が候補
-    return !_dailyStockHas(data, fDate, fStock);   // 候補で「その日の指定銘柄（複数可 2026-08-06）でない」→データのみ（合計算入OFF既定）。未指定日は候補すべてOFF既定（2026-07-23 ユーザー選択B＝_isDataOnlyと対称に未指定日カーブアウトを撤回）。指定銘柄のみON既定
+    return !(_dsTrioMode(fDate) ? _dsInTotal(data, fDate, fStock) : _dailyStockHas(data, fDate, fStock));   // ＋スポット 2026-11-25   // 候補で「その日の指定銘柄（複数可 2026-08-06）でない」→データのみ（合計算入OFF既定）。未指定日は候補すべてOFF既定（2026-07-23 ユーザー選択B＝_isDataOnlyと対称に未指定日カーブアウトを撤回）。指定銘柄のみON既定
   })();
   // ※見送り理由の必須判定 _skipMemoReq は EP位置(_fEpIdxLive)も見るので、その導出の直後に置いてある（下方を検索）。
   var _useStateINC = useState((initSig.includeInTotal != null && initSig.provisional !== true) ? (initSig.includeInTotal !== false) : (_indDataOnlyCand ? false : true)),   // 仮の記録の不算入は仮のせい＝本を足したら算入に戻す 2026-11-09
