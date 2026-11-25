@@ -3652,8 +3652,8 @@ function StockQuickRefTable(_props_qrt) {
           return React.createElement("tr", {
             key: d,
             style: { borderBottom: "1px solid #f0eeea",
-              background: isHL ? "#EEF2FF" : "transparent",
-              cursor: "pointer", opacity: (!isHL && (isSun || isSat || isHoliday)) ? 0.45 : 1 },   // 土日祝日は薄く 2026-11-25 ユーザー指示
+              background: isHL ? "#EEF2FF" : (isSun || isSat || isHoliday) ? "#F1F1EF" : "transparent",   // 土日祝日は薄い灰色 2026-11-25 ユーザー指示
+              cursor: "pointer" },
             onClick: function(){ if (onSelectDate) onSelectDate(d); }
           },
             React.createElement("td", {
