@@ -1817,6 +1817,14 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslH; d._migBHide1031 = true;
     } catch(e) { console.warn("[migrateData] bHide1031 error:", e); }
   }
+  // 【一回性 _migBHideKfu1125・2026-11-25】確定浮き足残りは①基準ライン不要（基準ライン＝OS1の終値・ユーザー指示）＝sigSecLabels[確定浮き足残り].bHide。過去記録の値は残す。
+  if (!d._migBHideKfu1125) {
+    try {
+      var _sslK = Object.assign({}, d.custom.sigSecLabels || {});
+      _sslK["確定浮き足残り"] = Object.assign({}, _sslK["確定浮き足残り"] || {}, { bHide: true });
+      d.custom.sigSecLabels = _sslK; d._migBHideKfu1125 = true;
+    } catch(e) { console.warn("[migrateData] bHideKfu1125 error:", e); }
+  }
   // 【一回性 _migBHide1102・2026-11-02】大RN→大RN（仮シグナル）も①基準ライン不要（ユーザー指示）＝sigSecLabels[大RN→大RN].bHide。過去記録の値は残す。
   if (!d._migBHide1102) {
     try {
