@@ -10096,6 +10096,41 @@ function EntryRecordForm(_ref_erf) {
     });
     fills.forEach(function(x) { _setKitenAt(x[0], x[1], { p: x[2] }); });
   }, [fSigDetail, fKitenAt, caLine, fTags]);
+  // 2026-11-25 起点の足を選んだ／変えたら、その足の下ヒゲが触れている線を起点に自動で選ぶ（ユーザー指示）。手で変えるのは自由・開いただけでは変えない。
+  //   指標線（EMA・VWAP・POC＝その足の値）：安値≦線＋5円 かつ 線≦実体の下端。RN（大RN＝100円単位・中RN＝50円単位）：安値≦RN＋10円 かつ RN≦実体の下端。
+  //   当てはまるもの全部・無ければ「無し」（起点の株価＝その足の実体の安値）。候補は起点の共通リスト custom.sigKitenList の中の名前だけ。
+  var _kitenAutoNames = function(tf, tm) {
+    var bars = _snlBars(caLine, tf), i = _snlIdxAt(bars, tm, tf); if (i < 0 || !bars[i]) return null;
+    var b = bars[i], lo = Number(b.l), bodyLo = Math.min(Number(b.o), Number(b.c)); if (isNaN(lo) || isNaN(bodyLo)) return null;
+    var vals = _snlVals(caLine, tf, i), list = Array.isArray(custom.sigKitenList) ? custom.sigKitenList : ["200EMA", "50EMA", "22EMA", "9EMA", "VWAP", "大RN", "中RN", "POC"], out = [];
+    list.forEach(function(n) {
+      if (!n || n === _EL_PASS_NONE || out.indexOf(n) >= 0) return;
+      var st = _snlRnStep(n);
+      if (st) { for (var x = Math.ceil((lo - 10 - st.o) / st.s) * st.s + st.o; x <= bodyLo; x += st.s) { if (lo <= x + 10) { out.push(n); break; } } return; }
+      var v = _snlNameVal(vals, n); if (v != null && !isNaN(Number(v)) && Number(v) <= bodyLo && lo <= Number(v) + 5) out.push(n);
+    });
+    return { names: out.length ? out : [_EL_PASS_NONE], bodyLow: _kitenBodyLow(b) };
+  };
+  var _kitenTRef = useRef(null);
+  useEffect(function() {
+    if (!caLine || caLine.st !== "ok") return;
+    var cur = {};
+    (fTags || []).forEach(function(t) { _EL_TFS.forEach(function(tf) { var a = ((fKitenAt || {})[t] || {})[tf] || {}; cur[t + "\u0001" + tf] = a.t || ""; }); });
+    var prev = _kitenTRef.current; _kitenTRef.current = cur;
+    if (prev == null) return;   // 開いた直後（読み込み完了時）は変えない
+    var ups = [];
+    Object.keys(cur).forEach(function(k) {
+      if (prev[k] == null || prev[k] === cur[k] || !cur[k]) return;
+      var pp = k.split("\u0001"), r = _kitenAutoNames(pp[1], cur[k]); if (r) ups.push({ t: pp[0], tf: pp[1], r: r });
+    });
+    if (!ups.length) return;
+    setFSigDetail(function(pv) {
+      var o = Object.assign({}, pv);
+      ups.forEach(function(u) { var kk = _elKitenKey(custom, u.t), e = Object.assign({}, o[u.t] || {}); e[kk + u.tf] = u.r.names.slice(); o[u.t] = e; });
+      return o;
+    });
+    ups.forEach(function(u) { if (u.r.names[0] === _EL_PASS_NONE) _setKitenAt(u.t, u.tf, { p: u.r.bodyLow }); });
+  }, [fKitenAt, caLine, fTags]);
   // 2026-11-11l 新規記録で起点の足が未選択なら「シグナルの1つ前の確定足」を既定に入れる（ユーザー決定）。起点が「無し」ならその足の実体の安値も。
   //   自動で入れた足のままなら、記録の時刻を変えたときに追従する。手で選んだ足・手で直した株価は触らない。編集（過去記録）では何もしない。
   var _kitenDefRef = useRef({});
