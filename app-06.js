@@ -2149,17 +2149,18 @@ function _ElBSplitSection(props) {
   var _uT = useState(0), setTick = _uT[1];
   var _uL = useState(null), load = _uL[0], setLoad = _uL[1];
   var _uF = useState("all"), fil = _uF[0], setFil = _uF[1];
-  var _uM = useState(props.kd === "D" ? "D" : "B"), mode = _uM[0], setMode = _uM[1];   // 2026-11-22 B／D の切替（ユーザー決定）
-  var isD = mode === "D", KIND = isD ? _DSPLIT_KIND : _BSPLIT_KIND;
+  var _uM = useState(props.kd === "D" ? "D" : props.kd === "F" ? "F" : "B"), mode = _uM[0], setMode = _uM[1];   // 2026-11-22 B／D の切替（ユーザー決定）・2026-11-25 F を追加
+  var isD = mode === "D", isF = mode === "F", KIND = isD ? _DSPLIT_KIND : _BSPLIT_KIND;
   var rows = [];
   recs.forEach(function(r) {
+    if (isF && _kakudoOf(r.signal) !== "F") return;   // F＝Fの記録だけ（株数のまま）2026-11-25
     var a = aiOf(r) || {};
     var x = isD ? _elDSplitRow(r.signal, a.alpha, a.cutLine) : _elBSplitRow(r.signal, a.alpha, a.cutLine, function(k) { return _allCeCaRel(r.signal, r.stock, r.date, k); });
     if (x) rows.push({ r: r, x: x });
   });
   var ok = rows.filter(function(o) { return !o.x.skip; });
   var skipN = {}; rows.forEach(function(o) { if (o.x.skip) skipN[o.x.skip] = (skipN[o.x.skip] || 0) + 1; });
-  var kN = { top: 0, up: 0, later: 0, miss: 0, "in": 0 }, caN = 0, topN = 0, kdN = { A: 0, B: 0, C: 0, D: 0, E: 0, none: 0 };
+  var kN = { top: 0, up: 0, later: 0, miss: 0, "in": 0 }, caN = 0, topN = 0, kdN = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, none: 0 };
   ok.forEach(function(o) { kN[o.x.kind]++; if (o.x.src === "ca") caN++; if (o.x.hasTop) topN++; var _k = _kakudoOf(o.r.signal); kdN[_k || "none"]++; });
   var need = {}, needKeys = [];
   rows.forEach(function(o) {
@@ -2199,11 +2200,15 @@ function _ElBSplitSection(props) {
   var modeRow = React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center", marginBottom: 6 } },
     React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#57534E", marginRight: 2 } }, "確度"),
     _pill(!isD, "B（①基準ライン＋②確定待ちor直上VAP）", function() { setMode("B"); setFil("all"); }, "m_B"),
-    _pill(isD, "D（①確定待ちor直上VAP＋②EP①より〇円上）", function() { setMode("D"); setFil("all"); }, "m_D"));
+    _pill(isD, "D（①確定待ちor直上VAP＋②EP①より〇円上）", function() { setMode("D"); setFil("all"); }, "m_D"),
+    _pill(isF, "F（Bの株数版）", function() { setMode("F"); setFil("all"); }, "m_F"));
   var head = isD ? React.createElement("div", { key: "h", style: { marginBottom: 8 } }, modeRow,
     React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⚖ Dの割合 ― ①確定待ちor直上VAP と②EP①より〇円上 に何:何で分けるか"),
     React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
       "対象＝確度Dの記録だけです（それより前の記録には②の決まりが無いため）。各記録で「①だけで入った想定損益」と「②だけで入った想定損益」（直上VAP②に指値・①が入った足から（①が終値で入ったときは次の足から）①を持っている間に届いたらその値で約定・①の約定値以下なら入らない・届かなければ0円）を出し、割合で混ぜて合計しました。"))
+  : isF ? React.createElement("div", { key: "h", style: { marginBottom: 8 } }, modeRow,
+    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⚖ Fの割合 ― ①基準ライン（α値）と②確定待ちor直上VAP に何:何で分けるか（株数を抑えたBの分割）"),
+    React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } }, "対象＝確度Fの記録だけです。入り方はBと同じで、損益は各記録の株数のままの額です。"))
   : React.createElement("div", { key: "h", style: { marginBottom: 8 } }, modeRow,
     React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⚖ Bの割合 ― ①基準ライン（α値）と②確定待ちor直上VAP に何:何で分けるか"),
     React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
@@ -2220,7 +2225,7 @@ function _ElBSplitSection(props) {
   var _lbl = function(k) { return k + ":" + (10 - k); };
   var a10 = aggs[0].a, a0 = aggs[aggs.length - 1].a;
   var kpi = React.createElement("div", { key: "k", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
-    _card("対象", React.createElement("span", null, ok.length + "件"), isD ? "確度Dの記録" : "記録に直上VAPがある記録 " + topN + "件", "k1"),
+    _card("対象", React.createElement("span", null, ok.length + "件"), isD ? "確度Dの記録" : isF ? "確度Fの記録（直上VAPあり " + topN + "件）" : "記録に直上VAPがある記録 " + topN + "件", "k1"),
     _card("②の入り方", React.createElement("span", { style: { fontSize: 11.5 } }, KIND.map(function(o) { return o[1] + " " + kN[o[0]]; }).join("・")),
       isD ? "②が約定した割合 " + _pct(ok.length ? kN["in"] / ok.length : null) : "②がα値より上で入れた割合 " + _pct(ok.length ? (kN.top + kN.up) / ok.length : null), "k2"),
     _card("両端の合計", [React.createElement("span", { key: "a", style: { fontSize: 11, color: "#78716C" } }, "①だけ"), _amt(a10.sum), React.createElement("span", { key: "c", style: { fontSize: 11, color: "#78716C" } }, "②だけ"), _amt(a0.sum)],
@@ -2228,12 +2233,12 @@ function _ElBSplitSection(props) {
     _card("目安", React.createElement("span", { style: { fontSize: 11.5 } }, "合計最大 " + (best ? _lbl(best.k) : "—") + "・最大負けが最も浅い " + (safe ? _lbl(safe.k) : "—")),
       isD ? "割合は ①確定待ちor直上VAP:②EP①より〇円上" : "割合は ①基準ライン:②確定待ちor直上VAP", "k4"));
   var _defW = _bRatioDef(data, mode);
-  var _setDef = function(v) { if (!props.save) return; v = _bRatioClamp(v); var _o = {}; _o[isD ? "dRatioDef" : "bRatioDef"] = v; props.save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, _o) }); }); };
+  var _setDef = function(v) { if (!props.save) return; v = _bRatioClamp(v); var _o = {}; _o[isD ? "dRatioDef" : isF ? "fRatioDef" : "bRatioDef"] = v; props.save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, _o) }); }); };
   var defRow = React.createElement("div", { key: "d", style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "6px 9px", border: "1px solid #FDBA74", background: "#FFF7ED", borderRadius: 8, fontSize: 11 } },
     React.createElement("span", { style: { fontWeight: 800, color: _KAKUDO_COL[mode].fg } }, "新規記録・EPナビの " + mode + " の割合の初期値"),
     props.save ? React.createElement(_BRatioCtl, { value: _defW, onChange: _setDef, kd: mode }) : React.createElement("span", { style: { fontWeight: 800 } }, _bRatioLbl(_defW)),
     React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "下の表の行の「これにする」でも変えられます。保存済みの記録の割合は変わりません。"),
-    React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "確度を付けた記録：A " + kdN.A + "・B " + kdN.B + "・C " + kdN.C + "・D " + kdN.D + "・E " + kdN.E + "・未設定 " + kdN.none + "件"));
+    React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "確度を付けた記録：A " + kdN.A + "・B " + kdN.B + "・C " + kdN.C + "・D " + kdN.D + "・E " + kdN.E + "・F " + kdN.F + "・未設定 " + kdN.none + "件"));
   var noteParts = _ALLCE_SKIP.filter(function(o) { return skipN[o[0]]; }).map(function(o) { return o[1] + " " + skipN[o[0]] + "件"; });
   var note = React.createElement("div", { key: "n", style: { fontSize: 10, color: "#78716C", marginBottom: 8, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
     noteParts.length ? React.createElement("span", null, "対象外：" + noteParts.join("・")) : null,
@@ -2374,10 +2379,10 @@ function _ElCeTopSection(props) {
     var x = _elCeTopRow(r.signal, a.alpha, a.cutLine, function(k) { return _allCeCaRel(r.signal, r.stock, r.date, k); });
     if (x) rows.push({ r: r, x: x });
   });
-  var kdN = { all: 0, B: 0, C: 0, D: 0, none: 0 };
-  rows.forEach(function(o) { if (o.x.skip) return; kdN.all++; kdN[o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D" ? o.x.kd : "none"]++; });
+  var kdN = { all: 0, B: 0, C: 0, D: 0, F: 0, none: 0 };
+  rows.forEach(function(o) { if (o.x.skip) return; kdN.all++; kdN[o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D" || o.x.kd === "F" ? o.x.kd : "none"]++; });
   var okAll = rows.filter(function(o) { return !o.x.skip; });
-  var ok = okAll.filter(function(o) { return kf === "all" ? true : kf === "none" ? !(o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D") : o.x.kd === kf; });
+  var ok = okAll.filter(function(o) { return kf === "all" ? true : kf === "none" ? !(o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D" || o.x.kd === "F") : o.x.kd === kf; });
   var skipN = {}; rows.forEach(function(o) { if (o.x.skip) skipN[o.x.skip] = (skipN[o.x.skip] || 0) + 1; });
   var need = {}, needKeys = [];
   rows.forEach(function(o) {
@@ -2423,6 +2428,7 @@ function _ElCeTopSection(props) {
     _pill(kf === "B", "確度B " + kdN.B, function() { setKf("B"); }, "k_B"),
     _pill(kf === "C", "確度C " + kdN.C, function() { setKf("C"); }, "k_C"),
     _pill(kf === "D", "確度D(①) " + kdN.D, function() { setKf("D"); }, "k_D"),
+    _pill(kf === "F", "確度F " + kdN.F, function() { setKf("F"); }, "k_F"),
     _pill(kf === "none", "確度未設定 " + kdN.none, function() { setKf("none"); }, "k_n"));
   var noteParts = _CETOP_SKIP.filter(function(o) { return skipN[o[0]]; }).map(function(o) { return o[1] + " " + skipN[o[0]] + "件"; });
   var note = React.createElement("div", { key: "n", style: { fontSize: 10, color: "#78716C", marginBottom: 8, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
@@ -2461,10 +2467,10 @@ function _ElNextTopSection(props) {
     var x = _elNextTopRow(r.signal, a.alpha, a.cutLine, function(k) { return _allCeCaRel(r.signal, r.stock, r.date, k); });
     if (x) rows.push({ r: r, x: x });
   });
-  var kdN = { all: 0, B: 0, C: 0, D: 0, none: 0 };
-  rows.forEach(function(o) { if (o.x.skip) return; kdN.all++; kdN[o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D" ? o.x.kd : "none"]++; });
+  var kdN = { all: 0, B: 0, C: 0, D: 0, F: 0, none: 0 };
+  rows.forEach(function(o) { if (o.x.skip) return; kdN.all++; kdN[o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D" || o.x.kd === "F" ? o.x.kd : "none"]++; });
   var okAll = rows.filter(function(o) { return !o.x.skip; });
-  var ok = okAll.filter(function(o) { return kf === "all" ? true : kf === "none" ? !(o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D") : o.x.kd === kf; });
+  var ok = okAll.filter(function(o) { return kf === "all" ? true : kf === "none" ? !(o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D" || o.x.kd === "F") : o.x.kd === kf; });
   var skipN = {}; rows.forEach(function(o) { if (o.x.skip) skipN[o.x.skip] = (skipN[o.x.skip] || 0) + 1; });
   var need = {}, needKeys = [];
   rows.forEach(function(o) {
@@ -2520,6 +2526,7 @@ function _ElNextTopSection(props) {
     _pill(kf === "B", "確度B " + kdN.B, function() { setKf("B"); }, "k_B"),
     _pill(kf === "C", "確度C " + kdN.C, function() { setKf("C"); }, "k_C"),
     _pill(kf === "D", "確度D(①) " + kdN.D, function() { setKf("D"); }, "k_D"),
+    _pill(kf === "F", "確度F " + kdN.F, function() { setKf("F"); }, "k_F"),
     _pill(kf === "none", "確度未設定 " + kdN.none, function() { setKf("none"); }, "k_n"));
   var noteParts = _NXTOP_SKIP.filter(function(o) { return skipN[o[0]]; }).map(function(o) { return o[1] + " " + skipN[o[0]] + "件"; });
   var note = React.createElement("div", { key: "n", style: { fontSize: 10, color: "#78716C", marginBottom: 8, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
@@ -2556,10 +2563,10 @@ function _ElCloseWaitSection(props) {
     var x = _elCloseWaitRow(r.signal, a.alpha, a.cutLine, function(k) { return _allCeCaRel(r.signal, r.stock, r.date, k); });
     if (x) rows.push({ r: r, x: x });
   });
-  var kdN = { all: 0, B: 0, C: 0, D: 0, none: 0 };
-  rows.forEach(function(o) { if (o.x.skip) return; kdN.all++; kdN[o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D" ? o.x.kd : "none"]++; });
+  var kdN = { all: 0, B: 0, C: 0, D: 0, F: 0, none: 0 };
+  rows.forEach(function(o) { if (o.x.skip) return; kdN.all++; kdN[o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D" || o.x.kd === "F" ? o.x.kd : "none"]++; });
   var okAll = rows.filter(function(o) { return !o.x.skip; });
-  var ok = okAll.filter(function(o) { return kf === "all" ? true : kf === "none" ? !(o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D") : o.x.kd === kf; });
+  var ok = okAll.filter(function(o) { return kf === "all" ? true : kf === "none" ? !(o.x.kd === "B" || o.x.kd === "C" || o.x.kd === "D" || o.x.kd === "F") : o.x.kd === kf; });
   var skipN = {}; rows.forEach(function(o) { if (o.x.skip) skipN[o.x.skip] = (skipN[o.x.skip] || 0) + 1; });
   var need = {}, needKeys = [];
   rows.forEach(function(o) {
@@ -2615,6 +2622,7 @@ function _ElCloseWaitSection(props) {
     _pill(kf === "B", "確度B " + kdN.B, function() { setKf("B"); }, "k_B"),
     _pill(kf === "C", "確度C " + kdN.C, function() { setKf("C"); }, "k_C"),
     _pill(kf === "D", "確度D(①) " + kdN.D, function() { setKf("D"); }, "k_D"),
+    _pill(kf === "F", "確度F " + kdN.F, function() { setKf("F"); }, "k_F"),
     _pill(kf === "none", "確度未設定 " + kdN.none, function() { setKf("none"); }, "k_n"));
   var noteParts = _CWAIT_SKIP.filter(function(o) { return skipN[o[0]]; }).map(function(o) { return o[1] + " " + skipN[o[0]] + "件"; });
   var note = React.createElement("div", { key: "n", style: { fontSize: 10, color: "#78716C", marginBottom: 8, lineHeight: 1.6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },

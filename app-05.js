@@ -4347,7 +4347,7 @@ function _epResolve(s, alpha) {
         var _tp = _epCeTopRel(s);
         if (_tp != null && _tp > Number(alpha) && legs[i].h != null && Number(legs[i].h) >= _tp) { ce = true; top = true; px = _tp; epIdx = i; break; }   // 直上VAPに届いた＝即エントリー
         var _cc = legs[i].c;
-        if (_cc != null && !(Number(_cc) > Number(alpha))) { skipIdx = i; if (s.kakudo === "B" && s._epFrom == null) _to = Math.min(_to, i + 2); continue; }   // 確定足の終値がα以下＝その足では入らない。2026-11-24 確度BのEP②は次の足1本だけα値で待ち、届かなければ未達（ユーザー指示・C・Dの①は従来どおりOS3まで）
+        if (_cc != null && !(Number(_cc) > Number(alpha))) { skipIdx = i; if ((s.kakudo === "B" || s.kakudo === "F") && s._epFrom == null) _to = Math.min(_to, i + 2); continue; }   // 確定足の終値がα以下＝その足では入らない。2026-11-24 確度BのEP②は次の足1本だけα値で待ち、届かなければ未達（ユーザー指示・C・Dの①は従来どおりOS3まで）
         if (_cc != null) { ce = true; px = Number(_cc); }                                // 終値未入力は従来どおりα値で約定（保存時は必須）
       }
       epIdx = i; break;
@@ -4643,9 +4643,11 @@ function _elAllCeAgg(rows) {
 // 2026-11-20z D（ユーザー要望）＝Aに近いが自信がない→株数を抑えて全株ここでエントリー（確定待ちしない＝計算はA）。株数＝signal.dShares（記録ごと・100株刻み・初期値＝設定 custom.dSharesDef・既定200株）。
 //   Dの損益は株数の分だけ縮める（ユーザー決定）＝1000株換算（×_SN_K）の代わりに ×株数/100（_elKWrap の _snKFac）。合計・分析・グレードもその額。記録の保存値は100株のまま（_snK100）。
 // 2026-11-22 D＝Cの分割（①確定待ちor直上VAP＋②さらに上の直上VAP＝指値・signal.ce2TopPx）・これまでのD（株数）はEへ（app-01 一回性 _migKakudoDE1122）。ボタンは文字だけ（ユーザー指示）。
-var _KAKUDO = [["A", "A", "A 最終天井：このラインこそが最終天井＝全株ここでエントリー（確定待ちしない）"], ["B", "B", "B 分割：このラインが基準・さらにOSする可能性も否定できない＝①基準ライン＋②確定待ちor直上VAP に分割"], ["C", "C", "C 自信なし：確定待ちor直上VAPのみ"], ["D", "D", "D 自信なし分割：①確定待ちor直上VAP＋②直上VAP②（指値）に分割"], ["E", "E", "E：Aに近いが自信がない＝株数を抑えて全株ここでエントリー（確定待ちしない）"]];
-var _KAKUDO_COL = { A: { fg: "#15803D", bg: "#DCFCE7", bd: "#86EFAC" }, B: { fg: "#C2410C", bg: "#FFEDD5", bd: "#FDBA74" }, C: { fg: "#57534E", bg: "#E7E5E4", bd: "#A8A29E" }, D: { fg: "#7E22CE", bg: "#F3E8FF", bd: "#D8B4FE" }, E: { fg: "#1D4ED8", bg: "#DBEAFE", bd: "#93C5FD" } };
-function _kdSplit(k) { return k === "B" || k === "D"; }   // 割合で分ける確度
+var _KAKUDO = [["A", "A", "A 最終天井：このラインこそが最終天井＝全株ここでエントリー（確定待ちしない）"], ["B", "B", "B 分割：このラインが基準・さらにOSする可能性も否定できない＝①基準ライン＋②確定待ちor直上VAP に分割"], ["C", "C", "C 自信なし：確定待ちor直上VAPのみ"], ["D", "D", "D 自信なし分割：①確定待ちor直上VAP＋②直上VAP②（指値）に分割"], ["E", "E", "E：Aに近いが自信がない＝株数を抑えて全株ここでエントリー（確定待ちしない）"], ["F", "F", "F：Eの分割＝株数を抑えて ①基準ライン＋②確定待ちor直上VAP に分割（Bの株数版）"]];   // F 2026-11-25
+var _KAKUDO_COL = { A: { fg: "#15803D", bg: "#DCFCE7", bd: "#86EFAC" }, B: { fg: "#C2410C", bg: "#FFEDD5", bd: "#FDBA74" }, C: { fg: "#57534E", bg: "#E7E5E4", bd: "#A8A29E" }, D: { fg: "#7E22CE", bg: "#F3E8FF", bd: "#D8B4FE" }, E: { fg: "#1D4ED8", bg: "#DBEAFE", bd: "#93C5FD" }, F: { fg: "#BE185D", bg: "#FCE7F3", bd: "#F9A8D4" } };
+function _kdSplit(k) { return k === "B" || k === "D" || k === "F"; }
+function _kdBLike(k) { return k === "B" || k === "F"; }   // F＝Bの株数版（入り方はBと同じ）2026-11-25
+function _kdShares(k) { return k === "E" || k === "F"; }   // 株数で損益を出す確度   // 割合で分ける確度
 // 2026-11-25 「確定浮き足残り」＝OS1（5分足の確定足の最後の1分足・例 9:49）の確定を待ち、必ずその終値で入るシグナル（ユーザー指示）。
 //   基準ライン＝OS1の終値（新規はCAから自動・既存は「OS1の終値に合わせる」ボタン）・VAP値0・VAP補正/RN補正なし・直上VAP①は使わない・確度はC・Dだけ（Dの②＝①の約定値＋〇円）。
 //   計算：_epResolve が OS1 の終値で約定（終値がα以下でも入る）。シグナルに含まれていれば対象（他のシグナルと一緒でも）。
@@ -4655,7 +4657,7 @@ function _snCloseSig(s) { return !!s && (_snCloseSigTags(s.tags) || s.tag === _S
 var _SN_CLOSE_KD = ["C", "D"];
 // 計算に効かせるのは signal.closeEp===true の記録だけ（新規は保存時に付く・既存はフォームの「OS1の終値に合わせる」で付く＝開いただけでは変わらない）
 function _snCloseEp(s) { return !!s && s.closeEp === true && _snCloseSig(s); }
-function _kakudoOf(s) { var k = s && s.kakudo; return (k === "A" || k === "B" || k === "C" || k === "D" || k === "E") ? k : null; }
+function _kakudoOf(s) { var k = s && s.kakudo; return (k === "A" || k === "B" || k === "C" || k === "D" || k === "E" || k === "F") ? k : null; }
 function _dSharesClamp(v) { v = Number(v); if (isNaN(v) || v <= 0) return 200; return Math.max(100, Math.round(v / 100) * 100); }
 function _dSharesDef(data) { var v = data && data.custom ? data.custom.dSharesDef : null; return (v == null || v === "") ? 200 : _dSharesClamp(v); }
 function _dSharesOf(s) { return (s && s.dShares != null && s.dShares !== "") ? _dSharesClamp(s.dShares) : 200; }
@@ -4674,7 +4676,7 @@ function _DSharesCtl(p) {
 }
 function _dSharesSetDefFn(save) { return save ? function(v) { v = _dSharesClamp(v); save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { dSharesDef: v }) }); }); } : null; }
 function _bRatioClamp(v) { v = Number(v); if (isNaN(v)) return 50; return Math.max(0, Math.min(100, Math.round(v / 10) * 10)); }
-function _bRatioDef(data, kd) { var v = data && data.custom ? data.custom[kd === "D" ? "dRatioDef" : "bRatioDef"] : null; return (v == null || v === "") ? 50 : _bRatioClamp(v); }   // kd＝"D" なら Dの割合の初期値（custom.dRatioDef）2026-11-22
+function _bRatioDef(data, kd) { var v = data && data.custom ? data.custom[kd === "D" ? "dRatioDef" : kd === "F" ? "fRatioDef" : "bRatioDef"] : null; return (v == null || v === "") ? 50 : _bRatioClamp(v); }   // kd＝"D" なら Dの割合の初期値（custom.dRatioDef）2026-11-22
 function _bRatioOf(s) { return (s && s.bRatio != null && s.bRatio !== "") ? _bRatioClamp(s.bRatio) : 50; }
 function _bRatioLbl(w) { return (w / 10) + ":" + ((100 - w) / 10); }   // 表示は10を基準に「3:7」（保存は①の%のまま）2026-11-20g
 // A/B/C の3択ボタン。props: value, onChange(k), small, title
@@ -4690,7 +4692,7 @@ function _KakudoSeg(p) {
 }
 // Bの割合（①:②）を10%ずつ動かす部品。props: value(①%), onChange(v), def(設定の初期値), small
 function _BRatioCtl(p) {
-  var w = _bRatioClamp(p.value), sm = !!p.small, c = _KAKUDO_COL[p.kd === "D" ? "D" : "B"];
+  var w = _bRatioClamp(p.value), sm = !!p.small, c = _KAKUDO_COL[p.kd === "D" ? "D" : p.kd === "F" ? "F" : "B"];
   var btn = function(lbl, d, k) {
     return React.createElement("button", { key: k, type: "button", onClick: function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); p.onChange(_bRatioClamp(w + d)); }, disabled: (d < 0 ? w <= 0 : w >= 100),
       style: { padding: "0 6px", fontSize: sm ? 10 : 11, fontWeight: 800, lineHeight: 1.5, border: "1px solid " + c.bd, background: "#fff", color: c.fg, borderRadius: 4, cursor: "pointer" } }, lbl);
@@ -4732,7 +4734,7 @@ function _kakudoBadge(s, key) {
   var k = _kakudoOf(s); if (!k) return null;
   var c = _KAKUDO_COL[k];
   return React.createElement("span", { key: key, title: (_KAKUDO.filter(function(o) { return o[0] === k; })[0] || [0, 0, ""])[2], style: { fontSize: 9.5, fontWeight: 800, color: c.fg, background: c.bg, border: "1px solid " + c.bd, borderRadius: 4, padding: "0 5px", whiteSpace: "nowrap", lineHeight: 1.5 } },
-    "確度" + k + (_kdSplit(k) ? " " + _bRatioLbl(_bRatioOf(s)) : k === "E" ? " " + _dSharesOf(s) + "株" : ""));
+    "確度" + k + (_kdSplit(k) ? " " + _bRatioLbl(_bRatioOf(s)) : "") + (_kdShares(k) ? " " + _dSharesOf(s) + "株" : ""));
 }
 // ===== 🎯 確定待ち vs 直上VAP 2026-11-20（ユーザー要望「確度BのEP②と確度Cで、確定待ちで入るべきか直上VAPで待つべきか」）=====
 // 対象＝記録に直上VAP（signal.ceTopPx）が入っていて、最終EP（α）より上の記録。各記録の「EP②（確定待ちor直上VAP）の分だけ」の想定損益（1000株換算・Bの割合は混ぜない）を3通りで出す:
@@ -6863,7 +6865,7 @@ function _elSplitDef(s, alpha) {
   var m = _EL_SPLIT_CACHE ? _EL_SPLIT_CACHE.get(s) : null;
   if (m && Object.prototype.hasOwnProperty.call(m, key)) return m[key];
   var d = null, w = _bRatioOf(s) / 100;
-  if (s.kakudo === "B") d = { kd: "B", w: w, sA: Object.assign({}, s, { ceOn: undefined }), aA: A, sC: s, aC: A };   // B の②は元の記録のまま（従来どおり・呼び出し側が _EL_BMIX_IN の中で使う）
+  if (_kdBLike(s.kakudo)) d = { kd: s.kakudo, w: w, sA: Object.assign({}, s, { ceOn: undefined }), aA: A, sC: s, aC: A };   // B の②は元の記録のまま（従来どおり・呼び出し側が _EL_BMIX_IN の中で使う）
   else {
     // 2026-11-22b ②＝①の約定値（r1.px）＋〇円（ce2Off）。①が入った瞬間から指値：①が直上VAP／α値で入った足はその足から、終値で入ったときは次の足から。①を持っている間だけ（_epHold0）。
     var off = _ce2OffOf(s), r1 = _epResolve(s, A), ok1 = !!(r1 && r1.epIdx >= 0 && r1.judge === "ok"), a2 = null, from = 99;
@@ -6882,7 +6884,7 @@ function _elSplitDef(s, alpha) {
 function _elBMixOn(s, alpha) { var r = _elBReal(s); return !_EL_BMIX_IN && !!_elSplitDef(r, alpha); }
 var _EL_BVIEW_CACHE = (typeof WeakMap !== "undefined") ? new WeakMap() : null;
 function _elBView(s) {
-  if (!s || s._bOrig || s._ceV || s.kakudo !== "B" || s.ceOn !== true) return s;
+  if (!s || s._bOrig || s._ceV || !_kdBLike(s.kakudo) || s.ceOn !== true) return s;
   var v = _EL_BVIEW_CACHE ? _EL_BVIEW_CACHE.get(s) : null;
   if (!v) { v = Object.assign({}, s, { ceOn: undefined, _bOrig: s }); if (_EL_BVIEW_CACHE) _EL_BVIEW_CACHE.set(s, v); }
   return v;
@@ -6969,7 +6971,7 @@ function _elBSumNode(sp, vertical, big, badge, fs) {
   var _op = function(t) { return React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, t); };
   var _tot = React.createElement("span", { style: { fontWeight: 900, fontSize: big ? "1.35em" : (vertical === "hissan" ? "1em" : "1.2em"), color: _elPnlColor(sp.t), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _f(sp.t));
   var _tt = sp.kd === "D" ? "エントリー確度D（割合 " + _bRatioLbl(Math.round(sp.w * 100)) + "）：①確定待ちor直上VAPの分＋②EP①＋〇円の分＝合計"
-    : "エントリー確度B（割合 " + _bRatioLbl(Math.round(sp.w * 100)) + "）：①基準ラインの分＋②確定待ちor直上VAPの分＝合計";
+    : "エントリー確度" + (sp.kd === "F" ? "F" : "B") + "（割合 " + _bRatioLbl(Math.round(sp.w * 100)) + "）：①基準ラインの分＋②確定待ちor直上VAPの分＝合計";
   if (vertical === "hissan") {   // 2026-11-20q 記録フォーム：ひっ算の形（①／＋②／線／合計）ユーザー指示
     // 2026-11-20z6 ①②の印は左の列・金額は右の列でそろえる（ユーザー指示「①②はきれいに縦並び・金額が無くても ー円」）
     var _opS = { color: "#9CA3AF", fontWeight: 700, minWidth: 12 };
@@ -6994,7 +6996,7 @@ var _SN_K = 10, _SN_KSH = 1000, _EL_K_IN = 0;
 var _SN_STOP_ALLOW_YEN = 15000, _SN_STOP_ALLOW_SH = 1000;   // 1トレードの許容損切り額（推奨損切り値・Bの記録フォーム）2026-11-20w ユーザー指定
 function _snKv(v, f) { return (v == null || isNaN(v)) ? v : Math.round(v * (f == null ? _SN_K : f)); }
 // 倍率：通常は1000株換算（×_SN_K）。確度Dの記録は株数の分だけ（×株数/100）2026-11-20z（第1引数が記録のとき）
-function _snKFac(a0) { return (a0 && typeof a0 === "object" && a0.kakudo === "E") ? _dSharesOf(a0) / 100 : _SN_K; }
+function _snKFac(a0) { return (a0 && typeof a0 === "object" && _kdShares(a0.kakudo)) ? _dSharesOf(a0) / 100 : _SN_K; }
 function _snK100(fn) { _EL_K_IN++; try { return fn(); } finally { _EL_K_IN--; } }
 function _elKWrap(fn, kind) {
   return function() {
@@ -7517,7 +7519,7 @@ function _elLineInner(s, alpha, cutLine) {   // 2026-11-20 表のライン欄＝
   var lv = (s && s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))) ? Number(s.levelPrice) : null;
   var a = (alpha != null && alpha !== "" && !isNaN(Number(alpha))) ? Number(alpha) : null;
   var ep1 = (lv != null && a != null) ? Math.round((lv + a) * 100) / 100 : null;
-  var _kd = _kakudoOf(s), _tp = (_kd === "B") ? _epCeTopRel(s) : null;
+  var _kd = _kakudoOf(s), _tp = _kdBLike(_kd) ? _epCeTopRel(s) : null;
   var ep2 = (lv != null && _tp != null) ? Math.round((lv + _tp) * 100) / 100 : null;
   if (_kd === "D" && ep1 != null) {   // 2026-11-22b Dは ①②とも実際に入った値（①＝終値か直上VAP）・②が入らなければ「①+〇」
     var _sdL = _elSplitDef(_elBReal(s), a), _r1 = _sdL ? _epResolve(_sdL.sA, _sdL.aA) : null;
@@ -10676,10 +10678,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateKD = useState(_kakudoOf(initSig)), fKakudo = _useStateKD[0], setFKakudo = _useStateKD[1];   // エントリー確度 A/B/C 2026-11-20（新規は未選択＝保存時に必須）
   var _useStateBR = useState(initSig.bRatio != null ? _bRatioOf(initSig) : _bRatioDef(data, initSig.kakudo)), fBRatio = _useStateBR[0], setFBRatio = _useStateBR[1];   // Bの①の割合%（初期値＝設定 custom.bRatioDef）
   var _pickKakudo = function(k) {
-    var _was = fKakudo === "B" || fKakudo === "C" || fKakudo === "D";
+    var _was = fKakudo === "B" || fKakudo === "C" || fKakudo === "D" || fKakudo === "F";
     setFKakudo(k); setFCeOn(k !== "A" && k !== "E");   // E（旧D）もAと同じく確定待ちしない 2026-11-20z／2026-11-22 D＝Cの分割は確定待ちオン
     if (_kdSplit(k) && k !== fKakudo) setFBRatio((initSig.kakudo === k && initSig.bRatio != null) ? _bRatioOf(initSig) : _bRatioDef(data, k));   // 割合の初期値はB・Dで別（2026-11-22）
-    if ((k === "B" || k === "C" || k === "D") && !_was) setFCeTopOn(true);   // 2026-11-20z5 B・Cに切り替えたら直上VAPは初期オン（既存記録を開いてBにしたときもオフにならない・ユーザー指摘）
+    if ((k === "B" || k === "C" || k === "D" || k === "F") && !_was) setFCeTopOn(true);   // 2026-11-20z5 B・Cに切り替えたら直上VAPは初期オン（既存記録を開いてBにしたときもオフにならない・ユーザー指摘）
   };
   var _useStateDS = useState(initSig.dShares != null ? _dSharesOf(initSig) : _dSharesDef(data)), fDShares = _useStateDS[0], setFDShares = _useStateDS[1];   // Dの株数（初期値＝設定 custom.dSharesDef）2026-11-20z
   var _useStateCER = useState(Array.isArray(initSig.ceReasons) ? initSig.ceReasons.slice() : []),   // 確定待ちの理由（選択肢）2026-10-19
@@ -10782,7 +10784,7 @@ function EntryRecordForm(_ref_erf) {
     var px = top ? _fCeTopRel : (ce && epConf != null) ? epConf : _av;   // 約定値（確定足エントリーは終値・直上VAPに届いたら直上VAP）
     return { alpha: _av, o1: _o1, o2: _o2, o3: _o3, epIdx: epIdx, judge: judge, showOs2: showOs2, showOs3: showOs3, epHigh: epHigh, epConf: epConf, k0: k0, ce: ce, top: top, skipIdx: skipIdx, px: px };
   };
-  var _fBForm = fKakudo === "B" && !!fCeOn && _fCeActive;
+  var _fBForm = _kdBLike(fKakudo) && !!fCeOn && _fCeActive;
   var _fSplitForm = _kdSplit(fKakudo) && !!fCeOn && _fCeActive;   // 確度B・D（分割）の金額表示 2026-11-22
   var _epFormStateCe = _mkEpFS(true);
   var _epFormState = _fBForm ? _mkEpFS(false) : _epFormStateCe;
@@ -10832,11 +10834,11 @@ function EntryRecordForm(_ref_erf) {
   // OS1〜5固定欄（scheme:3）: ミラー同期は廃止。hold*/hold2*欄=常に4・5本目の実データ。
   // フォーム状態を仮想signal化し、H1/H2のプレビュー損益・損切り判定は共通ヘルパー（表と同一基準）で算出する。
   // 2026-11-20z3 フォームの金額表示の倍率：Dは株数の分（×株数/100）・ほかは1000株換算（×_SN_K）＝_snKFac と同じ（保存値は100株のまま）
-  var _fKf = fKakudo === "E" ? _dSharesClamp(fDShares) / 100 : _SN_K, _fKLbl = fKakudo === "E" ? _dSharesClamp(fDShares) + "株" : "1000株換算";
+  var _fKf = _kdShares(fKakudo) ? _dSharesClamp(fDShares) / 100 : _SN_K, _fKLbl = _kdShares(fKakudo) ? _dSharesClamp(fDShares) + "株" : "1000株換算";
   var _fVSig = {
     stopHold: _fStopHoldOn ? true : undefined,   // 損切り接触でも次足期待度○なら持ち続ける（保存後の表と同じ判定に揃える）
     ceOn: _fCeActive ? !!fCeOn : undefined, ceIdx: (_fCeActive && _fK0 >= 0) ? _fK0 : null, time: fTime || "",   // 5分足確定足エントリー（保存値と同じ）
-    kakudo: fKakudo || undefined, bRatio: _kdSplit(fKakudo) ? fBRatio : undefined, dShares: fKakudo === "E" ? fDShares : undefined,   // エントリー確度（保存値と同じ＝B・Dは損益を混ぜる）2026-11-20
+    kakudo: fKakudo || undefined, bRatio: _kdSplit(fKakudo) ? fBRatio : undefined, dShares: _kdShares(fKakudo) ? fDShares : undefined,   // エントリー確度（保存値と同じ＝B・Dは損益を混ぜる）2026-11-20
     ce2Off: _fCe2SaveOff, ce2TopPx: _fCe2SaveTop,   // 確度Dの②＝EP①＋〇円 or 直上VAP②（保存値と同じ）2026-11-22b・2026-11-24
     ceTopPx: (fCeOn && fCeTopOn && fCeTopPx !== "" && !isNaN(Number(fCeTopPx))) ? Number(fCeTopPx) : null,   // 直上VAP（保存値と同じ）2026-10-28
     levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
@@ -11334,8 +11336,8 @@ function EntryRecordForm(_ref_erf) {
       if (!isEdit && fThru === true && (fThruReasons || []).filter(Boolean).length === 0) _vm.push("スルーの理由（選択肢）");   // 新規のスルーは必須 2026-10-17
       if (!isEdit && !fKakudo && fThru !== true) _vm.push("エントリー確度（A〜E）");
       if (!isEdit) fTags.forEach(function(t) { if (!(fSigTf || {})[t]) _vm.push("シグナルの分足（" + t + "）"); });   // 新規は必須 2026-11-22   // 新規のみ必須（スルーは除く）2026-11-20
-      if (!isEdit && fCeOn && (fCeReasons || []).filter(Boolean).length === 0) _vm.push((fKakudo === "B" || fKakudo === "C" || fKakudo === "D") ? fKakudo + "にした理由（選択肢）" : "確定待ちの理由（選択肢）");
-      if (!isEdit && fCeOn && _fCeRList().some(function(r) { return !fCeRTf[r]; })) _vm.push(((fKakudo === "B" || fKakudo === "C" || fKakudo === "D") ? fKakudo + "にした理由" : "確定待ちの理由") + "ごとの分足");   // 新規のみ必須（理由と同じ・ユーザー決定）2026-10-31
+      if (!isEdit && fCeOn && (fCeReasons || []).filter(Boolean).length === 0) _vm.push((fKakudo === "B" || fKakudo === "C" || fKakudo === "D" || fKakudo === "F") ? fKakudo + "にした理由（選択肢）" : "確定待ちの理由（選択肢）");
+      if (!isEdit && fCeOn && _fCeRList().some(function(r) { return !fCeRTf[r]; })) _vm.push(((fKakudo === "B" || fKakudo === "C" || fKakudo === "D" || fKakudo === "F") ? fKakudo + "にした理由" : "確定待ちの理由") + "ごとの分足");   // 新規のみ必須（理由と同じ・ユーザー決定）2026-10-31
       // 直上VAP 2026-10-28（ユーザー決定）: 確定待ちを付けたら新規・編集とも必須／計算に水準線値が要る／VAPより上の株価であること。
       if (fCeOn && fCeTopOn && (fCeTopPx === "" || isNaN(Number(fCeTopPx)))) _vm.push("直上VAP（株価）");
       if (fKakudo === "D" && fThru !== true && !_fCe2OffOk) _vm.push(_fCe2Top ? "EP②（直上VAP②）" : "EP②（EP①より何円上か）");   // 確度Dは必須（スルーは除く）2026-11-22b
@@ -11420,7 +11422,7 @@ function EntryRecordForm(_ref_erf) {
       time: fTime || "",
       ceOn: _fCeActive ? !!fCeOn : undefined,   // 確定待ち（旧5分足確定足 2026-10-17→10-19改称・手動のみ）: boolean＝導入後の記録
       ceIdx: (_fCeActive && _fK0 >= 0) ? _fK0 : null,   // チェック欄が指していた足（α値に届いた最初の足・0=OS1）
-      kakudo: fKakudo || null, bRatio: _kdSplit(fKakudo) ? fBRatio : null, dShares: fKakudo === "E" ? fDShares : null,
+      kakudo: fKakudo || null, bRatio: _kdSplit(fKakudo) ? fBRatio : null, dShares: _kdShares(fKakudo) ? fDShares : null,
       ce2Off: _fCe2SaveOff, ce2TopPx: _fCe2SaveTop,   // 2026-11-24 直上VAP②（株価）方式を追加＝どちらか一方だけ保存   // 確度Dの②＝EP①の約定値より〇円上 2026-11-22b（旧 ce2TopPx＝株価は使わない）   // 確度Dの②＝さらに上の直上VAP（株価）2026-11-22   // Dの株数 2026-11-20z   // エントリー確度 A/B/C・Bの①の割合% 2026-11-20
       ceReasons: (fCeOn && (fCeReasons || []).filter(Boolean).length) ? (fCeReasons || []).filter(Boolean) : null,   // 確定待ちの理由（選択肢）2026-10-19
       ceTf: (fCeOn && _fCeTfU()) ? _fCeTfU() : null,   // 確定待ちの理由の分足（2026-11-20b 理由ごとの和）
@@ -12889,9 +12891,9 @@ function EntryRecordForm(_ref_erf) {
               var _dv = _ci ? _ci.diff : null;
               var _epPx = _ef.top ? _ef.px : _ef.epConf, _epLbl = _ef.top ? "直上VAP" : "終値";   // 直上VAPに届いたら直上VAPが約定値 2026-10-28
               _ciNode = [
-                React.createElement("span", { key: "px", title: _epLbl + "で約定", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "→ " + (fKakudo === "B" ? "最終EP②" : fKakudo === "D" ? "最終EP①" : "最終EP") + " ",
+                React.createElement("span", { key: "px", title: _epLbl + "で約定", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "→ " + (_kdBLike(fKakudo) ? "最終EP②" : fKakudo === "D" ? "最終EP①" : "最終EP") + " ",
                   React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, _pxTxt(_epPx)), "円"),   // 2026-11-20i EP①の「→ 最終EP」と同じ見た目
-                (_fAlpha != null && !isNaN(_fAlpha) && _epPx != null) ? React.createElement("span", { key: "df", title: "最終EP" + (fKakudo === "B" ? "①" : "") + "（基準ライン＋VAP）から何円上でエントリーになったか（損益ではありません）", style: { fontWeight: 700, color: "#0E7490" } },
+                (_fAlpha != null && !isNaN(_fAlpha) && _epPx != null) ? React.createElement("span", { key: "df", title: "最終EP" + (_kdBLike(fKakudo) ? "①" : "") + "（基準ライン＋VAP）から何円上でエントリーになったか（損益ではありません）", style: { fontWeight: 700, color: "#0E7490" } },
                   (function() { var _d = Math.round(_epPx * 100) / 100; return "基準ライン" + (_d >= 0 ? "+" : "−") + Math.abs(_d) + "円"; })()   /* 2026-11-20v 基準ラインからの差（ユーザー指示） */) : null
               ];
             } else if (_ef.skipIdx != null && _ef.skipIdx >= 0) {
@@ -12948,7 +12950,7 @@ function EntryRecordForm(_ref_erf) {
             var _boxS = function(bd, bg) { return { padding: "6px 8px", border: "1px solid " + bd, background: bg, borderRadius: 7, display: "flex", flexDirection: "column", gap: 6 }; };
             // 2026-11-20i 確定待ちの理由はEP②（Cは確定待ちの箱）の中へ・名前は「Bにした理由」「Cにした理由」（ユーザー指示）
           var _reasonEl = fCeOn ? React.createElement("div", { style: { padding: "5px 8px", border: "1px solid #A5F3FC", background: "#F0FDFF", borderRadius: 7, alignSelf: "stretch", boxSizing: "border-box" } },
-            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0E7490", marginBottom: 3 } }, (fKakudo === "B" || fKakudo === "C" || fKakudo === "D") ? fKakudo + "にした理由" : "確定待ちの理由",
+            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0E7490", marginBottom: 3 } }, (fKakudo === "B" || fKakudo === "C" || fKakudo === "D" || fKakudo === "F") ? fKakudo + "にした理由" : "確定待ちの理由",
               !isEdit ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須") : null,
               React.createElement("span", { style: { color: "#6B7280", fontWeight: 600, marginLeft: 6, fontSize: 10 } }, "複数選択できます")),
             React.createElement(_SnReasonPicker, { data: data, save: save, masterKey: "ceReasons", defaults: _DEF_CE_REASONS, sigKey: "ceReasons", noun: "確定待ちの理由",
@@ -12960,7 +12962,7 @@ function EntryRecordForm(_ref_erf) {
                 React.createElement("span", { style: { fontWeight: 800, color: "#44403C" } }, "エントリー確度"),
                 React.createElement(_KakudoSeg, { value: fKakudo, onChange: _pickKakudo, letters: true, only: _fCloseSig ? _SN_CLOSE_KD : null }),   // 確定浮き足残りは C・D だけ 2026-11-25
                 (_fCloseSig && fKakudo && _SN_CLOSE_KD.indexOf(fKakudo) < 0) ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#DC2626" } }, "確度" + fKakudo + "は使えません（" + _SN_CLOSE_SIG + "は C・D だけ）") : null,
-                fKakudo === "E" ? React.createElement(_DSharesCtl, { value: fDShares, onChange: setFDShares, def: _dSharesDef(data), onSetDef: _dSharesSetDefFn(save) }) : null,   // 2026-11-20z2 株数は確度の右（枠・説明なし）
+                _kdShares(fKakudo) ? React.createElement(_DSharesCtl, { value: fDShares, onChange: setFDShares, def: _dSharesDef(data), onSetDef: _dSharesSetDefFn(save) }) : null,   // 2026-11-20z2 株数は確度の右（枠・説明なし）
                 !fKakudo ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (isEdit && fCeOn) ? "#0E7490" : "#DC2626" } }, (isEdit && fCeOn) ? "未設定（確定待ちオン）" : isEdit ? "未設定" : "必須（選ぶと基準ラインの欄が出ます）") : null),
               _reasonEl,   // 2026-11-20j B・Cにした理由はエントリー確度の直下（ユーザー指示）
               _fCloseSigT ? (function() {   // 確定浮き足残りの案内（基準ライン＝OS1の終値）2026-11-25
@@ -12973,11 +12975,11 @@ function EntryRecordForm(_ref_erf) {
                   _btn);
               })() : null,
               (_kdOpen && !_fCloseSig) ? _common : null,   // 2026-11-20l 基準ラインはVAP値のすぐ上へ（Bはオレンジの箱のEP①の中）・VAP欄があるときの右の最終EPは撤去（ユーザー指示）
-              !_kdOpen ? null : fKakudo === "B" ? React.createElement("div", { style: _boxS(c.bd, "#FFF7ED") },
+              !_kdOpen ? null : _kdBLike(fKakudo) ? React.createElement("div", { style: _boxS(c.bd, fKakudo === "F" ? _KAKUDO_COL.F.bg : "#FFF7ED") },
                 React.createElement("div", { style: _rowS },
                   React.createElement("span", { style: { fontWeight: 700, color: "#78716C" } }, "割合"),
-                  React.createElement(_BRatioCtl, { value: fBRatio, onChange: setFBRatio, def: _bRatioDef(data, "B") }),
-                  React.createElement(_BSplitLinkBtn, { data: data, save: save}),
+                  React.createElement(_BRatioCtl, { value: fBRatio, onChange: setFBRatio, def: _bRatioDef(data, fKakudo), kd: fKakudo }),
+                  React.createElement(_BSplitLinkBtn, { data: data, save: save, kd: fKakudo === "F" ? "F" : undefined }),
                   React.createElement("span", { style: { fontSize: 10, color: "#78716C" } }, "想定損益＝EP①の損益×①の割合＋EP②の損益×②の割合（EP②が入らなければ0円）"),
                 React.createElement("div", { style: { borderTop: "1px dashed " + c.bd, alignSelf: "stretch", width: "100%", height: 0 } }),   // 2026-11-20i 割合はEP①の上・点線で区切る（ユーザー指示）
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
