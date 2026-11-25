@@ -1123,7 +1123,21 @@ function StockTabs(_ref34) {
     spotPicked = _ref34.spotPicked || [],   // その日のスポット銘柄（◇塗り）2026-11-25
     onToggleSpot = _ref34.onToggleSpot,
     tabVisAll = _ref34.tabVisAll, tabHidden = _ref34.tabHidden || [], tabDate = _ref34.tabDate, onSetTabHidden = _ref34.onSetTabHidden;   // ⚙ 並べる銘柄（選んだ日以降）2026-11-25
-  var _uTabVis = useState(null), tabVisDraft = _uTabVis[0], setTabVisDraft = _uTabVis[1];   // null＝閉じている／配列＝編集中の非表示一覧   // 〇で選定に入れる/外す（11/11以降の日だけ渡る 2026-11-11f）
+  var _uTabVis = useState(null), tabVisDraft = _uTabVis[0], setTabVisDraft = _uTabVis[1];
+  var _icoRn = (onSetTabHidden && tabVisAll) ? null : onRename, _icoDel = (onSetTabHidden && tabVisAll) ? null : onDel;   // ⚙がある所はタブの✎×を出さない（⚙の中へ）2026-11-25
+  var _doRenameStock = function(s) {
+    window._snPrompt("銘柄名を変更", s).then(function(nn){
+      try {
+        if (nn == null) return;
+        nn = String(nn).trim();
+        if (!nn || nn === s) return;
+        if (nn === "日経平均株価") { window._snAlert("その名前は使用できません"); return; }
+        if (((stocks || []).concat(rotStocks || []).concat(hiddenStocks || []).concat(tabVisAll || [])).indexOf(nn) !== -1) { window._snAlert("同じ名前の銘柄が既にあります"); return; }
+        onRename(s, nn);
+        setTabVisDraft(function(d) { return d ? d.map(function(x) { return x === s ? nn : x; }) : d; });
+      } catch(_e) {}
+    });
+  };   // null＝閉じている／配列＝編集中の非表示一覧   // 〇で選定に入れる/外す（11/11以降の日だけ渡る 2026-11-11f）
   var _useState105 = useState(null),
     _useState106 = _slicedToArray(_useState105, 2),
     drag = _useState106[0],
@@ -1308,7 +1322,7 @@ function StockTabs(_ref34) {
         position: "relative",
         flexShrink: 0,
         padding: _stkCode(s) ? "3px 14px" : "8px 14px",
-        paddingRight: (s !== "日経平均株価") ? ((onDel ? 28 : 0) + (onRename ? 24 : 0) + 6) : 14,
+        paddingRight: (s !== "日経平均株価") ? ((_icoDel ? 28 : 0) + (_icoRn ? 24 : 0) + 6) : 14,
         marginRight: (picked.length && i === picked.length - 1 && stocks.length > picked.length) ? 8 : 0,   // 選定銘柄と他の銘柄の間をあける
         fontSize: 13,
         fontWeight: picked.indexOf(s) >= 0 ? 800 : 600,
@@ -1356,7 +1370,7 @@ function StockTabs(_ref34) {
         // 銘柄名の下に銘柄番号（4桁）を中央ぞろえ 2026-11-11
         _stkCode(s) ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, s,
           React.createElement("span", { style: { fontSize: 10, fontWeight: 600, opacity: 0.75, fontVariantNumeric: "tabular-nums" } }, _stkCode(s))) : s),
-      (onRename && s !== "日経平均株価") && React.createElement("span", {
+      (_icoRn && s !== "日経平均株価") && React.createElement("span", {
       onClick: function onClickRn(e) {
         e.stopPropagation();
         window._snPrompt("銘柄名を変更", s).then(function(nn){
@@ -1374,7 +1388,7 @@ function StockTabs(_ref34) {
       style: {
         position: "absolute",
         top: "50%",
-        right: onDel ? 30 : 7,
+        right: _icoDel ? 30 : 7,
         transform: "translateY(-50%)",
         width: IS_TOUCH ? 20 : 16,
         height: IS_TOUCH ? 20 : 16,
@@ -1392,7 +1406,7 @@ function StockTabs(_ref34) {
       },
       onMouseEnter: function(e) { e.currentTarget.style.background = "#6366F1"; e.currentTarget.style.color = "#fff"; },
       onMouseLeave: function(e) { e.currentTarget.style.background = "rgba(130,130,130,.25)"; e.currentTarget.style.color = "inherit"; }
-    }, "\u270E"), (onDel && s !== "日経平均株価") && React.createElement("span", {
+    }, "\u270E"), (_icoDel && s !== "日経平均株価") && React.createElement("span", {
       onClick: function onClick(e) {
         e.stopPropagation();
         setStockDelTarget(s);
@@ -1519,14 +1533,16 @@ function StockTabs(_ref34) {
     style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }
   }, React.createElement("div", { onClick: function(e){ e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: "14px 16px", width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,.2)" } },
     React.createElement("div", { style: { fontSize: 14, fontWeight: 800, color: "#1E3A8A", marginBottom: 4 } }, "⚙ 銘柄タブに並べる銘柄"),
-    React.createElement("div", { style: { fontSize: 11, color: "#78716C", lineHeight: 1.6, marginBottom: 10 } }, (tabDate ? tabDate.slice(5).replace("-", "/") + " 以降" : "この日以降") + "に効きます（前の日は今のまま）。チェックを外した銘柄はタブとEPナビの▽に出ません。選定・スポットに入っている銘柄は外しても出ます。"),
+    React.createElement("div", { style: { fontSize: 11, color: "#78716C", lineHeight: 1.6, marginBottom: 10 } }, (tabDate ? tabDate.slice(5).replace("-", "/") + " 以降" : "この日以降") + "に効きます（前の日は今のまま）。チェックを外した銘柄はタブとEPナビの▽に出ません。選定・スポットに入っている銘柄は外しても出ます。✎（名前）と×（削除）は押したときにすぐ反映されます。"),
     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
       tabVisAll.map(function(nm) {
         var on = tabVisDraft.indexOf(nm) < 0, lock = picked.indexOf(nm) >= 0 || spotPicked.indexOf(nm) >= 0;
         return React.createElement("label", { key: nm, style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 6, cursor: "pointer", background: on ? "#EFF6FF" : "#FAFAF9", border: "1px solid " + (on ? "#BFDBFE" : "#E7E5E4") } },
           React.createElement("input", { type: "checkbox", checked: on, onChange: function(){ setTabVisDraft(function(d){ var c = (d || []).slice(), i = c.indexOf(nm); if (i >= 0) c.splice(i, 1); else c.push(nm); return c; }); } }),
           React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: on ? "#1E3A8A" : "#A8A29E" } }, nm + (_stkCode(nm) ? "（" + _stkCode(nm) + "）" : "")),
-          lock ? React.createElement("span", { style: { fontSize: 10, color: "#92400E", marginLeft: "auto" } }, picked.indexOf(nm) >= 0 ? "選定中" : "スポット") : null);
+          lock ? React.createElement("span", { style: { fontSize: 10, color: "#92400E", marginLeft: "auto" } }, picked.indexOf(nm) >= 0 ? "選定中" : "スポット") : null,
+          onRename ? React.createElement("button", { type: "button", title: "名前を変更（すぐ反映・全期間）", onClick: function(e){ e.preventDefault(); e.stopPropagation(); _doRenameStock(nm); }, style: { marginLeft: lock ? 6 : "auto", fontSize: 11, fontWeight: 700, border: "1px solid #C7D2FE", background: "#fff", color: "#4338CA", borderRadius: 5, padding: "1px 7px", cursor: "pointer" } }, "✎") : null,
+          onDel ? React.createElement("button", { type: "button", title: "この銘柄を削除", onClick: function(e){ e.preventDefault(); e.stopPropagation(); setTabVisDraft(null); setStockDelTarget(nm); }, style: { marginLeft: 4, fontSize: 11, fontWeight: 700, border: "1px solid #FECACA", background: "#fff", color: "#B91C1C", borderRadius: 5, padding: "1px 7px", cursor: "pointer" } }, "×") : null);
       })),
     React.createElement("div", { style: { display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 } },
       React.createElement("button", { type: "button", onClick: function(){ setTabVisDraft(null); }, style: { padding: "7px 14px", fontSize: 12, fontWeight: 700, border: "1px solid #D6D3D1", background: "#fff", color: "#57534E", borderRadius: 7, cursor: "pointer" } }, "やめる"),
