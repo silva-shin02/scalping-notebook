@@ -35,6 +35,7 @@
 
 ## ▶ 次のセッションはこの続きから
 
+- 2026-11-25 銘柄タブの右端に「⚙ 並べる銘柄」（v735・実機未確認＝最初に聞く「⚙で外した銘柄がその日以降のタブとEPナビの▽から消え、前の日は元のままか」）：app-04 `_tabHiddenOf`/`_tabHiddenSetFrom`・app-03 StockTabs `onSetTabHidden`。
 - 2026-11-25 **選定銘柄は最大3つ＋スポット銘柄**（v734・実機未確認＝最初に聞く「①これまで4つ目だった銘柄がスポットに移って合計が変わっていないか ②銘柄タブの◇・3つのときの〇で入れ替えの小窓 ③EPナビ右端のスポット列（＋で追加・銘柄名で計算フォーム切替） ④早見表の選定列（〇/ス/×）」）：app-04 `_spotList`/`_spotSetIn`/`_dsInTotal`/`_spotColTop`・DayView `pickRepl`・app-03 StockTabs `onToggleSpot`・app-01 `_migSpot1125`。詳細は FILEMAP.md v734。
 - 2026-11-25 選定外の記録に橙の「選定外」バッジ・スルー/仮シグナルでも元の印と並べて出す（v732→v733・実機未確認＝最初に聞く「選定銘柄以外の記録が『不算入』ではなく橙の『選定外』になり、スルーの記録にも『選定外』が出ているか」）：app-05 `_elSelOutSig`/`_elSelOutRec`/`_elSelOutBadge`/`_elSelOutDiv`・`_elNotInclBadge`・app-08 `_SN_SEL_DATA`。
 - 2026-11-25 EPナビを記録フォームに合わせた（v731・実機未確認＝最初に聞く「EPナビでB/C/Dを選ぶと直上VAPに初期値が入り『→ 最終EP②（EP基準ライン+〇）』が出るか・B/Dに推奨損切り値・EPがRNのときRN補正後の最終EPが出るか」）：app-04 `_EpnCalcForm` の `_nCeTopAuto`/`_nTopFin`/`_nRnK`/`epFinal`・`_EpnKakudoBox`（topFin/top2Fin/lv）。
