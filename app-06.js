@@ -8674,13 +8674,13 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       var s = r && r.signal;
       if (!s) return "対象外";
       if (_elIsThru(s)) return "スルー";
-      if (_elIsExcluded(s)) return "不算入";
+      if (_elIsExcluded(s)) return _elSelOutRec(data, r) ? "選定外" : "不算入";
       if (!_epIsV2(s)) return "旧記録";
       if (_isDataOnly(data, r)) return "データのみ";
       return "対象外";
     };
     var _extraBrk = function(rows) {   // 内訳文言（スルー3件・不算入2件…）＝どの理由で何件が集計外かを明細の頭に出す
-      var m = {}, _ord = ["スルー", "不算入", "データのみ", "旧記録", "対象外"];
+      var m = {}, _ord = ["スルー", "選定外", "不算入", "データのみ", "旧記録", "対象外"];
       rows.forEach(function(r) { var L = _extraLbl(r); m[L] = (m[L] || 0) + 1; });
       return _ord.filter(function(L) { return m[L]; }).map(function(L) { return L + m[L] + "件"; }).join("・");
     };
