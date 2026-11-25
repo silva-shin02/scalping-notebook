@@ -12895,7 +12895,7 @@ function EntryRecordForm(_ref_erf) {
           var _k = Number(String(label).replace(/\D/g, "")) - 1;
           var _tm = (_k >= 0) ? _epCeTimeAt(fTime, _k) : null;
           var _c5 = !!(_tm && _epIs5mConf(fTime, _k));
-          return React.createElement("div", { key: label, style: { display: "flex", flexDirection: "column", gap: 4, padding: "6px 8px", border: "1px solid " + (isEp ? "#0369A1" : "#eee"), borderRadius: 6, background: isEp ? "#F0F9FF" : "#fff" } },
+          return React.createElement("div", { key: label, style: { display: "flex", flexDirection: "column", gap: 4, padding: "6px 8px", border: "1px solid " + (isEp ? "#0369A1" : "#eee"), borderRadius: 6, background: _c5 ? "#F0FDF4" : isEp ? "#F0F9FF" : "#fff" } },   // 2026-11-25 5分足の確定足の欄はほんのり薄緑（ユーザー指示・EPの欄は青枠のまま）
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
               React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#9A3412" } }, label),
               role ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#fff", background: isEp ? "#0369A1" : "#64748B", padding: "1px 5px", borderRadius: 4 } }, role) : null,
