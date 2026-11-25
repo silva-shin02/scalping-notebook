@@ -3450,6 +3450,7 @@ function NikkeiPriceChart(_p) {
 
 
 
+var _qrtCaTried = {};   // 早見表で CA から地合いを読みに行った「銘柄|日付」（起動中は読み直さない）2026-11-25
 function StockQuickRefTable(_props_qrt) {
   var data = _props_qrt.data;
   var activeStock = _props_qrt.activeStock;
@@ -3477,6 +3478,44 @@ function StockQuickRefTable(_props_qrt) {
     return _qrtLocalStr(d);
   });
   var weekLabel = weekDates[0].slice(5).replace("-", "/") + " 〜 " + weekDates[13].slice(5).replace("-", "/");
+  // 地合い（終値・前日比・激弱〜激強）が空の平日を CA から自動で読んで保存 2026-11-25 ユーザー指示「タブに出していなかった期間でもチャートがある日は表示」。
+  //   その日の銘柄ページを開いたときと同じ _macroLocalDetectFromCa を1日ずつ順に。読めなかった日はこの起動中は読み直さない（_qrtCaTried）。macroLocal は空のときだけ入れる。
+  var _uQB = useState({}), _uQBA = _slicedToArray(_uQB, 2), qrtBusy = _uQBA[0], setQrtBusy = _uQBA[1];
+  useEffect(function() {
+    if (!save || !activeStock || activeStock === "日経平均株価" || typeof _macroLocalDetectFromCa !== "function") return;
+    var cfg = (typeof cfLoad === "function") ? cfLoad() : null;
+    if (!cfg || !cfg.fbUrl) return;
+    var today = _qrtLocalStr(new Date()), hol = _buildHolidayDateSet((data && data.trades) || {}, (data && data.custom && data.custom.eventCategories) || []);
+    var todo = weekDates.filter(function(d) {
+      var w = new Date(d + "T00:00:00").getDay(), c = data.charts && data.charts[activeStock + "_" + d], k = activeStock + "|" + d;
+      return d <= today && w !== 0 && w !== 6 && !hol[d] && !_qrtCaTried[k] && !(c && typeof c.dayClose === "number" && typeof c.prevDayPct === "number");
+    });
+    if (!todo.length) return;
+    var alive = true, stock = activeStock, custom = data.custom;
+    todo.forEach(function(d) { _qrtCaTried[stock + "|" + d] = 1; });
+    var _b = {}; todo.forEach(function(d) { _b[d] = 1; }); setQrtBusy(_b);
+    var step = function(i) {
+      if (i >= todo.length) { if (alive) setQrtBusy({}); return; }
+      var d = todo[i];
+      _macroLocalDetectFromCa(cfg, stock, d, custom).then(function(r) {
+        if (r && !r.reason && r.curClose != null) {
+          save(function(prev) {
+            var ck = stock + "_" + d, pc = (prev.charts || {})[ck] || {}, u = Object.assign({}, pc);
+            if (r.pct != null) u.prevDayPct = r.pct;
+            u.dayClose = r.curClose;
+            if (r.tag && !pc.macroLocal) u.macroLocal = r.tag;
+            var ch = Object.assign({}, prev.charts || {}); ch[ck] = u;
+            return Object.assign({}, prev, { charts: ch });
+          });
+        }
+      }, function() {}).then(function() {
+        if (alive) setQrtBusy(function(o) { var n = Object.assign({}, o); delete n[d]; return n; });
+        step(i + 1);
+      });
+    };
+    step(0);
+    return function() { alive = false; };
+  }, [activeStock, weekDates[0]]);
 
   
   var _qrtHolidaySet = useMemo(function() {
@@ -3676,7 +3715,7 @@ function StockQuickRefTable(_props_qrt) {
                   ? React.createElement("span", { style: { display: "inline-block", padding: "2px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700, background: "#F3E8FF", color: _holidayPurple, border: "1px solid " + _holidayPurple } }, "祝日休場")
                   : (c2 && c2.macroLocal
                     ? React.createElement(CPill, { label: c2.macroLocal, color: getMC(c2.macroLocal), sm: true })
-                    : React.createElement("span", { style: { color: "#ddd" } }, "—"));
+                    : qrtBusy[d] ? React.createElement("span", { title: "CAから読み込み中", style: { color: "#A8A29E", fontSize: 11 } }, "…") : React.createElement("span", { style: { color: "#ddd" } }, "—"));
                 var _hasData = !isHoliday && !isSun && !isSat && c2;
                 var _numTxt = (_hasData && typeof c2.dayClose === "number")
                   ? (activeStock === "日経平均株価" ? c2.dayClose.toLocaleString(undefined, { maximumFractionDigits: 2 }) : Math.round(c2.dayClose).toLocaleString())
