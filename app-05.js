@@ -10799,8 +10799,8 @@ function EntryRecordForm(_ref_erf) {
   var _useStateCE2K = useState(isEdit && _ce2IsTop(initSig) && initSig.ceTopPx == null), _fCe2Keep = _useStateCE2K[0], _setFCe2Keep = _useStateCE2K[1];
   var _ce2TopOnRef = useRef(fCeTopOn);
   useEffect(function() { if (_ce2TopOnRef.current !== fCeTopOn) { _ce2TopOnRef.current = fCeTopOn; if (_fCe2Keep) _setFCe2Keep(false); } }, [fCeTopOn]);
-  // 2026-11-25b 直上VAP①オンでも②を「EP①の約定値＋〇円」にできる（ユーザー指示・EP②の見出しの2択）。新規は＋〇円・既存は保存どおり（直上VAP②が保存済みなら直上VAP②）。
-  var _useStateCE2U = useState(!(isEdit && _ce2IsTop(initSig))), fCe2UseOff = _useStateCE2U[0], setFCe2UseOff = _useStateCE2U[1];
+  // 2026-11-25b 直上VAP①オンでも②を「EP①の約定値＋〇円」にできる（ユーザー指示・EP②の見出しの2択）。新規は直上VAP②（v754 ユーザー指示）・既存は保存どおり（直上VAP②が保存済みなら直上VAP②）。
+  var _useStateCE2U = useState(!!(isEdit && !_ce2IsTop(initSig) && _ce2OffOf(initSig) != null)), fCe2UseOff = _useStateCE2U[0], setFCe2UseOff = _useStateCE2U[1];
   var _fCe2CanTop = fKakudo === "D" && !_fCloseSig && (fCeTopOn || _fCe2Keep);   // 直上VAP②を選べるとき（このときだけ2択を出す）
   var _fCe2Top = _fCe2CanTop && !fCe2UseOff;   // 2026-11-24b Dの②は直上VAP②だけ（ユーザー指示「Dは分割・EP①＝確定待ちor直上VAP①・EP②＝直上VAP②」・＋〇円方式と切替は廃止＝fCe2Mode は使わない）
   var _fCe2TopOk = fCe2TopPx !== "" && !isNaN(Number(fCe2TopPx)) && Number(fCe2TopPx) > 0;
