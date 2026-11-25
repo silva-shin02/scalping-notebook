@@ -10703,7 +10703,11 @@ function EntryRecordForm(_ref_erf) {
     var adj = (_vapMode && fVap !== "" && !isNaN(Number(fVap))) ? _ceTopVapAdj(fVapAdj, _fVapEx, p) : 0;
     return (isNaN(p) || isNaN(lv)) ? null : Math.round((p - lv + adj) * 100) / 100;
   })();
-  var _fCe2Top = fKakudo === "D";   // 2026-11-24b Dの②は直上VAP②だけ（ユーザー指示「Dは分割・EP①＝確定待ちor直上VAP①・EP②＝直上VAP②」・＋〇円方式と切替は廃止＝fCe2Mode は使わない）
+  // 2026-11-25 直上VAP①オフなら②＝EP①の約定値＋〇円（ce2Off）・オンなら直上VAP②（ユーザー指示）。既存の記録で直上VAP①オフ＋直上VAP②保存済みは、直上VAP①を触るまでそのまま（_fCe2Keep）。
+  var _useStateCE2K = useState(isEdit && _ce2IsTop(initSig) && initSig.ceTopPx == null), _fCe2Keep = _useStateCE2K[0], _setFCe2Keep = _useStateCE2K[1];
+  var _ce2TopOnRef = useRef(fCeTopOn);
+  useEffect(function() { if (_ce2TopOnRef.current !== fCeTopOn) { _ce2TopOnRef.current = fCeTopOn; if (_fCe2Keep) _setFCe2Keep(false); } }, [fCeTopOn]);
+  var _fCe2Top = fKakudo === "D" && (fCeTopOn || _fCe2Keep);   // 2026-11-24b Dの②は直上VAP②だけ（ユーザー指示「Dは分割・EP①＝確定待ちor直上VAP①・EP②＝直上VAP②」・＋〇円方式と切替は廃止＝fCe2Mode は使わない）
   var _fCe2TopOk = fCe2TopPx !== "" && !isNaN(Number(fCe2TopPx)) && Number(fCe2TopPx) > 0;
   var _fCe2OffOk = _fCe2Top ? _fCe2TopOk : _fCe2OffOk0;   // ②が入力済みか（方式ごと）
   var _fCe2SaveOff = (fKakudo === "D" && !_fCe2Top && _fCe2OffOk0) ? Number(fCe2Off) : null, _fCe2SaveTop = (_fCe2Top && _fCe2TopOk) ? Number(fCe2TopPx) : null;
@@ -13032,7 +13036,7 @@ function EntryRecordForm(_ref_erf) {
                       _topP[3] ? React.createElement("div", { style: _rowS }, _topP[3]) : null),
                     _dash(),
                     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
-                      React.createElement("div", { style: _rowS }, React.createElement("span", { style: { fontWeight: 800, color: cD.fg } }, "EP②（直上VAP②）")),
+                      React.createElement("div", { style: _rowS }, React.createElement("span", { style: { fontWeight: 800, color: cD.fg } }, _fCe2Top ? "EP②（直上VAP②）" : "EP②（EP①の約定値＋〇円）")),
                       React.createElement("div", { style: _rowS }, _in2),
                       _res2 ? React.createElement("div", { style: _rowS }, _res2) : null),
                     _stopEl);
