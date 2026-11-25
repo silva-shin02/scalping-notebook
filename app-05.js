@@ -12897,9 +12897,17 @@ function EntryRecordForm(_ref_erf) {
                   (function() { var _d = Math.round(_epPx * 100) / 100; return "基準ライン" + (_d >= 0 ? "+" : "−") + Math.abs(_d) + "円"; })()   /* 2026-11-20v 基準ラインからの差（ユーザー指示） */) : null
               ];
             } else if (_ef.skipIdx != null && _ef.skipIdx >= 0) {
-              var _ci2 = _elCeInfo(_fVSig, _fAlpha, _fCutLine);
-              _ciNode = [
-                React.createElement("span", { key: "sk", style: { color: "#B45309", fontWeight: 700 } }, "OS" + (_ef.skipIdx + 1) + ((fCeTopOn && fCeTopPx !== "") ? "で直上VAPに届かず、終値もα以下" : "の終値がα以下") + (fKakudo === "B" ? " → この足では入らず（次の足1本だけα値で待つ・届かなければ未達）" : " → この足では入らず（次の足からα値で約定）")),
+              // 2026-11-25 確定足で入らなかったとき：その後（撤退前）に入れていれば「→ 最終EP②（①）〇円 基準ライン+〇円」・入れていなければ「未エントリー」だけ（ユーザー指示・説明文は撤去）
+              var _sdS = (_fSplitForm && _fVSig) ? _elSplitDef(_fVSig, _fAlpha) : null;
+              var _rS = _sdS ? (_kdBLike(fKakudo) ? _epResolve(_sdS.sC, _sdS.aC) : _epResolve(_sdS.sA, _sdS.aA)) : (_fVSig ? _epResolve(_fVSig, _fAlpha) : null);
+              var _inS = !!(_rS && _rS.judge === "ok" && _rS.epIdx >= 0 && _rS.px != null);
+              var _lblS = _kdBLike(fKakudo) ? "最終EP②" : fKakudo === "D" ? "最終EP①" : "最終EP";
+              _ciNode = _inS ? [
+                React.createElement("span", { key: "px", title: "OS" + (_rS.epIdx + 1) + "で約定", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "→ " + _lblS + " ",
+                  React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, _pxTxt(Number(_rS.px))), "円"),
+                React.createElement("span", { key: "df", style: { fontWeight: 700, color: "#0E7490" } }, (function() { var _d = Math.round(Number(_rS.px) * 100) / 100; return "基準ライン" + (_d >= 0 ? "+" : "−") + Math.abs(_d) + "円"; })())
+              ] : [
+                React.createElement("span", { key: "sk", style: { color: "#B45309", fontWeight: 700 } }, "→ " + (_kdBLike(fKakudo) ? "②は未エントリー（0円）" : "未エントリー")),
                 null
               ];
             }
