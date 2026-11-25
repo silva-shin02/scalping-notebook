@@ -3404,3 +3404,4 @@ HomeEventFormModal, App
 - 2026-11-25 v750：早見表の選定列で選定外の日は×を出さず空欄（〇＝選定・ス＝スポットだけ・ユーザー指示）。app-04 早見表の選定列（`_dailyStockHas`/`_spotHas` の直後で return null）。土日祝日の行は薄い灰色（tr の背景 #F1F1EF・開いている日は青のまま）。
 - 2026-11-25 v751：銘柄タブの▾を銘柄名の左→右へ（ユーザー指示）。app-03 StockTabs。
 - 2026-11-25 v752：早見表の地合い（終値・前日比・激弱〜激強）が空の平日を、早見表を開いたら CA から自動で読んで保存（ユーザー指示「タブに出していなかった期間でもチャートがある日は表示」）。その日の銘柄ページと同じ app-05 `_macroLocalDetectFromCa` を1日ずつ順に・charts[銘柄_日付] に prevDayPct/dayClose（macroLocal は空のときだけ）。読み込み中は「…」・読めなかった日は起動中は読み直さない。日経平均・土日祝日・今日より後は対象外。app-04 StockQuickRefTable の useEffect（`qrtBusy`・モジュール変数 `_qrtCaTried`）。
+- 2026-11-25 v753：確度Dで直上VAP①オンでも EP②を「EP①の約定値＋〇円」（ce2Off）にできる（ユーザー指示）。記録フォームのEP②の見出しに2択「直上VAP②｜EP①の約定値＋〇円」（直上VAP①オフ・確定浮き足残りは従来どおり＋〇円だけ・2択なし）。新規の初期は＋〇円・既存は保存どおり（ce2TopPx があれば直上VAP②）。計算は従来の `_elSplitDef`（ce2TopPx が無ければ①の約定値＋ce2Off）のまま。app-05 `fCe2UseOff`/`_fCe2CanTop`/`_fCe2Top`。EPナビも同じ2択「EP②の方式」＝app-04 `nCe2UseOff`/`_nD2Off`・`_EpnKakudoBox` の `_d2Mode`（p.ce2UseOff/onCe2UseOff）。

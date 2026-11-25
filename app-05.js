@@ -10799,7 +10799,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateCE2K = useState(isEdit && _ce2IsTop(initSig) && initSig.ceTopPx == null), _fCe2Keep = _useStateCE2K[0], _setFCe2Keep = _useStateCE2K[1];
   var _ce2TopOnRef = useRef(fCeTopOn);
   useEffect(function() { if (_ce2TopOnRef.current !== fCeTopOn) { _ce2TopOnRef.current = fCeTopOn; if (_fCe2Keep) _setFCe2Keep(false); } }, [fCeTopOn]);
-  var _fCe2Top = fKakudo === "D" && !_fCloseSig && (fCeTopOn || _fCe2Keep);   // 2026-11-24b Dの②は直上VAP②だけ（ユーザー指示「Dは分割・EP①＝確定待ちor直上VAP①・EP②＝直上VAP②」・＋〇円方式と切替は廃止＝fCe2Mode は使わない）
+  // 2026-11-25b 直上VAP①オンでも②を「EP①の約定値＋〇円」にできる（ユーザー指示・EP②の見出しの2択）。新規は＋〇円・既存は保存どおり（直上VAP②が保存済みなら直上VAP②）。
+  var _useStateCE2U = useState(!(isEdit && _ce2IsTop(initSig))), fCe2UseOff = _useStateCE2U[0], setFCe2UseOff = _useStateCE2U[1];
+  var _fCe2CanTop = fKakudo === "D" && !_fCloseSig && (fCeTopOn || _fCe2Keep);   // 直上VAP②を選べるとき（このときだけ2択を出す）
+  var _fCe2Top = _fCe2CanTop && !fCe2UseOff;   // 2026-11-24b Dの②は直上VAP②だけ（ユーザー指示「Dは分割・EP①＝確定待ちor直上VAP①・EP②＝直上VAP②」・＋〇円方式と切替は廃止＝fCe2Mode は使わない）
   var _fCe2TopOk = fCe2TopPx !== "" && !isNaN(Number(fCe2TopPx)) && Number(fCe2TopPx) > 0;
   var _fCe2OffOk = _fCe2Top ? _fCe2TopOk : _fCe2OffOk0;   // ②が入力済みか（方式ごと）
   var _fCe2SaveOff = (fKakudo === "D" && !_fCe2Top && _fCe2OffOk0) ? Number(fCe2Off) : null, _fCe2SaveTop = (_fCe2Top && _fCe2TopOk) ? Number(fCe2TopPx) : null;
@@ -13148,7 +13151,11 @@ function EntryRecordForm(_ref_erf) {
                       _topP[3] ? React.createElement("div", { style: _rowS }, _topP[3]) : null),
                     _dash(),
                     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
-                      React.createElement("div", { style: _rowS }, React.createElement("span", { style: { fontWeight: 800, color: cD.fg } }, _fCe2Top ? "EP②（直上VAP②）" : "EP②（EP①の約定値＋〇円）")),
+                      React.createElement("div", { style: _rowS }, React.createElement("span", { style: { fontWeight: 800, color: cD.fg } }, "EP②"),
+                        _fCe2CanTop ? React.createElement("span", { style: { display: "inline-flex", gap: 4, marginLeft: 6 } }, [[false, "直上VAP②"], [true, "EP①の約定値＋〇円"]].map(function(o) {
+                          var on = fCe2UseOff === o[0];
+                          return React.createElement("button", { key: String(o[0]), type: "button", onClick: function() { setFCe2UseOff(o[0]); }, style: { padding: "3px 10px", fontSize: 11, fontWeight: 800, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? cD.fg : "#D6D3D1"), background: on ? cD.fg : "#fff", color: on ? "#fff" : "#57534E" } }, o[1]);
+                        })) : React.createElement("span", { style: { fontWeight: 800, color: cD.fg } }, "（EP①の約定値＋〇円）")),
                       React.createElement("div", { style: _rowS }, _in2),
                       _res2 ? React.createElement("div", { style: _rowS }, _res2) : null),
                     _stopEl);
