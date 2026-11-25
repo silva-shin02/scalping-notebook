@@ -1367,17 +1367,17 @@ function StockTabs(_ref34) {
       }
     }), (exclCount && exclCount(s) > 0) ? _elExclDot(exclCount(s), { position: "absolute", top: 4, left: 15, pointerEvents: "none" }) : null, (collCount && collCount(s) > 0) ? _elCollDot(collCount(s), { position: "absolute", top: 4, left: (exclCount && exclCount(s) > 0) ? 24 : 15, pointerEvents: "none" }) : null,
       React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 } },
-        // ▾＝押すとすぐ下に小窓（選定にする／スポットにする／外す）2026-11-25 ユーザー指示「押し間違えやすい→ボタン1つに」。状態はタブの色（選定＝青・スポット＝橙）
+        // 銘柄名の下に銘柄番号（4桁）を中央ぞろえ 2026-11-11
+        _stkCode(s) ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, s,
+          React.createElement("span", { style: { fontSize: 10, fontWeight: 600, opacity: 0.75, fontVariantNumeric: "tabular-nums" } }, _stkCode(s))) : s,
+        // ▾（銘柄名の右）＝押すとすぐ下に小窓（選定にする／スポットにする／外す）2026-11-25 ユーザー指示「押し間違えやすい→ボタン1つに」。状態はタブの色（選定＝青・スポット＝橙）
         ((onTogglePick || onToggleSpot) && s !== "日経平均株価") ? React.createElement("span", {
           onClick: function(e) { e.stopPropagation(); var rc = e.currentTarget.getBoundingClientRect(); setStMenu(stMenu && stMenu.s === s ? null : { s: s, x: rc.left, y: rc.bottom }); },
           onTouchStart: function(e) { e.stopPropagation(); },
           title: "選定・スポットを変える",
           style: { flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: IS_TOUCH ? 22 : 18, height: IS_TOUCH ? 22 : 18, borderRadius: 5, cursor: "pointer", fontSize: IS_TOUCH ? 13 : 11, lineHeight: 1,
             border: "1px solid " + (active === s ? "#666" : "#C4C4C4"), background: active === s ? "#333" : "rgba(255,255,255,0.7)", color: active === s ? "#ddd" : "#666" }
-        }, "▾") : null,
-        // 銘柄名の下に銘柄番号（4桁）を中央ぞろえ 2026-11-11
-        _stkCode(s) ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, s,
-          React.createElement("span", { style: { fontSize: 10, fontWeight: 600, opacity: 0.75, fontVariantNumeric: "tabular-nums" } }, _stkCode(s))) : s),
+        }, "▾") : null),
       (_icoRn && s !== "日経平均株価") && React.createElement("span", {
       onClick: function onClickRn(e) {
         e.stopPropagation();
