@@ -35,6 +35,7 @@
 
 ## ▶ 次のセッションはこの続きから
 
+- 2026-11-25 確度Dで直上VAP①オフなら EP②＝「EP①の約定値＋〇円」（v737・実機未確認＝最初に聞く「記録フォームとEPナビのDで直上VAP①をオフにすると、EP②が『EP①の約定値＋10円』の欄になり、オンに戻すと直上VAP②になるか・既存のオフの記録は直上VAP②のままか」）：app-05 `_fCe2Top`/`_fCe2Keep`・app-04 `nCeTopOn`/`nCe2Off`/`_EpnKakudoBox`。
 - 2026-11-25 銘柄タブの右端に「⚙ 並べる銘柄」・タブの✎×はその中へ（v735→v736・実機未確認＝最初に聞く「⚙で外した銘柄がその日以降のタブとEPナビの▽から消え前の日は元のままか・タブに✎×が無く⚙の各行で名前変更/削除できるか」）：app-04 `_tabHiddenOf`/`_tabHiddenSetFrom`・app-03 StockTabs `onSetTabHidden`/`_icoRn`/`_doRenameStock`。選定/スポットのボタンのデザインは保留。
 - 2026-11-25 **選定銘柄は最大3つ＋スポット銘柄**（v734・実機未確認＝最初に聞く「①これまで4つ目だった銘柄がスポットに移って合計が変わっていないか ②銘柄タブの◇・3つのときの〇で入れ替えの小窓 ③EPナビ右端のスポット列（＋で追加・銘柄名で計算フォーム切替） ④早見表の選定列（〇/ス/×）」）：app-04 `_spotList`/`_spotSetIn`/`_dsInTotal`/`_spotColTop`・DayView `pickRepl`・app-03 StockTabs `onToggleSpot`・app-01 `_migSpot1125`。詳細は FILEMAP.md v734。
 - 2026-11-25 選定外の記録に橙の「選定外」バッジ・スルー/仮シグナルでも元の印と並べて出す（v732→v733・実機未確認＝最初に聞く「選定銘柄以外の記録が『不算入』ではなく橙の『選定外』になり、スルーの記録にも『選定外』が出ているか」）：app-05 `_elSelOutSig`/`_elSelOutRec`/`_elSelOutBadge`/`_elSelOutDiv`・`_elNotInclBadge`・app-08 `_SN_SEL_DATA`。

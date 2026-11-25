@@ -4963,7 +4963,10 @@ function _EpnCalcForm(_p) {
   var _useStateEPNbr = useState(_bRatioDef(data)), nBRatio = _useStateEPNbr[0], setNBRatio = _useStateEPNbr[1];
   var _useStateEPNds = useState(_dSharesDef(data)), nDShares = _useStateEPNds[0], setNDShares = _useStateEPNds[1];   // Dの株数（初期値＝設定 custom.dSharesDef）2026-11-20z   // Bの①の割合%（初期値＝設定 custom.bRatioDef）
   var _useStateEPNct = useState(null), nCeTopPxRaw = _useStateEPNct[0], setNCeTopPx = _useStateEPNct[1];   // 2026-11-25 null＝未編集＝初期値（EP基準ライン＋採用VAP＋10円）に追従（記録フォームと同じ）
-  var _useStateEPNc2 = useState(null), nCe2TopRaw = _useStateEPNc2[0], setNCe2Top = _useStateEPNc2[1];   // 確度Dの②＝直上VAP②（株価）2026-11-24（旧＝EP①より〇円上）。null＝未編集＝初期値（直上VAP①＋10円・無ければEP＋20円）に追従
+  var _useStateEPNc2 = useState(null), nCe2TopRaw = _useStateEPNc2[0], setNCe2Top = _useStateEPNc2[1];
+  // 2026-11-25 確度Dの直上VAP①オン/オフ（記録フォームと同じ）。オフ＝EP①は確定待ちだけ・②＝EP①の約定値＋〇円（ce2Off・null＝設定の初期値）
+  var _useStateEPNct = useState(true), nCeTopOn = _useStateEPNct[0], setNCeTopOn = _useStateEPNct[1];
+  var _useStateEPNco = useState(null), nCe2OffRaw = _useStateEPNco[0], setNCe2Off = _useStateEPNco[1];   // 確度Dの②＝直上VAP②（株価）2026-11-24（旧＝EP①より〇円上）。null＝未編集＝初期値（直上VAP①＋10円・無ければEP＋20円）に追従
   var _useStateEPNed = useState(null), _useStateEPNedA = _slicedToArray(_useStateEPNed, 2), editId = _useStateEPNedA[0], setEditId = _useStateEPNedA[1];
   var _useStateEPNea = useState(null), _useStateEPNeaA = _slicedToArray(_useStateEPNea, 2), editAt = _useStateEPNeaA[0], setEditAt = _useStateEPNeaA[1];
   var _useStateEPNdn = useState(false), _useStateEPNdnA = _slicedToArray(_useStateEPNdn, 2), editDone = _useStateEPNdnA[0], setEditDone = _useStateEPNdnA[1];
@@ -5094,11 +5097,13 @@ function _EpnCalcForm(_p) {
   var _nTopFin = function(v) { if (v === "" || v == null || isNaN(Number(v))) return null; var px = Number(v), adj = (_epnVap && nBase !== "") ? _ceTopVapAdj(nVapAdj, _epnVapEx, px) : 0; return Math.round((px + adj) * 100) / 100; };
   var _nCe2Auto = (nCeTopPx !== "" && !isNaN(Number(nCeTopPx))) ? String(Math.round((Number(nCeTopPx) + 10) * 100) / 100) : (epV != null ? String(Math.round((epV + 20) * 100) / 100) : "");
   var nCe2Top = nCe2TopRaw != null ? nCe2TopRaw : _nCe2Auto;
+  var nCe2Off = nCe2OffRaw != null ? nCe2OffRaw : String(_ce2OffDef(data));
+  var _nD2Off = nKakudo === "D" && !nCeTopOn;   // ②＝EP①の約定値＋〇円
   var _epnCutLine = (function() { var _ck = stock + "_" + date; var _cd = data.charts && data.charts[_ck]; return (_cd != null && _cd.cutLine != null) ? Number(_cd.cutLine) : 15; })();   // 予定損切りライン用の損切り値（水準線比・既定15）2026-07-18
   var _resetForm = function() {
     setEditId(null); setEditAt(null); setEditDone(false); setNMinBars(["1"]); setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]);
     setNBase(_vapWorld(date) ? "0" : ""); setNVapAdj(_vapAdjSetting(data)); setNSpecialUsed("×"); setNSpecialAlpha(""); setNSpecialReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNUkiPrev(""); setNUkiPct(""); setNUkiSpecial(false); setNRnUsed("×"); setNRnVal(""); setNRnAuto(true); setNLevel(""); setNLineCoexist(false); setDetOpen(false);
-    setNKakudo(null); setNBRatio(_bRatioDef(data)); setNDShares(_dSharesDef(data)); setNCeTopPx(null); setNCe2Top(null);
+    setNKakudo(null); setNBRatio(_bRatioDef(data)); setNDShares(_dSharesDef(data)); setNCeTopPx(null); setNCe2Top(null); setNCeTopOn(true); setNCe2Off(null);
     _kyozPrevRef.current = false;
   };
   var doSave = function() {
@@ -5113,8 +5118,9 @@ function _EpnCalcForm(_p) {
       level: levelN, ep: epV, src: _baseSrc || null, at: editAt || Date.now(),
       vapAdj: (_epnVap && nVapAdj) ? nVapAdj : null,   // VAP補正（ep は補正込み）2026-10-20
       kakudo: nKakudo || null, bRatio: _kdSplit(nKakudo) ? nBRatio : null, dShares: nKakudo === "E" ? nDShares : null,   // エントリー確度 2026-11-20（Eの株数＝旧D 2026-11-22）
-      ceTopPx: (nKakudo === "B" || nKakudo === "C" || nKakudo === "D") && nCeTopPx !== "" && !isNaN(Number(nCeTopPx)) ? Number(nCeTopPx) : null,   // 直上VAP（株価）
-      ce2Off: null, ce2TopPx: nKakudo === "D" && nCe2Top !== "" && !isNaN(Number(nCe2Top)) && Number(nCe2Top) > 0 ? Number(nCe2Top) : null   // 確度Dの②＝直上VAP②（株価）2026-11-24
+      ceTopPx: (nKakudo === "B" || nKakudo === "C" || (nKakudo === "D" && nCeTopOn)) && nCeTopPx !== "" && !isNaN(Number(nCeTopPx)) ? Number(nCeTopPx) : null,   // 直上VAP（株価）
+      ce2Off: _nD2Off && !isNaN(Number(nCe2Off)) && Number(nCe2Off) > 0 ? _ce2OffClamp(nCe2Off) : null,   // 2026-11-25 直上VAP①オフ＝EP①の約定値＋〇円
+      ce2TopPx: nKakudo === "D" && !_nD2Off && nCe2Top !== "" && !isNaN(Number(nCe2Top)) && Number(nCe2Top) > 0 ? Number(nCe2Top) : null   // 確度Dの②＝直上VAP②（株価）2026-11-24
     };
     if (editId && editDone) _item.done = true;
     _epnPut(save, date, stock, _item);
@@ -5136,7 +5142,7 @@ function _EpnCalcForm(_p) {
     setNRnUsed(hasRn ? "○" : "×"); setNRnVal(hasRn ? String(Number(e.rn) || 0) : ""); setNRnAuto(e.rnAuto !== false);   // 2026-07-30 未設定＝自動（早見カードの_epnApplyRnAutoと同じ扱い）。明示的なfalse＝カード/フォームで手動に倒した分だけ手動を維持（旧: ===true＝保存済みカードは既定手動 2026-07-20b）
     setNLevel(e.level != null ? String(e.level) : "");
     setNLineCoexist(e.lineCoexist === true);
-    setNKakudo(_kakudoOf(e)); setNBRatio(e.bRatio != null ? _bRatioOf(e) : _bRatioDef(data)); setNDShares(e.dShares != null ? _dSharesOf(e) : _dSharesDef(data)); setNCeTopPx(e.ceTopPx != null ? String(e.ceTopPx) : null); setNCe2Top(_ce2IsTop(e) ? String(e.ce2TopPx) : null);   // エントリー確度 2026-11-20
+    setNKakudo(_kakudoOf(e)); setNBRatio(e.bRatio != null ? _bRatioOf(e) : _bRatioDef(data)); setNDShares(e.dShares != null ? _dSharesOf(e) : _dSharesDef(data)); setNCeTopPx(e.ceTopPx != null ? String(e.ceTopPx) : null); setNCe2Top(_ce2IsTop(e) ? String(e.ce2TopPx) : null); setNCeTopOn(!(_kakudoOf(e) === "D" && e.ceTopPx == null && !_ce2IsTop(e))); setNCe2Off(_ce2OffOf(e) != null ? String(_ce2OffOf(e)) : null);   // エントリー確度 2026-11-20
     setDetOpen(!!(e.b || e.k || (Array.isArray(e.f) && e.f.length) || e.lineCoexist === true));   // 詳細入りの保存EPは③〜⑤を自動展開＝入力済みが隠れたまま上書き保存される事故を防ぐ（案A 2026-07-10）
     setEditId(e.id); setEditAt(e.at || null); setEditDone(!!e.done);
     _kyozPrevRef.current = (e.lineCoexist === true);
@@ -5270,7 +5276,7 @@ function _EpnCalcForm(_p) {
     // 「推奨基本α」の灰色枠（シグナル別/銘柄全体のn付き内訳＋★採用）はユーザー指示で撤去 2026-08-07。
     // ⚠️表示だけの撤去＝推奨基本αの計算(_epnCascade/autoPick)も、それを既定値に使う採用α欄も無改修。_pickLine は未使用になるが保持（無害）。
     // 確度はEP基準ラインの上（記録フォームと同じ順）2026-11-25 ユーザー決定
-    React.createElement(_EpnKakudoBox, { kakudo: nKakudo, bRatio: nBRatio, ceTopPx: nCeTopPx, ce2TopPx: nCe2Top, ep: epFinal, lv: levelN, topFin: _nTopFin(nCeTopPx), top2Fin: _nTopFin(nCe2Top), def: _bRatioDef(data, nKakudo), data: data, save: save,
+    React.createElement(_EpnKakudoBox, { kakudo: nKakudo, bRatio: nBRatio, ceTopPx: nCeTopPx, ce2TopPx: nCe2Top, ep: epFinal, lv: levelN, topFin: _nTopFin(nCeTopPx), top2Fin: _nTopFin(nCe2Top), ceTopOn: nCeTopOn, onCeTopOn: setNCeTopOn, ce2Off: nCe2Off, onCe2Off: setNCe2Off, def: _bRatioDef(data, nKakudo), data: data, save: save,
       dShares: nDShares, dDef: _dSharesDef(data), onDShares: setNDShares,
       onKakudo: function(k) { if (_kdSplit(k) && k !== nKakudo) setNBRatio(_bRatioDef(data, k)); setNKakudo(k); }, onBRatio: setNBRatio, onCeTopPx: setNCeTopPx, onCe2TopPx: setNCe2Top }),
     _lrow("EP基準ライン", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
@@ -5390,8 +5396,11 @@ function _EpnCalcForm(_p) {
 // ===== エントリー確度（EPナビ）2026-11-20：計算フォームの選択欄（_EpnKakudoBox）と早見カードの表示・切替（_EpnKakudoCard）。部品・規約は app-05 _KAKUDO 系。
 function _EpnKakudoBox(p) {
   var k = p.kakudo, c = k ? _KAKUDO_COL[k] : null;
-  var _ctp = (p.ceTopPx !== "" && p.ceTopPx != null && !isNaN(Number(p.ceTopPx))) ? Number(p.ceTopPx) : null;
-  var _f1 = p.topFin != null ? p.topFin : _ctp;   // 最終EP②（直上VAPにVAP補正）2026-11-25
+  var _d2Off = k === "D" && p.ceTopOn === false;   // 2026-11-25 Dで直上VAP①オフ＝EP①は確定待ちだけ・②＝EP①の約定値＋〇円
+  var _ctp = (!_d2Off && p.ceTopPx !== "" && p.ceTopPx != null && !isNaN(Number(p.ceTopPx))) ? Number(p.ceTopPx) : null;
+  var _off2 = (p.ce2Off !== "" && p.ce2Off != null && !isNaN(Number(p.ce2Off)) && Number(p.ce2Off) > 0) ? Number(p.ce2Off) : null;
+  var _sbO = function(lbl, d) { return React.createElement("button", { type: "button", onClick: function() { if (p.onCe2Off) p.onCe2Off(String(Math.max(1, Math.round(((_off2 || 0) + d) * 10) / 10))); }, style: { padding: "0 5px", fontSize: 10, fontWeight: 800, lineHeight: 1.5, border: "1px solid #D8B4FE", background: "#fff", color: "#7E22CE", borderRadius: 4, cursor: "pointer" } }, lbl); };
+  var _f1 = _d2Off ? null : (p.topFin != null ? p.topFin : _ctp);   // 最終EP②（直上VAPにVAP補正）2026-11-25
   var _bad = _f1 != null && p.ep != null && !(_f1 > p.ep);
   var _step = function(d) { var base = _ctp != null ? _ctp : (p.ep != null ? p.ep : null); if (base == null) return; p.onCeTopPx(String(Math.round((base + d) * 100) / 100)); };
   var _sb = function(lbl, d) { return React.createElement("button", { type: "button", onClick: function() { _step(d); }, style: { padding: "0 5px", fontSize: 10, fontWeight: 800, lineHeight: 1.5, border: "1px solid #67E8F9", background: "#fff", color: "#0E7490", borderRadius: 4, cursor: "pointer" } }, lbl); };
@@ -5417,12 +5426,21 @@ function _EpnKakudoBox(p) {
       React.createElement(_BRatioCtl, { value: p.bRatio, onChange: p.onBRatio, def: p.def, small: true, kd: "D" }),
       React.createElement("div", null, React.createElement(_BSplitLinkBtn, { small: true, data: p.data, save: p.save, kd: "D" }))) : null,
     (k === "B" || k === "C" || k === "D") ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
-      React.createElement("span", { style: { color: "#0E7490", fontWeight: 800 } }, (k === "B" ? "EP②（確定待ちor直上VAP）" : k === "D" ? "EP①（確定待ちor直上VAP①）" : "確定待ちor直上VAP")),
-      React.createElement("input", { type: "text", inputMode: "decimal", value: p.ceTopPx, placeholder: "直上VAP（株価）", onChange: function(ev) { p.onCeTopPx(_toHankakuDecimal(ev.target.value)); },
+      React.createElement("span", { style: { color: "#0E7490", fontWeight: 800 } }, (k === "B" ? "EP②（確定待ちor直上VAP）" : k === "D" ? (_d2Off ? "EP①（確定待ち）" : "EP①（確定待ちor直上VAP①）") : "確定待ちor直上VAP")),
+      k === "D" ? React.createElement("button", { type: "button", onClick: function() { if (p.onCeTopOn) p.onCeTopOn(_d2Off); }, title: "オフ＝EP①は確定待ちだけ・EP②はEP①の約定値＋〇円",
+        style: { padding: "0 6px", fontSize: 10, fontWeight: 800, lineHeight: 1.6, border: "1px solid #67E8F9", background: _d2Off ? "#fff" : "#0E7490", color: _d2Off ? "#0E7490" : "#fff", borderRadius: 10, cursor: "pointer" } }, "直上VAP① " + (_d2Off ? "オフ" : "オン")) : null,
+      _d2Off ? null : React.createElement("input", { type: "text", inputMode: "decimal", value: p.ceTopPx, placeholder: "直上VAP（株価）", onChange: function(ev) { p.onCeTopPx(_toHankakuDecimal(ev.target.value)); },
         style: { width: 78, padding: "1px 4px", fontSize: 11, fontWeight: 700, color: "#155E75", border: "1px solid #67E8F9", borderRadius: 4, textAlign: "right", boxSizing: "border-box" } }),
-      _sb("▲", 1), _sb("▼", -1),
+      _d2Off ? null : _sb("▲", 1), _d2Off ? null : _sb("▼", -1),
       _f1 != null ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: _bad ? "#B91C1C" : "#0E7490" } }, "→ 最終EP" + (k === "D" ? "①" : "②") + " " + _f1 + "円" + (p.lv != null ? "（EP基準ライン" + (_f1 - p.lv >= 0 ? "+" : "") + (Math.round((_f1 - p.lv) * 100) / 100) + "）" : "") + (_bad ? "（EP以下）" : "")) : null) : null,
-    k === "D" ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
+    _d2Off ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
+      React.createElement("span", { style: { color: "#7E22CE", fontWeight: 800 } }, "EP②（EP①の約定値＋"),
+      React.createElement("input", { type: "text", inputMode: "decimal", value: p.ce2Off == null ? "" : p.ce2Off, placeholder: "円", onChange: function(ev) { if (p.onCe2Off) p.onCe2Off(_toHankakuDecimal(ev.target.value)); },
+        style: { width: 44, padding: "1px 4px", fontSize: 11, fontWeight: 700, color: "#7E22CE", border: "1px solid #D8B4FE", borderRadius: 4, textAlign: "right", boxSizing: "border-box" } }),
+      React.createElement("span", { style: { color: "#7E22CE", fontWeight: 800 } }, "円）"),
+      _sbO("▲", 1), _sbO("▼", -1),
+      _off2 == null ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#B91C1C" } }, "円数を入力") : null)
+    : k === "D" ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
       React.createElement("span", { style: { color: "#7E22CE", fontWeight: 800 } }, "EP②（直上VAP②）"),
       React.createElement("input", { type: "text", inputMode: "decimal", value: p.ce2TopPx == null ? "" : p.ce2TopPx, placeholder: "株価", onChange: function(ev) { if (p.onCe2TopPx) p.onCe2TopPx(_toHankakuDecimal(ev.target.value)); },
         style: { width: 78, padding: "1px 4px", fontSize: 11, fontWeight: 700, color: "#7E22CE", border: "1px solid #D8B4FE", borderRadius: 4, textAlign: "right", boxSizing: "border-box" } }),
@@ -5433,7 +5451,7 @@ function _EpnKakudoBox(p) {
       if (!(k === "B" || k === "D") || p.lv == null || p.ep == null) return null;
       var w = _bRatioClamp(p.bRatio) / 100, allow = _SN_STOP_ALLOW_YEN / _SN_STOP_ALLOW_SH, e1 = p.ep - p.lv;
       var a1 = k === "D" ? (_f1 != null ? _f1 - p.lv : e1) : e1;
-      var a2 = k === "B" ? (_f1 != null ? _f1 - p.lv : null) : ((_f2 != null && _f2 - p.lv > a1) ? _f2 - p.lv : null);
+      var a2 = k === "B" ? (_f1 != null ? _f1 - p.lv : null) : _d2Off ? (_off2 != null ? a1 + _off2 : null) : ((_f2 != null && _f2 - p.lv > a1) ? _f2 - p.lv : null);
       var x = a2 != null ? (w * a1 + (1 - w) * a2 + allow) : (w > 0 ? a1 + allow / w : null);
       if (x == null) return null;
       var xr = Math.floor(x * 10 + 1e-9) / 10;
