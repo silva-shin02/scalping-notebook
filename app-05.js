@@ -9376,9 +9376,9 @@ function _snlFlowNode(o) {
   out.push(row("ep", "◎", "#B45309", (o.bNames && o.bNames.length) ? o.bNames.join("・") : "なし", o.level !== "" && o.level != null ? "基準ライン " + o.level : "基準ライン 未入力", o.bShow ? "基準ライン" : "基準ライン", "#B45309"));
   (o.pass || []).forEach(function(p, i) { out.push(arrow("a" + i)); out.push(row("p" + i, "○", "#64748B", p.n, p.v != null ? _snlR(p.v) : "", null)); });
   if (o.passNone) { out.push(arrow("an")); out.push(row("pn", "○", "#94A3B8", "通過なし（直近）", "", null)); }
-  if (o.kList && o.kList.length > 1) {   // 2026-11-25 起点が複数＝高い順に縦に並べ、一番下（安い線）だけ「起点」（ユーザー指示）
+  if (o.kList && o.kList.length > 1) {   // 2026-11-25 起点が複数＝高い順に縦に並べ、一番上（高い線）だけ「起点」（ユーザー指示・v745で一番下→一番上）
     o.kList.forEach(function(k, i) {
-      var last = i === o.kList.length - 1;
+      var last = i === 0;
       out.push(arrow("ak" + i));
       out.push(last ? row("k", "●", "#0369A1", k.n, [k.v != null ? _snlR(k.v) : null, o.kTime || null].filter(Boolean).join(" ／ "), "起点", "#0369A1")
         : row("k" + i, "○", "#0369A1", k.n, k.v != null ? _snlR(k.v) : "", null));
