@@ -1159,6 +1159,8 @@ function StockTabs(_ref34) {
     hiddenDlgOpen = _uSHDS[0], setHiddenDlgOpen = _uSHDS[1];
   var _uSPT = useState(null), _uSPTS = _slicedToArray(_uSPT, 2),
     purgeTarget = _uSPTS[0], setPurgeTarget = _uSPTS[1];
+  var _uSMN = useState(null), _uSMNS = _slicedToArray(_uSMN, 2),
+    stMenu = _uSMNS[0], setStMenu = _uSMNS[1];   // ▾の小窓（選定・スポット・外す）{ s, x, y } 2026-11-25
   useEffect(function(){ if (addOpen && addInputRef.current) addInputRef.current.focus(); }, [addOpen]);
   var touchState = useRef({
     on: false,
@@ -1211,7 +1213,23 @@ function StockTabs(_ref34) {
     style: {
       marginBottom: 12
     }
-  }, stockDelTarget && React.createElement(DeleteDlg, {
+  }, stMenu ? (function() {
+    var ms = stMenu.s, isP = picked.indexOf(ms) >= 0, isS = spotPicked.indexOf(ms) >= 0;
+    var close = function() { setStMenu(null); };
+    var _it = function(key, on, mark, label, col, act) {
+      return React.createElement("button", { key: key, type: "button", onClick: function(e) { e.stopPropagation(); close(); if (!on) act(); },
+        style: { display: "flex", alignItems: "center", gap: 8, width: "100%", padding: IS_TOUCH ? "10px 12px" : "7px 12px", border: "none", borderRadius: 6, cursor: on ? "default" : "pointer", fontSize: 13, fontWeight: 800, textAlign: "left",
+          background: on ? col.bg : "transparent", color: col.fg } },
+        React.createElement("span", { style: { width: 14, textAlign: "center" } }, mark), label, on ? React.createElement("span", { style: { marginLeft: "auto", fontSize: 11 } }, "✓") : null);
+    };
+    var W = 220, x = Math.max(8, Math.min(stMenu.x, (typeof window !== "undefined" ? window.innerWidth : 400) - W - 8));
+    return React.createElement("div", { onClick: close, onTouchStart: function(e) { e.stopPropagation(); }, style: { position: "fixed", inset: 0, zIndex: 10001 } },
+      React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { position: "fixed", left: x, top: stMenu.y + 4, width: W, background: "#fff", border: "1px solid #D6D3D1", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,0.18)", padding: 5 } },
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#78716C", padding: "3px 8px 5px" } }, ms),
+        onTogglePick ? _it("p", isP, "●", "選定にする", { fg: "#1D4ED8", bg: "#DBEAFE" }, function() { onTogglePick(ms); }) : null,
+        onToggleSpot ? _it("s", isS, "◆", "スポットにする", { fg: "#C2410C", bg: "#FFEDD5" }, function() { onToggleSpot(ms); }) : null,
+        _it("n", !isP && !isS, "○", "外す", { fg: "#57534E", bg: "#F5F5F4" }, function() { if (isP && onTogglePick) onTogglePick(ms); else if (isS && onToggleSpot) onToggleSpot(ms); })));
+  })() : null, stockDelTarget && React.createElement(DeleteDlg, {
     msg: "「" + stockDelTarget + "」を削除しますか？\nチャートデータは保存されます。",
     onOk: function onOk() {
       onDel && onDel(stockDelTarget);
@@ -1325,12 +1343,12 @@ function StockTabs(_ref34) {
         paddingRight: (s !== "日経平均株価") ? ((_icoDel ? 28 : 0) + (_icoRn ? 24 : 0) + 6) : 14,
         marginRight: (picked.length && i === picked.length - 1 && stocks.length > picked.length) ? 8 : 0,   // 選定銘柄と他の銘柄の間をあける
         fontSize: 13,
-        fontWeight: picked.indexOf(s) >= 0 ? 800 : 600,
-        border: active === s ? "1.5px solid #1a1a1a" : over === i && drag != null ? "2px solid #6366F1" : (picked.indexOf(s) >= 0 ? "1.5px solid #93C5FD" : "1px solid #ccc"),
+        fontWeight: (picked.indexOf(s) >= 0 || spotPicked.indexOf(s) >= 0) ? 800 : 600,
+        border: active === s ? (picked.indexOf(s) >= 0 ? "2px solid #3B82F6" : spotPicked.indexOf(s) >= 0 ? "2px solid #F59E0B" : "1.5px solid #1a1a1a") : over === i && drag != null ? "2px solid #6366F1" : (picked.indexOf(s) >= 0 ? "1.5px solid #93C5FD" : spotPicked.indexOf(s) >= 0 ? "1.5px solid #FDBA74" : "1px solid #ccc"),
         borderRadius: 7,
         cursor: onReorder ? "grab" : "pointer",
-        background: active === s ? "#1a1a1a" : over === i && drag != null ? "#EEF2FF" : (picked.indexOf(s) >= 0 ? "#DBEAFE" : "#fff"),
-        color: active === s ? "#fff" : (picked.indexOf(s) >= 0 ? "#1E3A8A" : "#666"),
+        background: active === s ? "#1a1a1a" : over === i && drag != null ? "#EEF2FF" : (picked.indexOf(s) >= 0 ? "#DBEAFE" : spotPicked.indexOf(s) >= 0 ? "#FFEDD5" : "#fff"),
+        color: active === s ? "#fff" : (picked.indexOf(s) >= 0 ? "#1E3A8A" : spotPicked.indexOf(s) >= 0 ? "#9A3412" : "#666"),
         opacity: drag === i ? .4 : 1,
         whiteSpace: "nowrap",
         minHeight: IS_TOUCH ? 40 : 32,
@@ -1349,24 +1367,14 @@ function StockTabs(_ref34) {
       }
     }), (exclCount && exclCount(s) > 0) ? _elExclDot(exclCount(s), { position: "absolute", top: 4, left: 15, pointerEvents: "none" }) : null, (collCount && collCount(s) > 0) ? _elCollDot(collCount(s), { position: "absolute", top: 4, left: (exclCount && exclCount(s) > 0) ? 24 : 15, pointerEvents: "none" }) : null,
       React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 } },
-        // 〇＝その日の選定銘柄に入れる/外す（塗り＝選定中）2026-11-11f
-        (onTogglePick && s !== "日経平均株価") ? React.createElement("span", {
-          onClick: function(e) { e.stopPropagation(); onTogglePick(s); },
+        // ▾＝押すとすぐ下に小窓（選定にする／スポットにする／外す）2026-11-25 ユーザー指示「押し間違えやすい→ボタン1つに」。状態はタブの色（選定＝青・スポット＝橙）
+        ((onTogglePick || onToggleSpot) && s !== "日経平均株価") ? React.createElement("span", {
+          onClick: function(e) { e.stopPropagation(); var rc = e.currentTarget.getBoundingClientRect(); setStMenu(stMenu && stMenu.s === s ? null : { s: s, x: rc.left, y: rc.bottom }); },
           onTouchStart: function(e) { e.stopPropagation(); },
-          title: picked.indexOf(s) >= 0 ? "この日の選定銘柄から外す" : "この日の選定銘柄に入れる",
-          style: { flexShrink: 0, width: IS_TOUCH ? 18 : 14, height: IS_TOUCH ? 18 : 14, borderRadius: "50%", boxSizing: "border-box", cursor: "pointer",
-            border: "2px solid " + (picked.indexOf(s) >= 0 ? (active === s ? "#93C5FD" : "#1D4ED8") : (active === s ? "#bbb" : "#aaa")),
-            background: picked.indexOf(s) >= 0 ? (active === s ? "#93C5FD" : "#1D4ED8") : "transparent" }
-        }) : null,
-        // ◇＝スポット銘柄に入れる/外す（塗り＝スポット）2026-11-25
-        (onToggleSpot && s !== "日経平均株価") ? React.createElement("span", {
-          onClick: function(e) { e.stopPropagation(); onToggleSpot(s); },
-          onTouchStart: function(e) { e.stopPropagation(); },
-          title: spotPicked.indexOf(s) >= 0 ? "この日のスポット銘柄から外す" : "この日のスポット銘柄に入れる（選定に入っていれば選定から外れます）",
-          style: { flexShrink: 0, width: IS_TOUCH ? 14 : 11, height: IS_TOUCH ? 14 : 11, margin: "0 2px", transform: "rotate(45deg)", boxSizing: "border-box", cursor: "pointer",
-            border: "2px solid " + (spotPicked.indexOf(s) >= 0 ? "#D97706" : (active === s ? "#bbb" : "#aaa")),
-            background: spotPicked.indexOf(s) >= 0 ? "#F59E0B" : "transparent" }
-        }) : null,
+          title: "選定・スポットを変える",
+          style: { flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: IS_TOUCH ? 22 : 18, height: IS_TOUCH ? 22 : 18, borderRadius: 5, cursor: "pointer", fontSize: IS_TOUCH ? 13 : 11, lineHeight: 1,
+            border: "1px solid " + (active === s ? "#666" : "#C4C4C4"), background: active === s ? "#333" : "rgba(255,255,255,0.7)", color: active === s ? "#ddd" : "#666" }
+        }, "▾") : null,
         // 銘柄名の下に銘柄番号（4桁）を中央ぞろえ 2026-11-11
         _stkCode(s) ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, s,
           React.createElement("span", { style: { fontSize: 10, fontWeight: 600, opacity: 0.75, fontVariantNumeric: "tabular-nums" } }, _stkCode(s))) : s),
