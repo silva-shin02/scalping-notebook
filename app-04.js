@@ -2941,7 +2941,7 @@ function SettingsModal(_ref54) {
         return React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #E2E8F0" } },
           React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#1D4ED8", marginBottom: 4 } }, "〇 選定の候補に出す銘柄"),
           React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 8 } },
-            "押すと表示／非表示を切り替えます。非表示の銘柄は、銘柄別記録の銘柄タブ（選定外の欄）とEPナビの▽に出ません。すでに選定している日はそのまま表示されます。記録・分析・記録帳には影響しません。"),
+            "押すと表示／非表示を切り替えます。銘柄タブの「⚙ 並べる銘柄」で選んだ日以降は、そちらが優先されます。非表示の銘柄は、銘柄別記録の銘柄タブ（選定外の欄）とEPナビの▽に出ません。すでに選定している日はそのまま表示されます。記録・分析・記録帳には影響しません。"),
           React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
             stocks.filter(function(s) { return s !== "日経平均株価"; }).map(function(s) {
               var hid = _ph.indexOf(s) >= 0;
@@ -4314,6 +4314,22 @@ function _spotToggle(save, date, stock) {
     return _spotSetIn(prev, date, cur);
   });
 }
+// 銘柄タブに並べる銘柄（非表示の一覧）2026-11-25 ユーザー指示「タブの列で選べるように・選んだ日以降に効く」：data.tabHidden[日付]＝その日以降の非表示の銘柄名。
+//   その日以前で最も近い指定を使う・無ければ設定の custom.pickHidden（従来の「選定の候補に出す銘柄」）。指定すると、その日より後の指定は消す（＝選んだ日以降に効く・前の日は元のまま）。
+//   選定・スポットに入っている銘柄は非表示でも出る（呼び出し側）。EPナビの▽の候補も同じ。
+function _tabHiddenOf(data, date) {
+  var m = data && data.tabHidden;
+  if (m && date) { var best = ""; for (var k in m) { if (k <= date && k > best) best = k; } if (best) return Array.isArray(m[best]) ? m[best] : []; }
+  return (data && data.custom && Array.isArray(data.custom.pickHidden)) ? data.custom.pickHidden : [];
+}
+function _tabHiddenSetFrom(save, date, list) {
+  save(function(prev) {
+    var m = Object.assign({}, prev.tabHidden || {});
+    Object.keys(m).forEach(function(k) { if (k > date) delete m[k]; });
+    m[date] = (list || []).filter(function(x) { return !!x; });
+    return Object.assign({}, prev, { tabHidden: m });
+  });
+}
 // EPナビの列の並べ替えを「その日以降」に反映 2026-11-25（ユーザー報告「並べ替えても別の日にすると元に戻る」・ユーザー決定＝その日以降の日だけ）。
 //   並び＝dailyStock[日付] の順で日ごとに保存されているため、後の日で選定が保存済みの日は古い順のまま残っていた。
 //   その日は _dsTrioSet で保存し、後の日（選定銘柄方式・2銘柄以上）は入っている銘柄はそのままで順番だけ揃える（新しい順に無い銘柄は元の並びのまま後ろ）。前の日は触らない。
@@ -5475,7 +5491,7 @@ function EpNaviPanel(_refEPN) {
   // その日の3銘柄（2026-11-11〜・ユーザー指示「EPナビの3銘柄はすべて変更可能に」）: 3列とも見出しの▽で選ぶ＝dailyStock[日付]（日ごと・未選択日は直前の選択日を引き継ぐ）。
   //   旧来の「固定＋📅日替わり列」はこの日より前だけ。⚙は並べ替えのみ。
   var _trioOn = _dsTrioMode(date);
-  var _pickHid = Array.isArray(custom.pickHidden) ? custom.pickHidden : [];   // 設定「選定の候補に出す銘柄」で非表示（選定中はそのまま出す）2026-11-11g
+  var _pickHid = _tabHiddenOf(data, date);   // 2026-11-25 選んだ日以降の指定（無ければ設定の pickHidden）   // 設定「選定の候補に出す銘柄」で非表示（選定中はそのまま出す）2026-11-11g
   var _trioOpts = _epnAllStocks.filter(function(s) { return s !== "日経平均株価" && (_pickHid.indexOf(s) < 0 || _dailyStockHas(data, date, s)); });
   var _trioSlots = null;
   if (_trioOn) {
@@ -6042,7 +6058,7 @@ function DayView(_ref57) {
   // 2026-11-11b 銘柄タブ＝左にその日の選定銘柄（青）→右に全銘柄（日経除く）。全日で📅日替わりタブは出さない。
   //   選定銘柄＝11/11以降はその日の3銘柄／それより前は 固定タブ＋その日の日替わり指定（表示だけ・合計は従来どおり）。
   var _tabPicked = (_trioDay ? _dailyStockList(data, date) : _dsTrioBase(data, _dailyStockList(data, date))).filter(function(s) { return allStocks.indexOf(s) >= 0; });
-  var _pickHidT = Array.isArray(custom.pickHidden) ? custom.pickHidden : [];   // 設定で非表示にした銘柄は選定外の欄に出さない 2026-11-11g
+  var _pickHidT = _tabHiddenOf(data, date);   // 2026-11-25 タブの⚙で選んだ日以降の指定（無ければ設定の pickHidden）   // 設定で非表示にした銘柄は選定外の欄に出さない 2026-11-11g
   // 並び＝選定・非選定それぞれ銘柄番号の若い順（番号なしは各グループの最後・名前順）2026-11-11h。ドラッグ並べ替えは無し。
   var _byCode = function(a, b) {
     var ca = _stkCode(a), cb = _stkCode(b), ha = !!ca, hb = !!cb;   // 4桁コード（英字入り 285A 等も）＝文字列比較で番号順
@@ -6212,6 +6228,7 @@ function DayView(_ref57) {
       var _prord = Array.isArray(pc.rotStockOrder) ? pc.rotStockOrder.map(function(s) { return s === oldName ? newName : s; }) : pc.rotStockOrder;   // 手動並び順も追従 2026-08-17d（追従しないと改名した銘柄だけ並びの末尾へ飛ぶ）
       var _pph = Array.isArray(pc.pickHidden) ? pc.pickHidden.map(function(s) { return s === oldName ? newName : s; }) : pc.pickHidden;   // 選定候補の非表示も追従 2026-11-11g
       next.custom = Object.assign({}, pc, { pickHidden: _pph, stocks: ps, stockCodes: psc, epnStocks: _pepn, rotatingStocks: _prot, rotStockOrder: _prord, stockInfoTabs: _rnStockKey(pc.stockInfoTabs) });
+      if (next.tabHidden && typeof next.tabHidden === "object") { var _nth = {}; Object.keys(next.tabHidden).forEach(function(k) { var v = next.tabHidden[k]; _nth[k] = Array.isArray(v) ? v.map(function(x) { return x === oldName ? newName : x; }) : v; }); next.tabHidden = _nth; }   // 並べる銘柄の指定も追従 2026-11-25
       
       var pch = prev.charts || {};
       var nch = {};
@@ -6836,6 +6853,10 @@ function DayView(_ref57) {
     stocks: _trioTabs || allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; }),
     active: (fmActive || (rotTabActive && !_trioTabs)) ? "" : activeStock,
     picked: _tabPicked,
+    tabVisAll: _trioDay ? allStocks.filter(function(s) { return s !== "日経平均株価"; }).slice().sort(_byCode) : null,   // ⚙ 並べる銘柄 2026-11-25
+    tabHidden: _pickHidT,
+    tabDate: date,
+    onSetTabHidden: _trioDay ? function(list) { _tabHiddenSetFrom(save, date, list); } : null,
     spotPicked: _tabSpot,
     onToggleSpot: _trioDay ? function(s) { _spotToggle(save, date, s); } : null,   // ◇＝スポット銘柄に入れる/外す 2026-11-25
     onTogglePick: _trioDay ? function(s) {   // 〇で選定銘柄に入れる/外す（11/11以降だけ・最大 _DS_TRIO_MAX）2026-11-11f
