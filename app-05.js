@@ -9377,8 +9377,11 @@ function _snlFlowNode(o) {
   (o.pass || []).forEach(function(p, i) { out.push(arrow("a" + i)); out.push(row("p" + i, "○", "#64748B", p.n, p.v != null ? _snlR(p.v) : "", null)); });
   if (o.passNone) { out.push(arrow("an")); out.push(row("pn", "○", "#94A3B8", "通過なし（直近）", "", null)); }
   if (o.kList && o.kList.length > 1) {   // 2026-11-25 起点が複数＝高い順に縦に並べ、一番上（高い線）だけ「起点」（ユーザー指示・v745で一番下→一番上）
+    // 2026-11-25 札は強い線を優先＝200EMA→50EMA→VWAP（ユーザー指示「強さは200→50→VWAPの順」）・どれも無ければ一番上。並びは値の高い順のまま・表示だけ。
+    var _kPri = ["200EMA", "50EMA", "VWAP"], _kTop = 0;
+    for (var _pi = 0; _pi < _kPri.length; _pi++) { var _fx = -1; o.kList.forEach(function(k, i) { if (_fx < 0 && k.n === _kPri[_pi]) _fx = i; }); if (_fx >= 0) { _kTop = _fx; break; } }
     o.kList.forEach(function(k, i) {
-      var last = i === 0;
+      var last = i === _kTop;
       out.push(arrow("ak" + i));
       out.push(last ? row("k", "●", "#0369A1", k.n, [k.v != null ? _snlR(k.v) : null, o.kTime || null].filter(Boolean).join(" ／ "), "起点", "#0369A1")
         : row("k" + i, "○", "#0369A1", k.n, k.v != null ? _snlR(k.v) : "", null));
