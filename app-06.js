@@ -8940,7 +8940,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       var cells = [
         _td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow(r.date) + ")", { textAlign: "left", paddingLeft: 8, fontWeight: 700 }),
         _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, mode === "day" ? _minBarBadge(s) : null), _epIncompleteMark(s), _elCollMarkNode(data, r, _collScope), _elFillRiskNode(r),
-          _elIsExcluded(s) ? ((mode !== "day" && _elIsThru(s)) ? null : React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)))
+          _elIsExcluded(s) ? ((mode !== "day" && _elIsThru(s)) ? _elSelOutDiv(s) : React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)))
             : (_dimLbl ? React.createElement("div", { style: { marginTop: 1 } }, React.createElement("span", { title: "集計に入らない記録（表示のみ）", style: { display: "inline-block", fontSize: 9, fontWeight: 800, color: "#78716C", background: "#F5F5F4", border: "1px solid #D6D3D1", borderRadius: 3, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 } }, _dimLbl)) : null)), { color: "#666" }),
         _td(r.stock, { color: "#9A3412", fontWeight: 700 })
       ];
