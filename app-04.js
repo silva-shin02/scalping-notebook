@@ -4244,6 +4244,26 @@ function _dsTrioSet(save, date, list) {
     return Object.assign({}, prev, upd);
   });
 }
+// EPナビの列の並べ替えを「その日以降」に反映 2026-11-25（ユーザー報告「並べ替えても別の日にすると元に戻る」・ユーザー決定＝その日以降の日だけ）。
+//   並び＝dailyStock[日付] の順で日ごとに保存されているため、後の日で選定が保存済みの日は古い順のまま残っていた。
+//   その日は _dsTrioSet で保存し、後の日（選定銘柄方式・2銘柄以上）は入っている銘柄はそのままで順番だけ揃える（新しい順に無い銘柄は元の並びのまま後ろ）。前の日は触らない。
+function _dsTrioReorderFrom(save, date, list) {
+  _dsTrioSet(save, date, list);
+  var ord = (list || []).filter(function(x) { return !!x; });
+  save(function(prev) {
+    var m = prev.dailyStock || {}, nds = null;
+    Object.keys(m).forEach(function(k) {
+      if (!(k > date) || !_dsTrioMode(k)) return;
+      var cur = _dailyStockRaw(prev, k);
+      if (cur.length < 2) return;
+      var a = cur.filter(function(x) { return ord.indexOf(x) >= 0; }).sort(function(x, y) { return ord.indexOf(x) - ord.indexOf(y); }).concat(cur.filter(function(x) { return ord.indexOf(x) < 0; }));
+      if (a.join("\u0001") === cur.join("\u0001")) return;
+      if (!nds) nds = Object.assign({}, m);
+      _dsWrite(nds, k, a);
+    });
+    return nds ? Object.assign({}, prev, { dailyStock: nds }) : prev;
+  });
+}
 // EPナビの日替わり列の「表示銘柄」（端末ローカル・per-date 2026-07-22i）: dailyStock（合計算入の指定）とは別で、EPナビでどの候補のEPを計算・早見するかの表示選択だけ。既定は指定銘柄。Firebase同期しない＝localStorage（ユーザー決定＝▽は表示切替のみ・指定は変えない）。
 // 2026-08-07 日替わり列を2つに: slot（0=1列目・1=2列目）を追加。slot=0は旧キー（日付そのもの）のままで既存の選択を引き継ぐ。slot=1は "日付#2" キー。
 var _EPN_ROT_LS = "scalping_epn_rot_v1";
@@ -5371,8 +5391,8 @@ function EpNaviPanel(_refEPN) {
     if (!_trioSlots || !v) return;
     var sl = _trioSlots.slice(), j = sl.indexOf(v);
     if (j >= 0 && j !== i) sl[j] = sl[i];   // 他の列の銘柄を選んだ＝入れ替え
-    sl[i] = v;
-    _dsTrioSet(save, date, sl.filter(function(x) { return !!x; }));
+    sl[i] = v;   // 列どうしの入れ替え（銘柄は同じ）はその日以降の並びにも反映 2026-11-25
+    (j >= 0 ? _dsTrioReorderFrom : _dsTrioSet)(save, date, sl.filter(function(x) { return !!x; }));
   };
   var _dayStocks = _dailyStockList(data, date);   // その日の指定銘柄（複数可 2026-08-06・合計算入）。▽の既定表示に使う（指定は変えない）
   var _rotDefault = (function() { for (var _i = 0; _i < _dayStocks.length; _i++) { if (rotStocks.indexOf(_dayStocks[_i]) >= 0) return _dayStocks[_i]; } return rotStocks[0] || ""; })();   // 指定銘柄のうち日替わり列に出せる先頭→無ければ候補先頭
@@ -5385,7 +5405,7 @@ function EpNaviPanel(_refEPN) {
     save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { epnStocks: cur }) }); });
   };
   var _epnStockReorder = function(list) {
-    if (_trioOn) { _dsTrioSet(save, date, list); return; }
+    if (_trioOn) { _dsTrioReorderFrom(save, date, list); return; }   // その日以降の並びも揃える 2026-11-25
     save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { epnStocks: list.slice() }) }); });
   };
   // 計算フォームは銘柄列ごとに常設（_EpnCalcForm 2026-07-08）＝旧単一計算パネルのフォーム状態（epnOpen/nStock/nTag等）は各フォームへ移設。

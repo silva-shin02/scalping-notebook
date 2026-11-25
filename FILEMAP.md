@@ -3380,3 +3380,4 @@ HomeEventFormModal, App
 - 2026-11-22 v716：シグナルの分足（sigTf）を選んでいない記録は、表のシグナル欄の札を灰色の「分足不明」に（詳細から自動で決めた 1分/5分/両分 は出さない）。app-05 `_sigTfSet`/`_minBarTfBadge`。
 - 2026-11-22 v717：記録フォーム（EntryRecordForm）を開いている間は後ろの画面をスクロールさせない（冒頭の useEffect で body/html の overflow を hidden・window.__snFormLock で重なりを数える・閉じたら元に戻す）＋背景と本体の overscrollBehavior "contain"。
 - 2026-11-24 v728：集計タブ（月のデータ早見の下）の「確定待ち」「確定待ちの理由」「スルー理由」「要審議の理由」の帯を撤去（ユーザー指定・全期間を数えていて月の早見と紛らわしい）。app-06 の `_ceNote`/`_rsnNoteOf` ごと削除（state `thruOpen` は未使用で残置）。記録・他タブの分析は不変。
+- 2026-11-25 v729：EPナビの選定銘柄の列の並べ替え（ドラッグ・▽での列どうしの入れ替え）を「その日以降」の日にも反映（ユーザー報告「別の日にすると並びが戻る」・並びは dailyStock[日付] の順で日ごとに保存されていたため）。app-04 `_dsTrioReorderFrom`（その日は `_dsTrioSet`・後の日は銘柄はそのままで順番だけ揃える・前の日は触らない）を `_epnStockReorder`／`_trioPick`（入れ替えのとき）から呼ぶ。日別ページの銘柄タブは番号順のまま（ユーザー決定＝EPナビだけ）。
