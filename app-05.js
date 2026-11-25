@@ -3963,17 +3963,16 @@ function _elProvBadge(extra) {
       whiteSpace: "nowrap", lineHeight: 1.5, verticalAlign: "middle" }, extra || {}) }, "仮");
 }
 // 選定外（その日の選定銘柄でない銘柄の記録）2026-11-25 ユーザー要望「選定外とわかるように」：選定銘柄方式の日（app-04 _dsTrioMode）で、
-//   合計に入らない記録のうち銘柄がその日の選定に無いものは「不算入」ではなく橙の「選定外」。スルー・仮シグナルは従来どおり。
+//   合計に入らない記録のうち銘柄がその日の選定に無いものは「不算入」ではなく橙の「選定外」。スルー・仮シグナルは元の印と両方出す（2026-11-25b ユーザー決定）。
 //   記録→銘柄・日付は data.charts から引く（_SN_SEL_DATA＝app-08 がレンダー時に書く・オブジェクトとidの両方で引く）。
 var _SN_SEL_DATA = null, _selLocCache = { ch: null, obj: null, id: null };
 function _elSelOutRec(data, r) {
   if (!data || !r || !r.stock || !r.date || typeof _dsTrioMode !== "function" || !_dsTrioMode(r.date)) return false;
-  if (r.signal && (_elIsThru(r.signal) || _elIsProvisional(r.signal))) return false;
   return !_dailyStockHas(data, r.date, r.stock);
 }
 function _elSelOutSig(s) {
   var d = _SN_SEL_DATA;
-  if (!s || !d || !d.charts || !_elIsExcluded(s)) return false;
+  if (!s || !d || !d.charts) return false;
   if (_selLocCache.ch !== d.charts) {
     var om = (typeof WeakMap === "function") ? new WeakMap() : null, im = {};
     Object.keys(d.charts).forEach(function(ck) {
@@ -3986,10 +3985,20 @@ function _elSelOutSig(s) {
   var loc = (_selLocCache.obj && _selLocCache.obj.get(s)) || (s.id != null ? _selLocCache.id[String(s.id)] : null);
   return !!loc && _elSelOutRec(d, { stock: loc.stock, date: loc.date, signal: s });
 }
-// 「不算入」水色バッジ（行/カードに付ける）。選定外は橙の「選定外」2026-11-25。
+function _elSelOutBadge(s, extra) {   // 選定外なら橙の「選定外」・それ以外は null
+  if (!_elSelOutSig(s)) return null;
+  return React.createElement("span", { title: "選定外：その日の選定銘柄ではない銘柄の記録（合計に算入しない）", style: Object.assign({ display: "inline-block", fontSize: 9, fontWeight: 800, color: "#C2410C", background: "#FFEDD5", border: "1px solid #FDBA74", borderRadius: 3, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5, verticalAlign: "middle" }, extra || {}) }, "選定外");
+}
+function _elSelOutDiv(s) { var b = _elSelOutBadge(s); return b ? React.createElement("div", { style: { marginTop: 1 } }, b) : null; }
+// 「不算入」水色バッジ（行/カードに付ける）。選定外は橙の「選定外」2026-11-25・スルーかつ選定外は両方。
 function _elNotInclBadge(extra, s) {
+  var _thru = _elIsThru(s), _so = _elSelOutBadge(s, extra);
+  if (_so && !_thru) return _so;
+  if (_so) return React.createElement("span", { style: { display: "inline-flex", gap: 3, flexWrap: "wrap", justifyContent: "center" } }, _elNotInclBadge0(extra, s), _so);
+  return _elNotInclBadge0(extra, s);
+}
+function _elNotInclBadge0(extra, s) {
   var _thru = _elIsThru(s);
-  if (!_thru && _elSelOutSig(s)) return React.createElement("span", { title: "選定外：その日の選定銘柄ではない銘柄の記録（合計に算入しない）", style: Object.assign({ display: "inline-block", fontSize: 9, fontWeight: 800, color: "#C2410C", background: "#FFEDD5", border: "1px solid #FDBA74", borderRadius: 3, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5, verticalAlign: "middle" }, extra || {}) }, "選定外");
   return React.createElement("span", { title: _thru ? "スルー（合計・データ分析に算入しない記録）" : "計算・データに算入しない記録",
     style: Object.assign({ display: "inline-block", fontSize: 9, fontWeight: 800, color: _thru ? "#4B5563" : "#0284C7",
       background: _thru ? "#E5E7EB" : "#E0F2FE", border: "1px solid " + (_thru ? "#9CA3AF" : "#7DD3FC"), borderRadius: 3, padding: "0 4px",
@@ -4003,7 +4012,7 @@ function _elNotInclBadge(extra, s) {
 function _elOutOfTotalBadge(data, r) {
   var s = r && r.signal;
   if (!s) return null;
-  if (_elIsProvisional(s)) return _elProvBadge();
+  if (_elIsProvisional(s)) { var _pso = _elSelOutBadge(s); return _pso ? React.createElement("span", { style: { display: "inline-flex", gap: 3, flexWrap: "wrap", justifyContent: "center" } }, _elProvBadge(), _pso) : _elProvBadge(); }   // 仮＋選定外は両方 2026-11-25b
   if (_elIsExcluded(s)) return _elNotInclBadge(null, s);
   if (_elVapUnsetRec(r)) return _elVapUnsetBadge();
   if (_isDataOnly(data, r)) return React.createElement("span", {
@@ -13841,7 +13850,7 @@ function EntryLogCard(_ref_elc) {
     
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" } }, _fmtDow(record.date)),
-      (_elIsExcluded(s) && !_elIsThru(s)) ? _elNotInclBadge(null, s) : null,   // スルーは下の実エントリー状態チップで表示＝二重バッジ回避 2026-07-06
+      (_elIsExcluded(s) && !_elIsThru(s)) ? _elNotInclBadge(null, s) : (_elIsThru(s) ? _elSelOutBadge(s) : null),   // スルーは下の実エントリー状態チップで表示＝二重バッジ回避 2026-07-06
       s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time, _minBarBadge(s)),
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, _stkLbl(record.stock))
     ),
