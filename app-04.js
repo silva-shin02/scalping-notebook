@@ -3665,6 +3665,7 @@ function StockQuickRefTable(_props_qrt) {
             isNikkei ? null : React.createElement("td", { style: { padding: "7px 4px", textAlign: "center", whiteSpace: "nowrap", borderRight: "1px solid #efece7" } }, (function() {   // 選定列 2026-11-25（〇選定・ス スポット・×どちらでもない／今日まで・平日・11/1以降）
               if (isHoliday || isSun || isSat || !_dsTrioMode(d) || d > _dsTodayStr()) return null;
               var _sel = _dailyStockHas(data, d, activeStock), _sp = !_sel && _spotHas(data, d, activeStock);
+              if (!_sel && !_sp) return null;   // 選定外は空欄（×は出さない）2026-11-25 ユーザー指示
               return React.createElement("span", { title: _sel ? "この日の選定銘柄" : _sp ? "この日のスポット銘柄" : "この日は選定外", style: { fontSize: _sp ? 12 : 14, fontWeight: 800, color: _sel ? "#1D4ED8" : _sp ? "#D97706" : "#EA580C" } }, _sel ? "〇" : _sp ? "ス" : "×");
             })()),
             React.createElement("td", {
