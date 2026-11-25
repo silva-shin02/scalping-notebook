@@ -4962,7 +4962,7 @@ function _EpnCalcForm(_p) {
   var _useStateEPNkd = useState(null), nKakudo = _useStateEPNkd[0], setNKakudo = _useStateEPNkd[1];   // エントリー確度 A/B/C 2026-11-20（保存EP item.kakudo）
   var _useStateEPNbr = useState(_bRatioDef(data)), nBRatio = _useStateEPNbr[0], setNBRatio = _useStateEPNbr[1];
   var _useStateEPNds = useState(_dSharesDef(data)), nDShares = _useStateEPNds[0], setNDShares = _useStateEPNds[1];   // Dの株数（初期値＝設定 custom.dSharesDef）2026-11-20z   // Bの①の割合%（初期値＝設定 custom.bRatioDef）
-  var _useStateEPNct = useState(null), nCeTopPxRaw = _useStateEPNct[0], setNCeTopPx = _useStateEPNct[1];   // 2026-11-25 null＝未編集＝初期値（EP基準ライン＋採用VAP＋10円）に追従（記録フォームと同じ）
+  var _useStateEPNct = useState(null), nCeTopPxRaw = _useStateEPNct[0], setNCeTopPx = _useStateEPNct[1];   // 2026-11-25 null＝未編集＝初期値（基準ライン＋採用VAP＋10円）に追従（記録フォームと同じ）
   var _useStateEPNc2 = useState(null), nCe2TopRaw = _useStateEPNc2[0], setNCe2Top = _useStateEPNc2[1];
   // 2026-11-25 確度Dの直上VAP①オン/オフ（記録フォームと同じ）。オフ＝EP①は確定待ちだけ・②＝EP①の約定値＋〇円（ce2Off・null＝設定の初期値）
   var _useStateEPNct = useState(true), nCeTopOn = _useStateEPNct[0], setNCeTopOn = _useStateEPNct[1];
@@ -5008,7 +5008,7 @@ function _EpnCalcForm(_p) {
     if (Array.isArray(custom.sigKitenList)) _r[_elKitenKey(custom, nTag)] = custom.sigKitenList;   // 起点は全シグナル共通 2026-10-29e
     return _r;
   }, [custom, nTag]);
-  // ③の欄は記録フォームの①と同じ判定 2026-11-02（ユーザー指摘「EPナビのEP基準ラインが最新の状態になってない」）: _elSigSecs の b を使う＝
+  // ③の欄は記録フォームの①と同じ判定 2026-11-02（ユーザー指摘「EPナビの基準ラインが最新の状態になってない」）: _elSigSecs の b を使う＝
   //   三角保ち合い崩れ(bHide)・確定足浮き残り(detHide)は欄なし、寄り足ライン(bName)は見出しが「起点」（候補は cands.b＝共通の起点リスト）。
   var _bSecE = nTag ? (_elSigSecs(data, nTag).filter(function(sc) { return sc.key === "b"; })[0] || null) : null;
   var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk, band = casc && casc.band;
@@ -5257,7 +5257,7 @@ function _EpnCalcForm(_p) {
   return React.createElement("div", { ref: _rootRef, style: { minWidth: 0, boxSizing: "border-box", background: _editing ? "#FFFBEB" : "#fff", border: _editing ? "2px solid #F59E0B" : "1px solid #BFDBFE", borderRadius: 8, padding: _editing ? 7 : 8 } },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" } },   // 列が狭いと「計算：…」と銘柄名が切れてどの列か分からなくなるので、入らなければ↺リセットを下段へ折り返す 2026-08-07
       React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: _editing ? "#B45309" : "#1D4ED8", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (_editing ? "✎ 編集：" : "計算：") + _stkLbl(stock)),
-      React.createElement("button", { type: "button", onClick: _resetForm, title: "計算内容をリセット（シグナル/" + (_vapWorld(date) ? "VAP値" : "α") + "/EP基準ラインなどを初期化）",
+      React.createElement("button", { type: "button", onClick: _resetForm, title: "計算内容をリセット（シグナル/" + (_vapWorld(date) ? "VAP値" : "α") + "/基準ラインなどを初期化）",
         style: { flexShrink: 0, padding: "3px 9px", fontSize: 10.5, fontWeight: 700, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 30 : 22 } }, "↺ リセット")),
     editId ? React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6, padding: "4px 8px", background: "#FEF9C3", border: "1px solid #FDE68A", borderRadius: 6, flexWrap: "wrap" } },
       React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#92400E" } }, "✎ 保存済みEPを編集中（保存で上書き）"),
@@ -5272,14 +5272,14 @@ function _EpnCalcForm(_p) {
     _lrow(_mgmtHead("②", "シグナル", true), React.createElement(_EpnChipMgr, { items: signalTags, orphans: sigOrphans, selected: (nTag && provTags.indexOf(nTag) < 0) ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", noAdd: true, onToggle: _sigToggle, onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder })),   // noAdd 2026-08-07: ここからのシグナル新規追加は廃止（②のマスターは記録フォーム/設定側で管理）
     // 仮シグナル（緑の別段）2026-10-27: 選択は②と共通（nTag）。追加・改名・削除・並べ替えもここでできる（ユーザー決定）。
     _lrow(React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#15803D" } }, "仮シグナル"), React.createElement(_EpnChipMgr, { items: provTags, selected: (nTag && provTags.indexOf(nTag) >= 0) ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#16A34A", bg: "#DCFCE7", c: "#15803D" }, addPh: "仮シグナル名", onToggle: _sigToggle, onAdd: _provAdd, onRename: _sigRename, onDelete: _provDelete, onReorder: _provReorder })),
-    _bSecE ? _lrow(_mgmtHead("③", _bSecE.name), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: _bSecE.name + "名（例: " + (_bSecE.name === "EP基準ライン" ? "前日安値" : "VWAP") + "）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,   // ③底抜けは②シグナルの直下に常時表示（底抜けライン欄のみ復活 2026-07-24）
+    _bSecE ? _lrow(_mgmtHead("③", _bSecE.name), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: _bSecE.name + "名（例: " + (_bSecE.name === "基準ライン" ? "前日安値" : "VWAP") + "）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,   // ③底抜けは②シグナルの直下に常時表示（底抜けライン欄のみ復活 2026-07-24）
     // 「推奨基本α」の灰色枠（シグナル別/銘柄全体のn付き内訳＋★採用）はユーザー指示で撤去 2026-08-07。
     // ⚠️表示だけの撤去＝推奨基本αの計算(_epnCascade/autoPick)も、それを既定値に使う採用α欄も無改修。_pickLine は未使用になるが保持（無害）。
-    // 確度はEP基準ラインの上（記録フォームと同じ順）2026-11-25 ユーザー決定
+    // 確度は基準ラインの上（記録フォームと同じ順）2026-11-25 ユーザー決定
     React.createElement(_EpnKakudoBox, { kakudo: nKakudo, bRatio: nBRatio, ceTopPx: nCeTopPx, ce2TopPx: nCe2Top, ep: epFinal, lv: levelN, topFin: _nTopFin(nCeTopPx), top2Fin: _nTopFin(nCe2Top), ceTopOn: nCeTopOn, onCeTopOn: setNCeTopOn, ce2Off: nCe2Off, onCe2Off: setNCe2Off, def: _bRatioDef(data, nKakudo), data: data, save: save,
       dShares: nDShares, dDef: _dSharesDef(data), onDShares: setNDShares,
       onKakudo: function(k) { if (_kdSplit(k) && k !== nKakudo) setNBRatio(_bRatioDef(data, k)); setNKakudo(k); }, onBRatio: setNBRatio, onCeTopPx: setNCeTopPx, onCe2TopPx: setNCe2Top }),
-    _lrow("EP基準ライン", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+    _lrow("基準ライン", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
       React.createElement("input", { type: "text", inputMode: "decimal", value: nLevel, placeholder: "—",
         onChange: function(e) { setNLevel(_toHankakuDecimal(e.target.value)); }, style: Object.assign({}, _inpStyle, { width: 72 }) }),
       React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円"),
@@ -5320,7 +5320,7 @@ function _EpnCalcForm(_p) {
         nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 11, color: "#94A3B8", fontWeight: 700 } }, "−") : null,
         nUkiUsed === "○" ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
           React.createElement("span", { style: { fontSize: 10, color: "#64748B", fontWeight: 700 } }, "底抜けライン"),
-          React.createElement("input", { type: "text", inputMode: "decimal", value: nLevel, placeholder: "EP基準ライン",
+          React.createElement("input", { type: "text", inputMode: "decimal", value: nLevel, placeholder: "基準ライン",
             onChange: function(e) { setNLevel(_toHankakuDecimal(e.target.value)); }, style: Object.assign({}, _inpStyle, { width: 58 }) }),
           _stepBtn(function() { setNLevel(function(v) { return String(Math.round(((parseFloat(v) || 0) + 1) * 100) / 100); }); }, function() { setNLevel(function(v) { return String(Math.max(0, Math.round(((parseFloat(v) || 0) - 1) * 100) / 100)); }); })) : null,
         nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#15803D", whiteSpace: "nowrap", background: "#EAF3DE", borderRadius: 5, padding: "2px 7px" } }, "浮き " + ((nUkiVal !== "" && !isNaN(Number(nUkiVal))) ? Number(nUkiVal) : 0) + "円") : null,
@@ -5342,7 +5342,7 @@ function _EpnCalcForm(_p) {
       React.createElement("b", { style: { minWidth: 32, textAlign: "center", fontSize: 12, color: nVapAdj ? "#B45309" : "#94A3B8" } }, (nVapAdj > 0 ? "+" : "") + (nVapAdj || 0) + "円"),
       React.createElement("button", { type: "button", onClick: function() { setNVapAdj((nVapAdj || 0) + 1); }, style: { padding: "0 7px", fontSize: 12, fontWeight: 800, border: "1px solid #FCD34D", background: "#fff", color: "#92400E", borderRadius: 4, cursor: "pointer" } }, "＋"),
       baseV != null ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#4C1D95" } }, "→ 採用VAP " + (baseV + (nVapAdj || 0)) + "円") : null,
-      _epnVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E" } }, "（EP基準ラインが大RN・中RN×VAP0のためマイナス補正なし）") : null)) : null,
+      _epnVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E" } }, "（基準ラインが大RN・中RN×VAP0のためマイナス補正なし）") : null)) : null,
     _epnVap ? React.createElement("div", { key: "vapana", style: { margin: "2px 0 6px" } }, React.createElement(_VapAnaPanel, { data: data, stock: stock, tags: nTag ? [nTag] : [], vap: nBase, adj: nVapAdj, onAdj: function(k) { setNVapAdj(k); } })) : null,
     (!_epnVap && nUkiUsed !== "○") ? _lrow("採用α", React.createElement("div", null,
       React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 3, gap: 3, marginBottom: 5 } },
@@ -5377,8 +5377,8 @@ function _EpnCalcForm(_p) {
       nRnUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#1D4ED8" } }, "→ +" + rnAddV + "円" + (_nRnKindI ? ("（" + _nRnKindI.target + "）") : "")) : null,
       // 2026-07-20b 自動判定の状態（記録フォームと同じ挙動）。自動中＝バッジ／手動中＝「↺自動」で復帰。
       nRnAuto
-        ? React.createElement("span", { title: "最終EP（EP基準ライン＋基底α＋浮き足加算）の下二桁が、中RNは 50−T〜49（→…50）・大RNは 100−T〜99（→…00＝100・1000台）なら自動で〇にして、そのキリ番ちょうどまで加算します。閾値Tは中RN・大RNで別々に設定できます（🔢RN加算タブ→閾値）。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
-            _nRnAutoAdd == null ? "自動：EP基準ライン待ち" : (_nRnAutoAdd > 0 ? ("自動判定中" + (_nRnKindI ? ("・" + _nRnKindI.label) : "")) : "自動判定中（対象外）"))
+        ? React.createElement("span", { title: "最終EP（基準ライン＋基底α＋浮き足加算）の下二桁が、中RNは 50−T〜49（→…50）・大RNは 100−T〜99（→…00＝100・1000台）なら自動で〇にして、そのキリ番ちょうどまで加算します。閾値Tは中RN・大RNで別々に設定できます（🔢RN加算タブ→閾値）。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
+            _nRnAutoAdd == null ? "自動：基準ライン待ち" : (_nRnAutoAdd > 0 ? ("自動判定中" + (_nRnKindI ? ("・" + _nRnKindI.label) : "")) : "自動判定中（対象外）"))
         : React.createElement("button", { type: "button", onClick: function() { setNRnAuto(true); }, title: "自動判定に戻す",
             style: { fontSize: 9, fontWeight: 700, color: "#B45309", background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 自動に戻す"))),
     React.createElement("div", { style: { margin: "8px 0 6px", padding: "7px 6px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, textAlign: "center" } },
@@ -5389,7 +5389,7 @@ function _EpnCalcForm(_p) {
       effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, _epnVap ? ("採用VAP" + effA + "円" + (nVapAdj ? "（読" + baseV + "・" + (nVapAdj > 0 ? "+" : "") + nVapAdj + "）" : "")) : (nUkiUsed === "○")
         ? ("合計α値" + effA + "円＝" + (nUkiSpecial ? "浮応" : "浮") + ukiAddV + (rnAddV ? "＋RN" + rnAddV : "") + "（浮き足〇＝基本α/応用α無し）")
         : ("合計α値" + effA + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (ukiAddV ? "＋浮" + ukiAddV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : "")))
-        : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? (_epnVap ? "VAP値を入力" : "記録が無い銘柄は基本αを手入力") : "EP基準ラインを入力")),
+        : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? (_epnVap ? "VAP値を入力" : "記録が無い銘柄は基本αを手入力") : "基準ラインを入力")),
     React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
       style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? (editId ? "#B45309" : "#1D4ED8") : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, editId ? "💾 更新保存" : "💾 保存（早見に追加）"), _spModal);
 }
@@ -5432,7 +5432,7 @@ function _EpnKakudoBox(p) {
       _d2Off ? null : React.createElement("input", { type: "text", inputMode: "decimal", value: p.ceTopPx, placeholder: "直上VAP（株価）", onChange: function(ev) { p.onCeTopPx(_toHankakuDecimal(ev.target.value)); },
         style: { width: 78, padding: "1px 4px", fontSize: 11, fontWeight: 700, color: "#155E75", border: "1px solid #67E8F9", borderRadius: 4, textAlign: "right", boxSizing: "border-box" } }),
       _d2Off ? null : _sb("▲", 1), _d2Off ? null : _sb("▼", -1),
-      _f1 != null ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: _bad ? "#B91C1C" : "#0E7490" } }, "→ 最終EP" + (k === "D" ? "①" : "②") + " " + _f1 + "円" + (p.lv != null ? "（EP基準ライン" + (_f1 - p.lv >= 0 ? "+" : "") + (Math.round((_f1 - p.lv) * 100) / 100) + "）" : "") + (_bad ? "（EP以下）" : "")) : null) : null,
+      _f1 != null ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: _bad ? "#B91C1C" : "#0E7490" } }, "→ 最終EP" + (k === "D" ? "①" : "②") + " " + _f1 + "円" + (p.lv != null ? "（基準ライン" + (_f1 - p.lv >= 0 ? "+" : "") + (Math.round((_f1 - p.lv) * 100) / 100) + "）" : "") + (_bad ? "（EP以下）" : "")) : null) : null,
     _d2Off ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
       React.createElement("span", { style: { color: "#7E22CE", fontWeight: 800 } }, "EP②（EP①の約定値＋"),
       React.createElement("input", { type: "text", inputMode: "decimal", value: p.ce2Off == null ? "" : p.ce2Off, placeholder: "円", onChange: function(ev) { if (p.onCe2Off) p.onCe2Off(_toHankakuDecimal(ev.target.value)); },
@@ -5445,7 +5445,7 @@ function _EpnKakudoBox(p) {
       React.createElement("input", { type: "text", inputMode: "decimal", value: p.ce2TopPx == null ? "" : p.ce2TopPx, placeholder: "株価", onChange: function(ev) { if (p.onCe2TopPx) p.onCe2TopPx(_toHankakuDecimal(ev.target.value)); },
         style: { width: 78, padding: "1px 4px", fontSize: 11, fontWeight: 700, color: "#7E22CE", border: "1px solid #D8B4FE", borderRadius: 4, textAlign: "right", boxSizing: "border-box" } }),
       _sb2("▲", 1), _sb2("▼", -1),
-      _f2 != null ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: _bad2 ? "#B91C1C" : "#7E22CE" } }, "→ 最終EP② " + _f2 + "円" + (p.lv != null ? "（EP基準ライン" + (_f2 - p.lv >= 0 ? "+" : "") + (Math.round((_f2 - p.lv) * 100) / 100) + "）" : "") + (_bad2 ? "（①以下）" : "")) : null) : null,
+      _f2 != null ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: _bad2 ? "#B91C1C" : "#7E22CE" } }, "→ 最終EP② " + _f2 + "円" + (p.lv != null ? "（基準ライン" + (_f2 - p.lv >= 0 ? "+" : "") + (Math.round((_f2 - p.lv) * 100) / 100) + "）" : "") + (_bad2 ? "（①以下）" : "")) : null) : null,
     // 🛑 推奨損切り値（記録フォームのB・Dと同じ式・目安の表示だけ）2026-11-25
     (function() {
       if (!(k === "B" || k === "D") || p.lv == null || p.ep == null) return null;
@@ -5457,7 +5457,7 @@ function _EpnKakudoBox(p) {
       var xr = Math.floor(x * 10 + 1e-9) / 10;
       return React.createElement("div", { title: "許容損切り額 " + _SN_STOP_ALLOW_YEN.toLocaleString() + "円／" + _SN_STOP_ALLOW_SH + "株（＝" + allow + "円）から逆算。" + (a2 != null ? "①②両方入った前提" : "①だけ入った前提") + "。小数は切り捨て。損益の計算には使いません。", style: { display: "flex", alignItems: "baseline", gap: 5, flexWrap: "wrap", borderTop: "1px dashed " + c.bd, paddingTop: 4 } },
         React.createElement("span", { style: { fontWeight: 800, color: "#B91C1C" } }, "🛑 推奨損切り値"),
-        React.createElement("span", { style: { fontWeight: 800, color: "#991B1B", fontVariantNumeric: "tabular-nums" } }, "EP基準ライン" + (xr >= 0 ? "+" : "−") + Math.abs(xr) + "円（株価 " + (Math.round((p.lv + xr) * 100) / 100) + "円）"),
+        React.createElement("span", { style: { fontWeight: 800, color: "#991B1B", fontVariantNumeric: "tabular-nums" } }, "基準ライン" + (xr >= 0 ? "+" : "−") + Math.abs(xr) + "円（株価 " + (Math.round((p.lv + xr) * 100) / 100) + "円）"),
         React.createElement("span", { style: { fontSize: 9.5, color: "#78716C" } }, a2 != null ? "①②両方入った前提" : "①だけ入った前提"));
     })());
 }
@@ -5738,7 +5738,7 @@ function EpNaviPanel(_refEPN) {
           _isEditingThis
             ? React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); var _api = _formApisRef.current[st]; if (_api && _api.save) _api.save(); }, title: "下の計算フォームで編集中の内容をこのEPに上書き保存",
                 style: { padding: "1px 7px", fontSize: 9.5, fontWeight: 800, lineHeight: 1.5, border: "1.5px solid #B45309", background: "#B45309", color: "#fff", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, "💾保存")
-            : React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); var _api = _formApisRef.current[st]; if (_api) { _api.loadForEdit(e); if (_api.focus) _api.focus(); } }, title: "計算フォームに読み込んで全体を編集（基準分足・シグナル・EP基準ライン・基本α等も）",
+            : React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); var _api = _formApisRef.current[st]; if (_api) { _api.loadForEdit(e); if (_api.focus) _api.focus(); } }, title: "計算フォームに読み込んで全体を編集（基準分足・シグナル・基準ライン・基本α等も）",
                 style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 800, lineHeight: 1.5, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, "編集"),
           React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDone(st, e); }, title: isDone ? "済みを解除（未済みに戻して上へ）" : "済みにする（薄い灰色で一番下へ）",
             style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 800, lineHeight: 1.5, border: isDone ? "1.5px solid #64748B" : "1px solid #CBD5E1", background: isDone ? "#64748B" : "#fff", color: isDone ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, "済"),

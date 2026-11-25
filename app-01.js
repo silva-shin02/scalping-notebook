@@ -1576,11 +1576,11 @@ function migrateData(d) {
           });
         });
       }
-      if (_vxN) console.log("[migrateData] vapAdjExAll: " + _vxN + " 記録のマイナス補正を0円へ（EP基準ライン大RN×VAP0円）");
+      if (_vxN) console.log("[migrateData] vapAdjExAll: " + _vxN + " 記録のマイナス補正を0円へ（基準ライン大RN×VAP0円）");
       d._migVapAdjExAll = true;
     } catch(e) { console.warn("[migrateData] vapAdjExAll error:", e); }
   }
-  // 【一回性 _migVapAdjExLv・2026-10-26】VAP補正の例外を「①EP基準ラインが大RN×VAP0円」→「水準線値が大RN（100円単位）×VAP0円」に置き換えた（ユーザー決定）。
+  // 【一回性 _migVapAdjExLv・2026-10-26】VAP補正の例外を「①基準ラインが大RN×VAP0円」→「水準線値が大RN（100円単位）×VAP0円」に置き換えた（ユーザー決定）。
   //   付け直し: ①新条件に当たる記録の一括反映のマイナス補正（vapAdjBatch===true・vapAdj<0）は0円へ。
   //   ②旧条件で補正なし（vapAdj＝0）だったが新条件に当たらない記録には、設定の補正値（custom.vapAdj・既定−1）を一括反映として付ける。
   //   8/20以降・VAP入力済み・実エントリー以外だけ（一括反映と同じ対象）。手で入れた補正（vapAdjBatchなし・≠0）は触らない。
@@ -1599,11 +1599,11 @@ function migrateData(d) {
           });
         });
       }
-      if (_lvA || _lvB) console.log("[migrateData] vapAdjExLv: 0円へ " + _lvA + "件・補正を付け直し " + _lvB + "件（EP基準ラインが大RN×VAP0円）");
+      if (_lvA || _lvB) console.log("[migrateData] vapAdjExLv: 0円へ " + _lvA + "件・補正を付け直し " + _lvB + "件（基準ラインが大RN×VAP0円）");
       d._migVapAdjExLv = true;
     } catch(e) { console.warn("[migrateData] vapAdjExLv error:", e); }
   }
-  // 【一回性 _migVapAdjExMid1120・2026-11-20】VAP補正の例外に中RN（EP基準ラインが50円単位）を追加（ユーザー指示「中RNは大RNと同様」）。
+  // 【一回性 _migVapAdjExMid1120・2026-11-20】VAP補正の例外に中RN（基準ラインが50円単位）を追加（ユーザー指示「中RNは大RNと同様」）。
   //   _migVapAdjExLv の①と同じ付け直し＝新条件に当たる記録の一括反映のマイナス補正（vapAdjBatch===true・vapAdj<0）だけ0円へ。手で入れた補正・実エントリーは触らない。
   if (!d._migVapAdjExMid1120 && typeof _vapAdjExemptSig === "function" && typeof _vapWorld === "function") {
     try {
@@ -1618,7 +1618,7 @@ function migrateData(d) {
           });
         });
       }
-      if (_mdA) console.log("[migrateData] vapAdjExMid1120: 0円へ " + _mdA + "件（EP基準ラインが中RN×VAP0円）");
+      if (_mdA) console.log("[migrateData] vapAdjExMid1120: 0円へ " + _mdA + "件（基準ラインが中RN×VAP0円）");
       d._migVapAdjExMid1120 = true;
     } catch(e) { console.warn("[migrateData] vapAdjExMid1120 error:", e); }
   }
@@ -1636,7 +1636,7 @@ function migrateData(d) {
     } catch(e) { console.warn("[migrateData] kakudoDE1122 error:", e); }
   }
   // 【一回性 _migKakudoD2Off1122・2026-11-22b】確度Dの②を「株価（ce2TopPx）」から「EP①の約定値より〇円上（ce2Off）」へ（ユーザー指示）。
-  //   〇円＝②の株価−①の直上VAP（ceTopPx・無ければ 記録＝EP基準ライン＋採用VAP／EPナビ＝ep）。0以下になったら10円。記録と EPナビの保存EPの両方。
+  //   〇円＝②の株価−①の直上VAP（ceTopPx・無ければ 記録＝基準ライン＋採用VAP／EPナビ＝ep）。0以下になったら10円。記録と EPナビの保存EPの両方。
   if (!d._migKakudoD2Off1122) {
     try {
       var _d2N = 0;
@@ -1655,7 +1655,7 @@ function migrateData(d) {
     } catch(e) { console.warn("[migrateData] kakudoD2Off1122 error:", e); }
   }
   // 【一回性 _migKakudoD2Top1124・2026-11-24b】確度Dの②を「EP①の約定値＋〇円（ce2Off）」から「直上VAP②（ce2TopPx・株価）」へ（ユーザー指示「Dの②は直上VAP②だけ」）。
-  //   株価＝直上VAP①（ceTopPx）＋〇円。直上VAP①が無ければ 記録＝EP基準ライン＋採用VAP（levelPrice＋alphaVal）／EPナビ＝ep に〇円を足す。記録と EPナビの保存EPの両方。上の 1122 は済み（フラグ）なので逆向きには戻らない。
+  //   株価＝直上VAP①（ceTopPx）＋〇円。直上VAP①が無ければ 記録＝基準ライン＋採用VAP（levelPrice＋alphaVal）／EPナビ＝ep に〇円を足す。記録と EPナビの保存EPの両方。上の 1122 は済み（フラグ）なので逆向きには戻らない。
   if (!d._migKakudoD2Top1124) {
     try {
       var _d3N = 0;
@@ -1747,7 +1747,7 @@ function migrateData(d) {
       }
     } catch(e) { console.warn("[migrateData] kiten1029 error:", e); }
   }
-  // 【一回性 _migLine1029・2026-10-29f】ユーザー要望「EP基準ラインと起点の間に通過ライン欄」＋「起点の選択肢を通過ラインと合わせて」。
+  // 【一回性 _migLine1029・2026-10-29f】ユーザー要望「基準ラインと起点の間に通過ライン欄」＋「起点の選択肢を通過ラインと合わせて」。
   //   共通リスト custom.sigKitenList（起点・通過ラインで共用）を 200EMA・50EMA・22EMA・9EMA・VWAP・大RN・中RN に置き換えて全シグナルへ配る。
   //   過去記録の起点は 大RN耐え→大RN・中RN耐え→中RN に変換（ユーザー決定）。他（指標線底支え(直近) など）は線を特定できないのでそのまま。
   if (!d._migLine1029 && typeof _elKitenWrite === "function" && typeof _elKitenRenameSig === "function") {
@@ -1762,7 +1762,7 @@ function migrateData(d) {
       console.log("[migrateData] line1029: 起点・通過ラインの共通リストを置き換え／起点の変換 " + _lnN + " 件");
     } catch(e) { console.warn("[migrateData] line1029 error:", e); }
   }
-  // 【一回性 _migBTfOne1029・2026-10-29m】指標線底抜けだけ①EP基準ラインはどちらか一方の分足を選ぶ（ユーザー指示）＝sigSecLabels[指標線底抜け].bTfOne。
+  // 【一回性 _migBTfOne1029・2026-10-29m】指標線底抜けだけ①基準ラインはどちらか一方の分足を選ぶ（ユーザー指示）＝sigSecLabels[指標線底抜け].bTfOne。
   if (!d._migBTfOne1029) {
     try {
       var _sslB = Object.assign({}, d.custom.sigSecLabels || {});
@@ -1770,7 +1770,7 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslB; d._migBTfOne1029 = true;
     } catch(e) { console.warn("[migrateData] bTfOne1029 error:", e); }
   }
-  // 【一回性 _migBTfOne1111・2026-11-11】長期EMA-OS（仮シグナル）も①EP基準ラインは1分か5分のどちらかを選ぶ（ユーザー指示・指標線底抜けと同じ bTfOne）。
+  // 【一回性 _migBTfOne1111・2026-11-11】長期EMA-OS（仮シグナル）も①基準ラインは1分か5分のどちらかを選ぶ（ユーザー指示・指標線底抜けと同じ bTfOne）。
   //   既存記録で①に分足が無いもの（tf のどちらにも b が無い）は、記録の基準分足（minBar）で埋める＝5分だけなら5分／それ以外（1分だけ・両方・未設定）は1分。
   if (!d._migBTfOne1111) {
     try {
@@ -1809,7 +1809,7 @@ function migrateData(d) {
       console.log("[migrateData] bTfOne1111: " + _emaTags.join(",") + " / 記録 " + _emaN + " 件の①に分足を付与");
     } catch(e) { console.warn("[migrateData] bTfOne1111 error:", e); }
   }
-  // 【一回性 _migBHide1031・2026-10-31】三角保ち合い崩れは①EP基準ライン不要（ユーザー指示）＝sigSecLabels[三角保ち合い崩れ].bHide。過去記録の値は残す。
+  // 【一回性 _migBHide1031・2026-10-31】三角保ち合い崩れは①基準ライン不要（ユーザー指示）＝sigSecLabels[三角保ち合い崩れ].bHide。過去記録の値は残す。
   if (!d._migBHide1031) {
     try {
       var _sslH = Object.assign({}, d.custom.sigSecLabels || {});
@@ -1817,7 +1817,7 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslH; d._migBHide1031 = true;
     } catch(e) { console.warn("[migrateData] bHide1031 error:", e); }
   }
-  // 【一回性 _migBHide1102・2026-11-02】大RN→大RN（仮シグナル）も①EP基準ライン不要（ユーザー指示）＝sigSecLabels[大RN→大RN].bHide。過去記録の値は残す。
+  // 【一回性 _migBHide1102・2026-11-02】大RN→大RN（仮シグナル）も①基準ライン不要（ユーザー指示）＝sigSecLabels[大RN→大RN].bHide。過去記録の値は残す。
   if (!d._migBHide1102) {
     try {
       var _sslH2 = Object.assign({}, d.custom.sigSecLabels || {});
@@ -1825,7 +1825,7 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslH2; d._migBHide1102 = true;
     } catch(e) { console.warn("[migrateData] bHide1102 error:", e); }
   }
-  // 【一回性 _migBHide1109・2026-11-09】山頂サインライン（仮シグナル）も①EP基準ライン不要（ユーザー指示）＝sigSecLabels[山頂サインライン].bHide。過去記録の値は残す。
+  // 【一回性 _migBHide1109・2026-11-09】山頂サインライン（仮シグナル）も①基準ライン不要（ユーザー指示）＝sigSecLabels[山頂サインライン].bHide。過去記録の値は残す。
   if (!d._migBHide1109) {
     try {
       var _sslH3 = Object.assign({}, d.custom.sigSecLabels || {});
@@ -1833,7 +1833,7 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslH3; d._migBHide1109 = true;
     } catch(e) { console.warn("[migrateData] bHide1109 error:", e); }
   }
-  // 【一回性 _migDaiRnOsB1119・2026-11-19】大RN-OS：①EP基準ラインはやっぱり必要（ユーザー指示・v661 の bHide を撤回）＝bHide を外し、①の選択肢に「大RN」「中RN」を用意する。
+  // 【一回性 _migDaiRnOsB1119・2026-11-19】大RN-OS：①基準ラインはやっぱり必要（ユーザー指示・v661 の bHide を撤回）＝bHide を外し、①の選択肢に「大RN」「中RN」を用意する。
   //   名前の「-」の表記ゆれ（ー・−・－・‐）と全角ＲＮも同じ扱い（通常・仮シグナル両方の一覧から探す・無ければ既定の「大RN-OS」）。選択肢は無いものだけ足す（並びは既存の後ろに 大RN→中RN）。
   if (!d._migDaiRnOsB1119) {
     try {
@@ -1850,7 +1850,7 @@ function migrateData(d) {
       d.custom.sigSecLabels = _sslH4; d.custom.sigDetails2 = _sd2; d._migDaiRnOsB1119 = true;
     } catch(e) { console.warn("[migrateData] daiRnOsB1119 error:", e); }
   }
-  // 【一回性 _migRange1105・2026-11-05】レンジ崩れ：①EP基準ライン不要（bHide）＋仮シグナルへ降格（過去記録も仮＝合計から外す・ユーザー決定）。
+  // 【一回性 _migRange1105・2026-11-05】レンジ崩れ：①基準ライン不要（bHide）＋仮シグナルへ降格（過去記録も仮＝合計から外す・ユーザー決定）。
   if (!d._migRange1105 && typeof _elProvDemoteData === "function") {   // 降格の関数は app-05＝読み込み前には走らせない（フラグも立てない）
     try {
       var _sslR = Object.assign({}, d.custom.sigSecLabels || {});
