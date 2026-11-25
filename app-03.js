@@ -1119,7 +1119,9 @@ function StockTabs(_ref34) {
     rotDayStock = _ref34.rotDayStock,
     rotDayCount = _ref34.rotDayCount,
     picked = _ref34.picked || [],   // その日の選定銘柄（左に並ぶ・青で色分け 2026-11-11）
-    onTogglePick = _ref34.onTogglePick;   // 〇で選定に入れる/外す（11/11以降の日だけ渡る 2026-11-11f）
+    onTogglePick = _ref34.onTogglePick,
+    spotPicked = _ref34.spotPicked || [],   // その日のスポット銘柄（◇塗り）2026-11-25
+    onToggleSpot = _ref34.onToggleSpot;   // 〇で選定に入れる/外す（11/11以降の日だけ渡る 2026-11-11f）
   var _useState105 = useState(null),
     _useState106 = _slicedToArray(_useState105, 2),
     drag = _useState106[0],
@@ -1339,6 +1341,15 @@ function StockTabs(_ref34) {
           style: { flexShrink: 0, width: IS_TOUCH ? 18 : 14, height: IS_TOUCH ? 18 : 14, borderRadius: "50%", boxSizing: "border-box", cursor: "pointer",
             border: "2px solid " + (picked.indexOf(s) >= 0 ? (active === s ? "#93C5FD" : "#1D4ED8") : (active === s ? "#bbb" : "#aaa")),
             background: picked.indexOf(s) >= 0 ? (active === s ? "#93C5FD" : "#1D4ED8") : "transparent" }
+        }) : null,
+        // ◇＝スポット銘柄に入れる/外す（塗り＝スポット）2026-11-25
+        (onToggleSpot && s !== "日経平均株価") ? React.createElement("span", {
+          onClick: function(e) { e.stopPropagation(); onToggleSpot(s); },
+          onTouchStart: function(e) { e.stopPropagation(); },
+          title: spotPicked.indexOf(s) >= 0 ? "この日のスポット銘柄から外す" : "この日のスポット銘柄に入れる（選定に入っていれば選定から外れます）",
+          style: { flexShrink: 0, width: IS_TOUCH ? 14 : 11, height: IS_TOUCH ? 14 : 11, margin: "0 2px", transform: "rotate(45deg)", boxSizing: "border-box", cursor: "pointer",
+            border: "2px solid " + (spotPicked.indexOf(s) >= 0 ? "#D97706" : (active === s ? "#bbb" : "#aaa")),
+            background: spotPicked.indexOf(s) >= 0 ? "#F59E0B" : "transparent" }
         }) : null,
         // 銘柄名の下に銘柄番号（4桁）を中央ぞろえ 2026-11-11
         _stkCode(s) ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, s,

@@ -3609,7 +3609,7 @@ function StockQuickRefTable(_props_qrt) {
       style: { overflowX: "auto", width: "100%" }
     },
       React.createElement("table", {
-        style: { width: "100%", minWidth: isNikkei ? 312 : 540, fontSize: 12, borderCollapse: "collapse" }
+        style: { width: "100%", minWidth: isNikkei ? 312 : 580, fontSize: 12, borderCollapse: "collapse" }
       },
         React.createElement("thead", null,
           React.createElement("tr", { style: { background: "#f5f4f0" } },
@@ -3621,6 +3621,7 @@ function StockQuickRefTable(_props_qrt) {
                 ]
               : [
                   { label: "日付", pad: "6px 4px" },
+                  { label: "選定", pad: "6px 4px" },
                   { label: "地合い", pad: "6px 6px" },
                   { label: "想定損益", pad: "6px 7px" },
                   { label: "実現損益", pad: "6px 7px" },
@@ -3661,6 +3662,11 @@ function StockQuickRefTable(_props_qrt) {
                 whiteSpace: "nowrap",
                 color: dateColor, borderRight: "1px solid #efece7" }
             }, d.slice(5) + "（" + dow2 + "）"),
+            isNikkei ? null : React.createElement("td", { style: { padding: "7px 4px", textAlign: "center", whiteSpace: "nowrap", borderRight: "1px solid #efece7" } }, (function() {   // 選定列 2026-11-25（〇選定・ス スポット・×どちらでもない／今日まで・平日・11/1以降）
+              if (isHoliday || isSun || isSat || !_dsTrioMode(d) || d > _dsTodayStr()) return null;
+              var _sel = _dailyStockHas(data, d, activeStock), _sp = !_sel && _spotHas(data, d, activeStock);
+              return React.createElement("span", { title: _sel ? "この日の選定銘柄" : _sp ? "この日のスポット銘柄" : "この日は選定外", style: { fontSize: _sp ? 12 : 14, fontWeight: 800, color: _sel ? "#1D4ED8" : _sp ? "#D97706" : "#EA580C" } }, _sel ? "〇" : _sp ? "ス" : "×");
+            })()),
             React.createElement("td", {
               style: { padding: "7px 6px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             },
@@ -4045,7 +4051,7 @@ function _dailyStockRaw(data, date) {
 // _DS_TRIO_SINCE 以降の日は「本日の取引銘柄」(dailyStock[日付])＝その日の3銘柄（EPナビの3列・日別ページの銘柄タブ・合計算入の正本）。
 //   全銘柄（日経平均株価を除く）が候補扱い＝3銘柄に入っていない銘柄の記録はデータのみ。未選択の日は直前の選択日の3銘柄を引き継ぐ。
 //   それより前の日は従来どおり（固定タブ＋日替わり候補プール）＝過去の合計額は変わらない。
-var _DS_TRIO_SINCE = "2026-11-01", _DS_TRIO_MAX = 4;   // 2026-11-17 11/11→11/01（11/1〜10もその日の選定銘柄方式に・app-01 _migFjkToMurata2 が各日の選定を書き込み済み）   // 2026-11-11d 3→4銘柄（ユーザー指示）
+var _DS_TRIO_SINCE = "2026-11-01", _DS_TRIO_MAX = 3;   // 2026-11-25 4→3（4つ目以降はスポット銘柄へ・app-01 _migSpot1125）   // 2026-11-17 11/11→11/01（11/1〜10もその日の選定銘柄方式に・app-01 _migFjkToMurata2 が各日の選定を書き込み済み）   // 2026-11-11d 3→4銘柄（ユーザー指示）
 function _dsTrioMode(date) { return !!date && String(date) >= _DS_TRIO_SINCE; }
 function _dsPoolHas(data, date, stock) {
   if (!stock) return false;
@@ -4195,7 +4201,7 @@ function _dsSyncAllTrio(d) {
     var st = ck.slice(0, i), dt = ck.slice(i + 1);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dt) || !_dsTrioMode(dt)) return;
     var c = ch[ck]; if (!c || !Array.isArray(c.signals)) return;
-    var on = _dailyStockHas(d, dt, st), hit = false;
+    var on = _dsInTotal(d, dt, st), hit = false;   // 選定＋スポット 2026-11-25
     var ns = c.signals.map(function(sg) { if (!sg || sg.provisional === true || !_dsNeedsSync(sg, on)) return sg; hit = true; return Object.assign({}, sg, { includeInTotal: on }); });
     if (hit) { if (!out) out = Object.assign({}, ch); out[ck] = Object.assign({}, c, { signals: ns }); }
   });
@@ -4236,12 +4242,76 @@ function _dsTrioSet(save, date, list) {
       if (hit) { charts[ck] = Object.assign({}, c, { signals: ns }); chg = true; }
     };
     nl.forEach(function(x) { if (old.indexOf(x) < 0) _sync(x, true); });
-    old.forEach(function(x) { if (nl.indexOf(x) < 0) _sync(x, false); });
+    old.forEach(function(x) { if (nl.indexOf(x) < 0 && !_spotHas(prev, date, x)) _sync(x, false); });   // スポットに残る銘柄は算入のまま 2026-11-25
     var _fz = _dsFreezeAfter(prev, date);   // 後の日をつられさせない 2026-11-19
     _fz.sd[date] = 1;
     var upd = { dailyStock: _dsWrite(_fz.ds, date, nl), dailyStockSeed: _fz.sd };
+    var _spR = _spotRaw(prev, date), _spBase = _spR != null ? _spR : _spotList(prev, date).slice();   // 選定に入れた銘柄はスポットから外す 2026-11-25
+    var _spNew = _spBase.filter(function(x) { return nl.indexOf(x) < 0; });
+    if (_spR == null || _spNew.length !== _spBase.length) { var _sp = _spotFreezeAfter(prev, date); _sp[date] = _spNew; upd.spotStock = _sp; }
     if (chg) upd.charts = charts;
     return Object.assign({}, prev, upd);
+  });
+}
+// ===== スポット銘柄 2026-11-25（ユーザー指示）=====
+// 選定銘柄（最大3）とは別に、その時々に巡回して特定の取引をする銘柄。日ごと（data.spotStock[日付]＝銘柄の配列・空配列＝明示的に無し）。
+//   指定の無い日は直前の指定日を引き継ぐ（選定銘柄方式の日だけ）。合計には入れる（選定と同じ＝_dsInTotal）。選定に入っている銘柄はスポットに数えない。
+//   EPナビの右端「スポット銘柄」列の＋で選ぶ／銘柄タブの◇で入れる・外す。早見表の選定列は「ス」。
+var _spotCache = { m: null, ds: null, out: {} };
+function _spotRaw(data, date) {
+  var m = data && data.spotStock;
+  if (!m || !date || !Object.prototype.hasOwnProperty.call(m, date)) return null;
+  var v = m[date];
+  return (Array.isArray(v) ? v : (v ? [v] : [])).filter(function(x) { return !!x; });
+}
+function _spotList(data, date) {
+  if (!date || !_dsTrioMode(date)) return [];
+  var m = (data && data.spotStock) || null, dsm = (data && data.dailyStock) || null;
+  if (_spotCache.m !== m || _spotCache.ds !== dsm) _spotCache = { m: m, ds: dsm, out: {} };
+  if (Object.prototype.hasOwnProperty.call(_spotCache.out, date)) return _spotCache.out[date];
+  var r = _spotRaw(data, date);
+  if (!r && m) { var pb = ""; for (var k in m) { if (k < date && k > pb && k >= _DS_TRIO_SINCE) pb = k; } r = pb ? (_spotRaw(data, pb) || []) : []; }
+  var sel = _dailyStockList(data, date), out = [];
+  (r || []).forEach(function(x) { if (x && x !== "日経平均株価" && sel.indexOf(x) < 0 && out.indexOf(x) < 0) out.push(x); });
+  _spotCache.out[date] = out;
+  return out;   // 共有＝破壊的変更をしない
+}
+function _spotHas(data, date, stock) { return !!stock && _spotList(data, date).indexOf(stock) >= 0; }
+// 合計に入る銘柄か（選定銘柄方式の日＝選定＋スポット）。
+function _dsInTotal(data, date, stock) { return _dailyStockHas(data, date, stock) || _spotHas(data, date, stock); }
+// その日より後〜今日の「スポットの指定が無い日」を変更前の中身で確定（選定の _dsFreezeAfter と同じ考え方＝後の日はつられない）。
+function _spotFreezeAfter(prev, date) {
+  var sp = Object.assign({}, (prev && prev.spotStock) || {});
+  if (!date || !_dsTrioMode(date)) return sp;
+  var today = _dsTodayStr(), d = new Date(date + "T00:00:00");
+  for (var k = 0; k < 400; k++) {
+    d.setDate(d.getDate() + 1);
+    var ds_ = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    if (ds_ > today) break;
+    if (Object.prototype.hasOwnProperty.call(sp, ds_)) break;
+    sp[ds_] = _spotList(prev, ds_).slice();
+  }
+  return sp;
+}
+// スポットの中身を保存（list＝その日のスポット銘柄）。選定に入っている銘柄は選定から外す（両方には入らない）。
+function _spotSetIn(prev, date, list) {
+  var nl = []; (list || []).forEach(function(x) { if (x && x !== "日経平均株価" && nl.indexOf(x) < 0) nl.push(x); });
+  var sel = _dailyStockList(prev, date), nsel = sel.filter(function(x) { return nl.indexOf(x) < 0; });
+  var out = prev;
+  if (nsel.length !== sel.length) {
+    var _fz = _dsFreezeAfter(prev, date); _fz.sd[date] = 1;
+    out = Object.assign({}, prev, { dailyStock: _dsWrite(_fz.ds, date, nsel), dailyStockSeed: _fz.sd });
+  }
+  var sp = _spotFreezeAfter(prev, date); sp[date] = nl;
+  return Object.assign({}, out, { spotStock: sp });
+}
+function _spotSet(save, date, list) { save(function(prev) { return _spotSetIn(prev, date, list); }); }
+function _spotToggle(save, date, stock) {
+  if (!stock) return;
+  save(function(prev) {
+    var cur = _spotList(prev, date).slice(), i = cur.indexOf(stock);
+    if (i >= 0) cur.splice(i, 1); else cur.push(stock);
+    return _spotSetIn(prev, date, cur);
   });
 }
 // EPナビの列の並べ替えを「その日以降」に反映 2026-11-25（ユーザー報告「並べ替えても別の日にすると元に戻る」・ユーザー決定＝その日以降の日だけ）。
@@ -5446,6 +5516,10 @@ function EpNaviPanel(_refEPN) {
   // localStorage の slot 1 に残る値は読まないだけで消さない（2列に戻す判断があっても拾えるように）。
   useEffect(function() { setRotSelRaw(_epnRotGet(date, 0)); }, [date]);   // 日付ごとにlocalStorageの表示選択を読込（未設定/失効時は下の_rotSelで既定へフォールバック）
   var _rotSel = (rotSelRaw && rotStocks.indexOf(rotSelRaw) >= 0) ? rotSelRaw : _rotDefault;
+  // スポット銘柄列（選定銘柄方式の日・右端）2026-11-25：＋で銘柄を選ぶ＝その日のスポット銘柄に入れて計算フォームをその銘柄に。早見はスポット銘柄ごとにEPカード（銘柄名つき）。
+  var _uSpotSel = useState(""), spotSelRaw = _uSpotSel[0], setSpotSel = _uSpotSel[1];
+  var _spotStocks = _trioOn ? _spotList(data, date).filter(function(s) { return _epnAllStocks.indexOf(s) >= 0; }) : [];
+  var _spotSel = (spotSelRaw && _spotStocks.indexOf(spotSelRaw) >= 0) ? spotSelRaw : (_spotStocks[_spotStocks.length - 1] || "");
   var _delTimerRef = useRef(null);
   var _stkDragRef = useRef(null), _stkMovedRef = useRef(false);
   // 列の折返し（2026-08-07）: 横スクロールを出さないため、入る列数を実測して段組みにする。枠の実幅をResizeObserverで拾う（初回描画前はwindow幅から概算）。
@@ -5710,11 +5784,37 @@ function EpNaviPanel(_refEPN) {
       ? React.createElement(_EpnCalcForm, { key: "epnfrot" + slot + "_" + sel, data: data, save: save, date: date, stock: sel, dayAlpha: _epnDayAlphaGet(data, sel, date), daySpecialAlpha: _epnDaySpecialAlphaGet(data, sel, date), signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing })
       : React.createElement("div", { key: "epnfrot" + slot + "_empty" });
   };
+  var _spotColTop = function() {
+    var _opts = _epnAllStocks.filter(function(s) { return s !== "日経平均株価" && epnStocks.indexOf(s) < 0 && _spotStocks.indexOf(s) < 0; });
+    return React.createElement("div", { key: "epncspot", style: { minWidth: 0, borderLeft: "2px solid #FCD34D", paddingLeft: 6 } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, background: "#FEF3C7", borderRadius: 5, padding: "3px 5px", marginBottom: 5 } },
+        React.createElement("span", { title: "スポット銘柄（選定銘柄とは別に、その時々に狙う銘柄・合計に入る）", style: { fontSize: 12, fontWeight: 800, color: "#92400E", whiteSpace: "nowrap", flex: 1, overflow: "hidden", textOverflow: "ellipsis" } }, "◇ スポット銘柄"),
+        React.createElement("select", { value: "", title: "銘柄を選んでスポット銘柄に入れる", onChange: function(ev) { var v = ev.target.value; if (!v) return; _spotSet(save, date, _spotStocks.concat([v])); setSpotSel(v); },
+            style: { width: 46, flexShrink: 0, fontSize: 13, fontWeight: 800, color: "#92400E", background: "#fff", border: "1px solid #FCD34D", borderRadius: 4, padding: "1px 2px", boxSizing: "border-box", minHeight: IS_TOUCH ? 30 : 24, cursor: "pointer" } },
+          [React.createElement("option", { key: "", value: "" }, "＋")].concat(_opts.map(function(s) { return React.createElement("option", { key: s, value: s }, _stkLbl(s)); })))),
+      _spotStocks.length ? _spotStocks.map(function(st) {
+        var _cards = savedByStock.map[st] || [], on = st === _spotSel;
+        return React.createElement("div", { key: "spot_" + st, style: { marginBottom: 6 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 3 } },
+            React.createElement("button", { type: "button", onClick: function() { setSpotSel(st); }, title: "この銘柄を下の計算フォームに出す",
+              style: { flex: 1, minWidth: 0, textAlign: "left", fontSize: 11.5, fontWeight: 800, color: on ? "#fff" : "#92400E", background: on ? "#D97706" : "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 4, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, _stkLbl(st)),
+            React.createElement("button", { type: "button", title: "スポット銘柄から外す", onClick: function() { _spotSet(save, date, _spotStocks.filter(function(x) { return x !== st; })); },
+              style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#92400E", background: "#fff", border: "1px solid #FCD34D", borderRadius: 4, padding: "1px 5px", cursor: "pointer" } }, "×")),
+          _cards.map(function(e) { return _renderCard(st, e); }),
+          _cards.length ? null : React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1", textAlign: "center", padding: "1px 0 2px" } }, "EPなし"));
+      }) : React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", textAlign: "center", padding: "6px 0" } }, "＋で銘柄を選ぶ"));
+  };
+  var _spotColForm = function() {
+    return _spotSel
+      ? React.createElement(_EpnCalcForm, { key: "epnfspot_" + _spotSel, data: data, save: save, date: date, stock: _spotSel, dayAlpha: _epnDayAlphaGet(data, _spotSel, date), daySpecialAlpha: _epnDaySpecialAlphaGet(data, _spotSel, date), signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing })
+      : React.createElement("div", { key: "epnfspot_empty" });
+  };
   var _topAll = _cellsTop.slice(), _formAll = _cellsForm.slice();
   // 1列だけ描く。other に "" を渡すので候補は絞られず（全銘柄が出る）、相方との入れ替え処理も走らない。
   // _rotColTop 自体は2列時代の引数のまま残してある＝2列に戻すなら slot 1 を push するだけで復帰できる。
   if (_hasRot) { _topAll.push(_rotColTop(0, _rotSel, setRotSelRaw, "", function() {})); _formAll.push(_rotColForm(0, _rotSel)); }
-  var _colN = (_trioSlots ? _trioSlots.length : epnStocks.length) + (_hasRot ? 1 : 0);
+  if (_trioOn) { _topAll.push(_spotColTop()); _formAll.push(_spotColForm()); }   // スポット銘柄列 2026-11-25
+  var _colN = (_trioSlots ? _trioSlots.length : epnStocks.length) + (_hasRot ? 1 : 0) + (_trioOn ? 1 : 0);
   // 段組み（2026-08-07）: 列を1行に詰め込むと横スクロールになるので、枠幅に入る列数で折り返す。段ごとに独立したグリッド＝上段(早見)/下段(計算フォーム)の2行構成と「フォームの上端が揃う」性質は段の中で保たれる。
   // 段数を先に決めてから均等割り（例: 5列で4列しか入らない→4+1ではなく3+2）。列は minmax(0,1fr)＝入る幅まで縮むので、どの幅でも横スクロールにならない。
   var _EPN_COL_MIN = 140, _EPN_GAP = 8;   // 1列の下限（2026-08-07 横並び優先で200→140）: iPad縦(枠781px)でも5列が横に並ぶ値。これを上げると早く折り返す＝1列は広いが段が増える。
@@ -5803,6 +5903,7 @@ function DayView(_ref57) {
     cfg = _ref57.cfg,
     initialTab = _ref57.initialTab,
     onOpenEntryLog = _ref57.onOpenEntryLog;
+  var _uPickRepl = useState(null), pickRepl = _uPickRepl[0], setPickRepl = _uPickRepl[1];   // 選定が3つのときに〇した銘柄（どれと入れ替えるかの小窓）2026-11-25
   _EL_UI_VAP = _vapWorld(date);   // 日別ページのVAP日(8/20以降)は「α」表記をVAPに（EPとの差チップ・α値セルのラベル）。表記だけ 2026-10-05。App描画ごとに _elAmtStocksSet でfalseへ戻る
   var custom = data.custom || EMPTY.custom;
   var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
@@ -5950,7 +6051,8 @@ function DayView(_ref57) {
     return a < b ? -1 : a > b ? 1 : 0;
   };
   _tabPicked = _tabPicked.slice().sort(_byCode);
-  var _trioTabs = _tabPicked.concat(allStocks.filter(function(s) { return s !== "日経平均株価" && _tabPicked.indexOf(s) < 0 && _pickHidT.indexOf(s) < 0; }).sort(_byCode));
+  var _tabSpot = _trioDay ? _spotList(data, date).filter(function(s) { return allStocks.indexOf(s) >= 0; }).slice().sort(_byCode) : [];   // スポット銘柄（選定の右・◇）2026-11-25
+  var _trioTabs = _tabPicked.concat(_tabSpot).concat(allStocks.filter(function(s) { return s !== "日経平均株価" && _tabPicked.indexOf(s) < 0 && _tabSpot.indexOf(s) < 0 && _pickHidT.indexOf(s) < 0; }).sort(_byCode));
   var activeStock = _trioTabs
     ? ((_trioTabs.indexOf(cs) >= 0) ? cs : (_tabPicked[0] || _trioTabs[0] || allStocks[0] || ""))
     : ((allStocks.includes(cs) && rotStocks.indexOf(cs) < 0) ? cs : (_regStocks[0] || allStocks[0] || ""));
@@ -6719,15 +6821,28 @@ function DayView(_ref57) {
         })
       )
     )
-  ), tab === "charts" && React.createElement("div", null, React.createElement(StockTabs, {
+  ), tab === "charts" && React.createElement("div", null,
+    pickRepl ? React.createElement("div", { onClick: function() { setPickRepl(null); }, style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10002, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
+      React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: "14px 16px", maxWidth: 360, width: "100%", boxShadow: "0 8px 24px rgba(0,0,0,.2)" } },
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A", marginBottom: 4 } }, "「" + pickRepl + "」を選定に入れます"),
+        React.createElement("div", { style: { fontSize: 11.5, color: "#57534E", marginBottom: 10 } }, "選定銘柄は" + _DS_TRIO_MAX + "つまでです。どれと入れ替えますか？（外した銘柄はスポット銘柄にもなりません）"),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+          _dailyStockList(data, date).map(function(x, xi) {
+            return React.createElement("button", { key: x, type: "button", onClick: function() { var cur = _dailyStockList(data, date).slice(); cur[xi] = pickRepl; setPickRepl(null); _dsTrioSet(save, date, cur); },
+              style: { padding: "8px 10px", fontSize: 13, fontWeight: 700, textAlign: "left", border: "1px solid #BFDBFE", background: "#EFF6FF", color: "#1E3A8A", borderRadius: 7, cursor: "pointer" } }, "⇄ " + x + " と入れ替える");
+          }),
+          React.createElement("button", { type: "button", onClick: function() { setPickRepl(null); }, style: { padding: "7px 10px", fontSize: 12, fontWeight: 700, border: "1px solid #D6D3D1", background: "#fff", color: "#57534E", borderRadius: 7, cursor: "pointer" } }, "やめる")))) : null,
+    React.createElement(StockTabs, {
     stocks: _trioTabs || allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; }),
     active: (fmActive || (rotTabActive && !_trioTabs)) ? "" : activeStock,
     picked: _tabPicked,
+    spotPicked: _tabSpot,
+    onToggleSpot: _trioDay ? function(s) { _spotToggle(save, date, s); } : null,   // ◇＝スポット銘柄に入れる/外す 2026-11-25
     onTogglePick: _trioDay ? function(s) {   // 〇で選定銘柄に入れる/外す（11/11以降だけ・最大 _DS_TRIO_MAX）2026-11-11f
       var cur = _tabPicked.slice(), i = cur.indexOf(s);
-      if (i >= 0) cur.splice(i, 1);
-      else { if (cur.length >= _DS_TRIO_MAX) { window._snAlert("選定銘柄は" + _DS_TRIO_MAX + "つまでです。先にどれかを外してください。"); return; } cur.push(s); }
-      _dsTrioSet(save, date, cur);
+      if (i >= 0) { _dsTrioSet(save, date, _dailyStockList(data, date).filter(function(x) { return x !== s; })); return; }
+      if (cur.length >= _DS_TRIO_MAX) { setPickRepl(s); return; }   // 4つ目＝どれと入れ替えるか選ぶ 2026-11-25
+      _dsTrioSet(save, date, _dailyStockList(data, date).concat([s]));
     } : null,
     onSelect: function(s) { setCs(s); setFmActive(false); setRotTabActive(false); },
     onReorder: null,   // 日別ページの銘柄タブは番号順＝ドラッグ並べ替え無し 2026-11-11h

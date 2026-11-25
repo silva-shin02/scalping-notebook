@@ -2000,6 +2000,22 @@ function migrateData(d) {
       d._migFjkToMurata2 = true;
     } catch(e) { console.warn("[migrateData] fjk-to-murata2 error:", e); }
   }
+  // 【一回性 _migSpot1125・2026-11-25 ユーザー指示】選定銘柄の上限を4→3に。11/1以降で選定が4つ以上の日は、4つ目以降をその日のスポット銘柄へ移す（合計算入は変わらない）。
+  if (!d._migSpot1125) {
+    try {
+      var _spDs = (d.dailyStock && typeof d.dailyStock === "object") ? Object.assign({}, d.dailyStock) : {}, _spSp = (d.spotStock && typeof d.spotStock === "object") ? Object.assign({}, d.spotStock) : {}, _spN = 0;
+      Object.keys(_spDs).forEach(function(dt) {
+        if (!(dt >= "2026-11-01")) return;
+        var v = _spDs[dt], a = (Array.isArray(v) ? v : (v ? [v] : [])).filter(Boolean);
+        if (a.length <= 3) return;
+        var ex = a.slice(3), cur = Array.isArray(_spSp[dt]) ? _spSp[dt].slice() : [];
+        ex.forEach(function(x) { if (cur.indexOf(x) < 0) cur.push(x); });
+        _spSp[dt] = cur; _spDs[dt] = a.slice(0, 3); _spN++;
+      });
+      if (_spN) { d.dailyStock = _spDs; d.spotStock = _spSp; console.log("[migrateData] 選定の4つ目以降→スポット: " + _spN + "日"); }
+      d._migSpot1125 = true;
+    } catch (eSp) { console.error("[migrateData] _migSpot1125 failed:", eSp); }
+  }
   // 【一回性 _migFjkToMurata3・2026-11-17 ユーザー報告「記録が不算入のまま」】_migFjkToMurata/2 は選定(dailyStock)だけを書き換え、記録の合計算入(includeInTotal)を
   //   画面で選定を切り替えたとき(app-04 _dsTrioSet)と同じように揃えていなかった。11/1〜実行日で、選定に入った村田製作所の記録は算入へ・選定から外れたフジクラの記録は不算入へ
   //   （明示フラグが選定と食い違う記録だけ＝app-04 _dsNeedsSync と同じ規約。スルー・手動オーバーライド・データ算入オフは触らない）。app-04 未ロード時は次回へ回す。
