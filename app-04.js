@@ -5176,6 +5176,10 @@ function _EpnCalcForm(_p) {
     _bSecE ? _lrow(_mgmtHead("③", _bSecE.name), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: _bSecE.name + "名（例: " + (_bSecE.name === "EP基準ライン" ? "前日安値" : "VWAP") + "）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,   // ③底抜けは②シグナルの直下に常時表示（底抜けライン欄のみ復活 2026-07-24）
     // 「推奨基本α」の灰色枠（シグナル別/銘柄全体のn付き内訳＋★採用）はユーザー指示で撤去 2026-08-07。
     // ⚠️表示だけの撤去＝推奨基本αの計算(_epnCascade/autoPick)も、それを既定値に使う採用α欄も無改修。_pickLine は未使用になるが保持（無害）。
+    // 確度はEP基準ラインの上（記録フォームと同じ順）2026-11-25 ユーザー決定
+    React.createElement(_EpnKakudoBox, { kakudo: nKakudo, bRatio: nBRatio, ceTopPx: nCeTopPx, ce2TopPx: nCe2Top, ep: epV, def: _bRatioDef(data, nKakudo), data: data, save: save,
+      dShares: nDShares, dDef: _dSharesDef(data), onDShares: setNDShares,
+      onKakudo: function(k) { if (_kdSplit(k) && k !== nKakudo) setNBRatio(_bRatioDef(data, k)); setNKakudo(k); }, onBRatio: setNBRatio, onCeTopPx: setNCeTopPx, onCe2TopPx: setNCe2Top }),
     _lrow("EP基準ライン", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
       React.createElement("input", { type: "text", inputMode: "decimal", value: nLevel, placeholder: "—",
         onChange: function(e) { setNLevel(_toHankakuDecimal(e.target.value)); }, style: Object.assign({}, _inpStyle, { width: 72 }) }),
@@ -5286,9 +5290,6 @@ function _EpnCalcForm(_p) {
         ? ("合計α値" + effA + "円＝" + (nUkiSpecial ? "浮応" : "浮") + ukiAddV + (rnAddV ? "＋RN" + rnAddV : "") + "（浮き足〇＝基本α/応用α無し）")
         : ("合計α値" + effA + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (ukiAddV ? "＋浮" + ukiAddV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : "")))
         : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? (_epnVap ? "VAP値を入力" : "記録が無い銘柄は基本αを手入力") : "EP基準ラインを入力")),
-    React.createElement(_EpnKakudoBox, { kakudo: nKakudo, bRatio: nBRatio, ceTopPx: nCeTopPx, ce2TopPx: nCe2Top, ep: epV, def: _bRatioDef(data, nKakudo), data: data, save: save,
-      dShares: nDShares, dDef: _dSharesDef(data), onDShares: setNDShares,
-      onKakudo: function(k) { if (_kdSplit(k) && k !== nKakudo) setNBRatio(_bRatioDef(data, k)); setNKakudo(k); }, onBRatio: setNBRatio, onCeTopPx: setNCeTopPx, onCe2TopPx: setNCe2Top }),
     React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
       style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? (editId ? "#B45309" : "#1D4ED8") : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, editId ? "💾 更新保存" : "💾 保存（早見に追加）"), _spModal);
 }

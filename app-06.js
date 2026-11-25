@@ -2203,7 +2203,7 @@ function _ElBSplitSection(props) {
   var head = isD ? React.createElement("div", { key: "h", style: { marginBottom: 8 } }, modeRow,
     React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⚖ Dの割合 ― ①確定待ちor直上VAP と②EP①より〇円上 に何:何で分けるか"),
     React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
-      "対象＝確度Dの記録だけです（それより前の記録には②の決まりが無いため）。各記録で「①だけで入った想定損益」と「②だけで入った想定損益」（①の約定値＋〇円に指値・①が入った瞬間から①を持っている間に上抜けたらその値で約定・届かなければ0円）を出し、割合で混ぜて合計しました。"))
+      "対象＝確度Dの記録だけです（それより前の記録には②の決まりが無いため）。各記録で「①だけで入った想定損益」と「②だけで入った想定損益」（直上VAP②に指値・①が入った足から（①が終値で入ったときは次の足から）①を持っている間に届いたらその値で約定・①の約定値以下なら入らない・届かなければ0円）を出し、割合で混ぜて合計しました。"))
   : React.createElement("div", { key: "h", style: { marginBottom: 8 } }, modeRow,
     React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#1A1714" } }, "⚖ Bの割合 ― ①基準ライン（α値）と②確定待ちor直上VAP に何:何で分けるか"),
     React.createElement("div", { style: { fontSize: 10, color: "#78716C", marginTop: 3, lineHeight: 1.6 } },
