@@ -3859,7 +3859,10 @@ function _elKakudoCell(s) {
   var k = _kakudoOf(s);
   if (!k) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var c = _KAKUDO_COL[k];
-  return React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: c.fg } }, k);
+  var _l = React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: c.fg } }, k);
+  if (!_kdShares(k)) return _l;
+  return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } }, _l,   // E・F は下に株数 2026-11-25
+    React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: c.fg, whiteSpace: "nowrap" } }, _dSharesOf(s) + "株"));
 }
 // ===== 仮シグナル（シグナルではあるが合計に算入しないジャンル）2026-09-22 ユーザー決定 =====
 // マスターは custom.provSignalTags（通常の custom.signalTags とは別リスト・排他）。
