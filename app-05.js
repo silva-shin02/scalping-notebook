@@ -5957,6 +5957,34 @@ function _elCollPickSince(data) { return (data && data.collPickSince) || null; }
 //   pending＝未選択グループの全員。na＝未達(main無し)。groups[gid]={date,members,list,picked}。groupOf[key]=gid。
 // scopeStock を渡すと「その銘柄の記録だけ」でグループ化＝同一銘柄内の被りだけ（銘柄別ビュー用 2026-07-08）。
 // 省略/null＝全銘柄横断（本日/今週/検索日カード/ホーム月次/カレンダー等の全銘柄合算ビュー）。scopeごとにmemo。
+// 1記録の「枠」＝{key, stock, time, min(シグナル時刻の分), exitMin(手じまい時刻の分), hasEp, main}。母数外・時刻なしは null。
+//   noIncl=true は算入の判定を飛ばす（記録フォームのプレビュー用＝呼び出し側で算入を判定済み）2026-11-26。
+var _elCollToMin = function(t) { if (!t) return null; var m = String(t).match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/); return m ? (Number(m[1]) * 60 + Number(m[2])) : null; };
+function _elCollEntry(data, stock, date, sig, cut, scopeStock, noIncl) {
+  var s = _compatSignal(sig);
+  if (!_epIsV2(s)) return null;
+  if (!noIncl && !(scopeStock ? _elInclTotal(s) : _elInclTotalAmt(data, { stock: stock, date: date, signal: s }))) return null;
+  var mn = _elCollToMin(s.time);
+  if (mn == null) return null;
+  var _own = _epOwnAlpha(s);
+  var _rv = _elRideVals(s, _own, cut);   // 手じまい足（EP起算の本数）2026-07-16
+  var _exMin = (_rv && _rv.exitIdx != null) ? (mn + _rv.exitIdx) : mn;   // 手じまい足の時刻＝シグナル時刻＋手じまい足index。未達(_rv=null)は建玉が無いので自分の時刻のまま＝枠を伸ばさない
+  return { key: _elCollKey(stock, date, s), stock: stock, time: s.time || "", min: mn, exitMin: _exMin, hasEp: !!_rv, main: _elHoldFinalParts(s, _own, cut).main };
+}
+// 時刻順の配列を「重なりの連鎖」ごとのグループに分ける（次の記録のシグナル時刻が、ここまでの手じまい時刻の最大値以内なら同じ枠）。
+function _elCollChains(arr) {
+  var out = [], i = 0;
+  while (i < arr.length) {
+    var list = [arr[i]], end = arr[i].exitMin, j = i + 1;
+    while (j < arr.length && arr[j].min <= end) { list.push(arr[j]); if (arr[j].exitMin > end) end = arr[j].exitMin; j++; }
+    i = j; out.push(list);
+  }
+  return out;
+}
+var _elCollSort = function(a, b) { return (a.min - b.min) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0); };
+// 2026-11-26 銘柄の優先順（SBG→フジクラ）での自動算入は廃止（ユーザー指示）＝未選択のグループは早い時刻の記録を仮に算入（_elCollAutoPickKey）。
+//   true の間だけ旧の優先順で選ぶ（一回性の移行 _migCollPri1126 が今の結果を手動選抜として書き込むためだけに使う）。
+var _EL_COLL_USE_PRI = false;
 function _elCollisionExcludedSet(data, scopeStock) {
   var charts = (data && data.charts) || {};
   // ②データのみ除外（2026-07-22e）: 全銘柄横断(scope=null)の被り母数は_elInclTotalAmtで絞る＝データのみ（候補で未指定の参考トレード）は実トレード枠を占有しない。銘柄別scopeは_elInclTotalのまま。
@@ -5969,7 +5997,6 @@ function _elCollisionExcludedSet(data, scopeStock) {
   if (_m && _m.charts === charts && _m.ds === _dsRef && _m.pool === _poolRef && _m.pick === _pickRef && _m.since === _since && _m.loose === _EP_EQ_LOOSE) return _m.set;
   var _pickVals = {};   // gidずれ対策の逆引き: 選抜されたkeyの集合
   for (var _pk in _pickRef) { if (_pickRef.hasOwnProperty(_pk)) _pickVals[_pickRef[_pk]] = 1; }
-  var _toMin = function(t) { if (!t) return null; var m = String(t).match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/); return m ? (Number(m[1]) * 60 + Number(m[2])) : null; };
   var byDay = {};
   Object.keys(charts).forEach(function(ck) {
     var c = charts[ck];
@@ -5980,30 +6007,20 @@ function _elCollisionExcludedSet(data, scopeStock) {
     if (scopeStock && stock !== scopeStock) return;   // 銘柄別ビュー: 自銘柄以外は被り母数に入れない 2026-07-08
     var cut = (c.cutLine != null) ? Number(c.cutLine) : 15;
     c.signals.forEach(function(sig) {
-      var s = _compatSignal(sig);
-      if (!_epIsV2(s) || !(scopeStock ? _elInclTotal(s) : _elInclTotalAmt(data, { stock: stock, date: date, signal: s }))) return;
-      var mn = _toMin(s.time);
-      if (mn == null) return;
-      var _own = _epOwnAlpha(s);
-      var _rv = _elRideVals(s, _own, cut);   // 手じまい足（EP起算の本数）2026-07-16
-      var _exMin = (_rv && _rv.exitIdx != null) ? (mn + _rv.exitIdx) : mn;   // 手じまい足の時刻＝シグナル時刻＋手じまい足index。未達(_rv=null)は建玉が無いので自分の時刻のまま＝枠を伸ばさない
-      (byDay[date] = byDay[date] || []).push({ key: _elCollKey(stock, date, s), stock: stock, time: s.time || "", min: mn, exitMin: _exMin, hasEp: !!_rv, main: _elHoldFinalParts(s, _own, cut).main });
+      var e = _elCollEntry(data, stock, date, sig, cut, scopeStock);
+      if (e) (byDay[date] = byDay[date] || []).push(e);
     });
   });
   var excluded = {}, marked = {}, info = {}, pending = {}, na = {}, groups = {}, groupOf = {};
   Object.keys(byDay).forEach(function(d) {
-    var arr = byDay[d].sort(function(a, b) { return (a.min - b.min) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0); });
-    var i = 0;
-    while (i < arr.length) {
+    var arr = byDay[d].sort(_elCollSort);
+    _elCollChains(arr).forEach(function(list) {
       // 重なりの連鎖を1グループに畳む: 次の記録のシグナル時刻が、ここまでのグループの手じまい時刻の最大値以内なら同じ枠を奪い合っている。
-      var list = [arr[i]], end = arr[i].exitMin, j = i + 1;
-      while (j < arr.length && arr[j].min <= end) { list.push(arr[j]); if (arr[j].exitMin > end) end = arr[j].exitMin; j++; }
-      i = j;
       // main無しは2種類あるので区別する。"miss"＝EP未到達＝真の未達（選べば枠は0円）。
       // "ref"＝EPには到達したが（）外の想定損益が無い（_elHold2TotPartsFixedが{main:null,ref:X}を返すケース）。
       // 後者を「未達・0円」と説明すると嘘になる（（）内参考値は従来どおり集計される）ので表示を分ける。
       for (var q = 0; q < list.length; q++) { if (list[q].main == null) na[list[q].key] = list[q].hasEp ? "ref" : "miss"; }
-      if (list.length < 2) continue;   // 単独＝奪い合いが無いので選抜も除外も不要（従来どおり）
+      if (list.length < 2) return;   // 単独＝奪い合いが無いので選抜も除外も不要（従来どおり）
       var gid = _elCollGid(scopeStock, d, list[0].key);
       var picked = null;
       var _pv = _pickRef[gid];
@@ -6018,7 +6035,7 @@ function _elCollisionExcludedSet(data, scopeStock) {
       // 手動選抜が無ければ銘柄の優先順位で自動的に算入 2026-10-07（ユーザー指示「被り除外はSBG→フジクラ→その他の銘柄の順に優先的に自動で算入」）。
       //   以前は未選択のグループが「選抜待ち」＝全員が合計から外れていた。手動選抜(data.collPick)は従来どおり最優先＝ラジオ〇で選び直せばそちらが勝つ。
       var _autoPri = false;
-      if (!picked) { var _pk0 = _elCollPriorityPickKey(list); for (var p4 = 0; p4 < list.length; p4++) { if (list[p4].key === _pk0) { picked = list[p4]; _autoPri = true; break; } } }
+      if (!picked) { var _pk0 = _EL_COLL_USE_PRI ? _elCollPriorityPickKey(list) : _elCollAutoPickKey(list); for (var p4 = 0; p4 < list.length; p4++) { if (list[p4].key === _pk0) { picked = list[p4]; _autoPri = true; break; } } }
       var members = list.map(function(m) { return m.key; });
       members.forEach(function(k) { groupOf[k] = gid; });
       groups[gid] = { gid: gid, date: d, members: members, list: list, picked: picked ? picked.key : null, auto: !!_auto, autoPri: _autoPri };
@@ -6036,9 +6053,9 @@ function _elCollisionExcludedSet(data, scopeStock) {
         });
         info[picked.key] = { role: "keep", own: picked.main, oStock: other ? other.stock : "", oTime: other ? other.time : "", oMain: other ? other.main : null, n: list.length - 1 };
       }
-    }
+    });
   });
-  var _set = { excluded: excluded, marked: marked, pending: pending, na: na, info: info, groups: groups, groupOf: groupOf };
+  var _set = { excluded: excluded, marked: marked, pending: pending, na: na, info: info, groups: groups, groupOf: groupOf, byDay: byDay };
   _elCollMemo[_mk] = { charts: charts, ds: _dsRef, pool: _poolRef, pick: _pickRef, since: _since, loose: _EP_EQ_LOOSE, set: _set };
   return _set;
 }
@@ -6093,6 +6110,61 @@ function _elCollSetPick(save, data, r, scope) {
     return Object.assign({}, prev, { collPick: pick });
   });
 }
+// ===== 記録フォームの時間被りプレビュー 2026-11-26（ユーザー要望「時間被りとわかったら、記録を追加するときに示し、どれを優先するか選べるように」）=====
+// mySig＝フォームの今の中身（保存前）。oldKey＝編集前の自分のkey（同じ記録を二重に数えない）。全銘柄横断（scope=null）で、自分を入れたときの連鎖グループを返す。
+// 返り値 null（被りなし）か { list:[枠…（自分は isMe:true）], cur: 今の手動選抜のkey（自分なら "__me__"）・無ければ null, auto: 未選択のとき仮に算入されるkey }。
+function _elCollPreview(data, stock, date, mySig, cut, oldKey) {
+  var st = _elCollisionExcludedSet(data, null);
+  var me = _elCollEntry(data, stock, date, mySig, cut, null, true);
+  if (!me) return null;
+  me = Object.assign({}, me, { isMe: true });
+  var arr = (st.byDay[date] || []).filter(function(e) { return e.key !== oldKey && e.key !== me.key; }).concat([me]).sort(_elCollSort);
+  var grp = null;
+  _elCollChains(arr).forEach(function(l) { if (l.indexOf(me) >= 0) grp = l; });
+  if (!grp || grp.length < 2) return null;
+  var pm = _elCollPickMap(data), cur = null;
+  if (oldKey && st.groupOf[oldKey]) { var g0 = st.groups[st.groupOf[oldKey]]; if (g0 && pm[g0.gid] === oldKey) cur = "__me__"; }
+  if (!cur) grp.forEach(function(e) { if (cur || e.isMe) return; var g = st.groupOf[e.key], gr = g && st.groups[g]; if (gr && pm[gr.gid] && pm[gr.gid] === e.key) cur = e.key; });
+  var ak = _elCollAutoPickKey(grp), auto = null;
+  grp.forEach(function(e) { if (e.key === ak) auto = e.isMe ? "__me__" : e.key; });
+  return { list: grp, cur: cur, auto: auto };
+}
+// 保存の直後に選抜を書き込む（save の更新関数の中で使う）。prev＝記録を保存した後のデータ。pickKey＝選んだ記録のkey。
+//   保存後のグループに pickKey が居なければ何もしない（被りが無くなった・合計に入らない記録になった等）。
+function _elCollApplyPick(prev, pickKey) {
+  if (!prev || !pickKey) return prev;
+  var st = _elCollisionExcludedSet(prev, null), gid = st.groupOf[pickKey], g = gid && st.groups[gid];
+  if (!g) return prev;
+  var pick = Object.assign({}, prev.collPick || {}), mem = {};
+  g.members.forEach(function(k) { mem[k] = 1; });
+  Object.keys(pick).forEach(function(gk) { if (mem[pick[gk]]) delete pick[gk]; });
+  pick[g.gid] = pickKey;
+  return Object.assign({}, prev, { collPick: pick });
+}
+// フォームの欄（⏱ 時間被り）。pv＝_elCollPreview の返り値・sel＝選んだkey（"__me__"＝この記録）・onPick(key)。
+function _ElCollFormBox(_p) {
+  var pv = _p.pv; if (!pv) return null;
+  var eff = _p.sel || pv.cur || pv.auto;
+  var _row = function(e) {
+    var k = e.isMe ? "__me__" : e.key, on = k === eff;
+    return React.createElement("div", { key: k, role: "radio", "aria-checked": on ? "true" : "false", tabIndex: 0,
+      onClick: function() { _p.onPick(k); }, onKeyDown: function(ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); _p.onPick(k); } },
+      style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 6, cursor: "pointer", marginTop: 3,
+        background: on ? "#FFF7ED" : "#fff", border: "1px solid " + (on ? "#FB923C" : "#E7E5E4") } },
+      React.createElement("span", { style: { width: 14, height: 14, borderRadius: "50%", border: "2px solid " + (on ? "#DC2626" : "#C9BCA4"), display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxSizing: "border-box" } },
+        on ? React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: "#DC2626" } }) : null),
+      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#334155", minWidth: 40 } }, e.time || "—"),
+      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#334155", flex: 1, minWidth: 0 } }, e.isMe ? "この記録（" + e.stock + "）" : e.stock),
+      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: _elPnlColor(e.main) } }, e.hasEp ? _elPnlFmt(e.main) : "未達"));
+  };
+  var note = _p.sel ? "保存すると、選んだ記録を合計に入れます（ほかは合計から外れ、件数は残ります）。"
+    : pv.cur ? "前に選んだ記録が合計に入っています。選び直すと保存で反映します。"
+    : "まだ選ばれていません。選ばないまま保存すると、早い時刻の記録が仮に合計に入ります（あとから表の〇でも選べます）。";
+  return React.createElement("div", { style: { margin: "4px 0 10px", padding: "8px 10px", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 8 } },
+    React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#B45309" } }, "⏱ 時間被りあり（" + pv.list.length + "件）― どれを合計に入れますか？"),
+    pv.list.map(_row),
+    React.createElement("div", { style: { fontSize: 10, color: "#92400E", marginTop: 4, lineHeight: 1.5 } }, note));
+}
 // 被り除外の既定の優先順位（手動選抜が無いグループで自動的に算入する銘柄の順）2026-10-07。上ほど優先・載っていない銘柄は最後（その中では早い時刻）。
 var _EL_COLL_PRIORITY = ["SBG", "フジクラ"];
 function _elCollPriorityRank(stock) { var i = _EL_COLL_PRIORITY.indexOf(stock); return i < 0 ? _EL_COLL_PRIORITY.length : i; }
@@ -6134,7 +6206,7 @@ function _elCollPickNode(data, r, save, scope) {
   var _go = function(e) { if (e && e.stopPropagation) e.stopPropagation(); _elCollSetPick(save, data, r, scope); };
   return React.createElement("span", {
     role: "radio", "aria-checked": on ? "true" : "false", tabIndex: 0,
-    title: on ? (((_elCollGroupOf(data, r, scope) || {}).autoPri) ? "優先順位（SBG→フジクラ→その他）で自動的に合計に算入中（押すと選び直せます）" : "この記録を合計に算入中（押すと選び直せます）")
+    title: on ? (((_elCollGroupOf(data, r, scope) || {}).autoPri) ? "まだ選ばれていないので、早い時刻の記録として仮に合計に算入中（押すと選び直せます）" : "この記録を合計に算入中（押すと選び直せます）")
       : (_nk2 === "miss" ? "未達。選ぶとこの枠は0円として確定します"
       : _nk2 === "ref" ? "（）外の想定損益が無い記録。選ぶとこの枠の（）外合計は0円になります"
       : "この記録を合計に算入する"),
@@ -10957,6 +11029,16 @@ function EntryRecordForm(_ref_erf) {
     nextExp1: fNxs[0] || null, nextExp2: fNxs[1] || null, nextExp3: fNxs[2] || null, nextExp4: fNxs[3] || null
   };
   var _fEpRes = (_fAlpha != null) ? _epResolve(_fVSig, _fAlpha) : null;
+  // ⏱ 時間被り 2026-11-26：今の中身で同じ日のほかの記録と枠が重なるか（全銘柄横断）。合計に入らない記録（スルー・仮シグナル・選定外）は出さない。
+  var _uCollSel = useState(null), fCollSel = _uCollSel[0], setFCollSel = _uCollSel[1];
+  var _fCollPv = (function() {
+    try {
+      if (!isV2Form || !fTime || !fDate || !fStock || fThru === true || _fIsProv) return null;
+      if ((typeof _dsTrioMode === "function" && _dsTrioMode(fDate)) ? !_dsInTotal(data, fDate, fStock) : fIncl === false) return null;
+      var _ms = Object.assign({}, _fVSig, { id: isEdit ? initSig.id : "__new__", tag: fTags[0] || "", tags: fTags.slice(), includeInTotal: true });
+      return _elCollPreview(data, fStock, fDate, _ms, _fCutLine, isEdit ? _elCollKey(initial.stock, initial.date, initSig) : null);
+    } catch (eCp) { return null; }
+  })();
   // 足i（0〜4）の現在の役割（EP/H1/H2/null）。EP枠はOS1〜3のまま・H1/H2はEPの次・その次の足。
   var _fRoleOf = function(i) {
     var e = _epFormState ? _epFormState.epIdx : -1;
@@ -11656,6 +11738,10 @@ function EntryRecordForm(_ref_erf) {
     } else {
       _elSaveSignal(save, fStock, fDate, sig, !isEdit);
     }
+    if (fCollSel && _fCollPv) {   // ⏱ 時間被りで選んだ記録を合計に（保存後のグループで選抜を書き込む）2026-11-26
+      var _cpk = fCollSel === "__me__" ? _elCollKey(fStock, fDate, sig) : fCollSel;
+      save(function(prev) { return _elCollApplyPick(prev, _cpk); });
+    }
     onClose();
   };
 
@@ -11789,6 +11875,7 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
       fTimeOpen ? React.createElement("div", { style: { display: "flex", justifyContent: "flex-end" } }, React.createElement(_TimeDialPicker, { key: "tp" + fTime, value: fTime, onCommit: function(v) { setFTime(v); setFTimeOpen(false); }, onCancel: function() { setFTimeOpen(false); } })) : null,
+      _fCollPv ? React.createElement(_ElCollFormBox, { pv: _fCollPv, sel: (fCollSel && (fCollSel === "__me__" || _fCollPv.list.some(function(e) { return e.key === fCollSel; }))) ? fCollSel : null, onPick: setFCollSel }) : null,
       
       React.createElement("div", { style: SH_ }, "売/買"),
       React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap", alignItems: "stretch" } },   // 2026-11-20i 売/買の右にも基準ライン（数値）欄＝下の欄と同じ state（ユーザー指示・元の欄も残す・狭い画面は折り返し）
