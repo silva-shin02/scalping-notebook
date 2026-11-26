@@ -72,7 +72,8 @@ function FlowChips(_ref0) {
 function DeleteDlg(_ref1) {
   var msg = _ref1.msg,
     onOk = _ref1.onOk,
-    onCancel = _ref1.onCancel;
+    onCancel = _ref1.onCancel,
+    okLabel = _ref1.okLabel, icon = _ref1.icon;   // 2026-11-26 ボタンの文字・絵文字を変えられる（銘柄の非表示）
   return React.createElement("div", {
     style: {
       position: "fixed",
@@ -97,7 +98,7 @@ function DeleteDlg(_ref1) {
       fontSize: 20,
       marginBottom: 8
     }
-  }, "\uD83D\uDDD1\uFE0F"), React.createElement("div", {
+  }, icon || "\uD83D\uDDD1\uFE0F"), React.createElement("div", {
     style: {
       fontSize: 13,
       lineHeight: 1.8,
@@ -121,9 +122,10 @@ function DeleteDlg(_ref1) {
       borderRadius: 7,
       cursor: "pointer",
       fontWeight: 700,
-      fontSize: 14
+      fontSize: 14,
+      whiteSpace: "nowrap"
     }
-  }, "\u524A\u9664"), React.createElement("button", {
+  }, okLabel || "\u524A\u9664"), React.createElement("button", {
     onClick: onCancel,
     style: {
       padding: "10px 22px",
@@ -132,7 +134,8 @@ function DeleteDlg(_ref1) {
       border: "1px solid #ccc",
       borderRadius: 7,
       cursor: "pointer",
-      fontSize: 14
+      fontSize: 14,
+      whiteSpace: "nowrap"
     }
   }, "\u30AD\u30E3\u30F3\u30BB\u30EB"))));
 }

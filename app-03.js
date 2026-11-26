@@ -1231,7 +1231,7 @@ function StockTabs(_ref34) {
         onToggleSpot ? _it("s", isS, "◆", "スポットにする", { fg: "#C2410C", bg: "#FFEDD5" }, function() { onToggleSpot(ms); }) : null,
         _it("n", !isP && !isS, "○", "外す", { fg: "#57534E", bg: "#F5F5F4" }, function() { if (isP && onTogglePick) onTogglePick(ms); else if (isS && onToggleSpot) onToggleSpot(ms); })));
   })() : null, stockDelTarget && React.createElement(DeleteDlg, {
-    msg: "「" + stockDelTarget + "」を削除しますか？\nチャートデータは保存されます。",
+    msg: "「" + stockDelTarget + "」を非表示にしますか？\nタブとEPナビから消えます。チャート・記録は残り、右端の「🚫 非表示」から戻せます。", okLabel: "非表示", icon: "🚫",
     onOk: function onOk() {
       onDel && onDel(stockDelTarget);
       setStockDelTarget(null);
@@ -1542,7 +1542,7 @@ function StockTabs(_ref34) {
     style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }
   }, React.createElement("div", { onClick: function(e){ e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: "14px 16px", width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,.2)" } },
     React.createElement("div", { style: { fontSize: 14, fontWeight: 800, color: "#1E3A8A", marginBottom: 4 } }, "⚙ 銘柄の管理"),
-    React.createElement("div", { style: { fontSize: 11, color: "#78716C", lineHeight: 1.6, marginBottom: 10 } }, "✎＝名前を変更（全期間に反映）・×＝銘柄を削除。"),
+    React.createElement("div", { style: { fontSize: 11, color: "#78716C", lineHeight: 1.6, marginBottom: 10 } }, "✎＝名前を変更（全期間に反映）・🚫 非表示＝タブとEPナビから消す（チャート・記録は残る・右端の「🚫 非表示」から戻せる）。"),
     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
       tabVisAll.map(function(nm) {
         var on = true, lock = picked.indexOf(nm) >= 0 || spotPicked.indexOf(nm) >= 0;
@@ -1550,7 +1550,7 @@ function StockTabs(_ref34) {
           React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: "#1E3A8A" } }, nm + (_stkCode(nm) ? "（" + _stkCode(nm) + "）" : "")),
           lock ? React.createElement("span", { style: { fontSize: 10, color: "#92400E", marginLeft: "auto" } }, picked.indexOf(nm) >= 0 ? "選定中" : "スポット") : null,
           onRename ? React.createElement("button", { type: "button", title: "名前を変更（すぐ反映・全期間）", onClick: function(e){ e.preventDefault(); e.stopPropagation(); _doRenameStock(nm); }, style: { marginLeft: lock ? 6 : "auto", fontSize: 11, fontWeight: 700, border: "1px solid #C7D2FE", background: "#fff", color: "#4338CA", borderRadius: 5, padding: "1px 7px", cursor: "pointer" } }, "✎") : null,
-          onDel ? React.createElement("button", { type: "button", title: "この銘柄を削除", onClick: function(e){ e.preventDefault(); e.stopPropagation(); setTabVisDraft(null); setStockDelTarget(nm); }, style: { marginLeft: 4, fontSize: 11, fontWeight: 700, border: "1px solid #FECACA", background: "#fff", color: "#B91C1C", borderRadius: 5, padding: "1px 7px", cursor: "pointer" } }, "×") : null);
+          onDel ? React.createElement("button", { type: "button", title: "この銘柄を非表示（記録は残る・右端の🚫から戻せる）", onClick: function(e){ e.preventDefault(); e.stopPropagation(); setTabVisDraft(null); setStockDelTarget(nm); }, style: { marginLeft: 4, fontSize: 11, fontWeight: 700, border: "1px solid #FECACA", background: "#fff", color: "#B91C1C", borderRadius: 5, padding: "1px 7px", cursor: "pointer" } }, "🚫 非表示") : null);
       })),
     React.createElement("div", { style: { display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 } },
       React.createElement("button", { type: "button", onClick: function(){ setTabVisDraft(null); }, style: { padding: "7px 14px", fontSize: 12, fontWeight: 700, border: "1px solid #D6D3D1", background: "#fff", color: "#57534E", borderRadius: 7, cursor: "pointer" } }, "閉じる")))) : null,
@@ -1566,7 +1566,7 @@ function StockTabs(_ref34) {
     },
     onMouseEnter: function(e){ e.currentTarget.style.borderColor = "#6366F1"; e.currentTarget.style.color = "#6366F1"; },
     onMouseLeave: function(e){ e.currentTarget.style.borderColor = "#e0ddd6"; e.currentTarget.style.color = "#888"; }
-  }, "\uD83D\uDDD1 " + hiddenStocks.length),
+  }, "🚫 非表示 " + hiddenStocks.length),   // 2026-11-26 🗑→🚫 非表示（ユーザー指示）
   
   hiddenDlgOpen && React.createElement("div", {
     onClick: function(){ setHiddenDlgOpen(false); },
