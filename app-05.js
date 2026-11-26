@@ -4337,7 +4337,7 @@ function _epResolve(s, alpha) {
   if (!_epIsV2(s) || alpha == null) return null;
   var legs = _epLegs(s);
   if (!legs.length) return null;
-  var epIdx = -1, px = alpha, ce = false, top = false, skipIdx = -1, _ceOk = _epCeOn(s);
+  var epIdx = -1, px = alpha, ce = false, top = false, skipIdx = -1, _ceOk = _epCeOn(s), _ceSeen = false;
   // 確度D の②（_elSplitDef が作る仮の記録・_epFrom＝①のEP足）2026-11-22：①が入った足から、①を持っている間（次足期待度○△）だけ指値を待つ。OS5まで。
   var _from = (s._epFrom != null) ? s._epFrom : 0, _to = (s._epFrom != null) ? legs.length : Math.min(3, legs.length);
   if (_ceOk && s.ceOn === true && s._epFrom == null && _snCloseEp(s)) {   // 2026-11-25 確定浮き足残り＝OS1の確定を待って必ず終値で入る（直上VAP・α判定なし）
@@ -4346,7 +4346,10 @@ function _epResolve(s, alpha) {
   for (var i = _from; i < _to; i++) {
     if (s._epFrom != null && i > (s._epHold0 != null ? s._epHold0 : _from)) { var _hx = _epNextExpAt(s, i - 1); if (_hx !== "○" && _hx !== "△") break; }   // ①を持っている間だけ
     if (_epHit(s, legs[i].h, alpha)) {
-      if (_ceOk && _epCeBar(s, i)) {
+      // 2026-11-26 旧フォームは同値（高値＝α）を届いた扱いにして確定待ちの足（ceIdx）を手前の同値の足で保存していた。その足が同値で届いていなければ、実際に最初に届いたこの足を確定待ちの足として扱う（ユーザー指摘）
+      var _ceShift = !_ceSeen && s.ceOn === true && s.ceIdx != null && s.ceIdx < i && legs[s.ceIdx] && legs[s.ceIdx].h != null && Number(legs[s.ceIdx].h) === Number(alpha) && !_epHit(s, legs[s.ceIdx].h, alpha);
+      _ceSeen = true;
+      if (_ceOk && (_epCeBar(s, i) || _ceShift)) {
         var _tp = _epCeTopRel(s);
         if (_tp != null && _tp > Number(alpha) && legs[i].h != null && Number(legs[i].h) >= _tp) { ce = true; top = true; px = _tp; epIdx = i; break; }   // 直上VAPに届いた＝即エントリー
         var _cc = legs[i].c;
@@ -10813,9 +10816,11 @@ function EntryRecordForm(_ref_erf) {
     var _o1 = (fOsVal !== "" && !isNaN(Number(fOsVal))) ? Number(fOsVal) : null;
     var _o2 = (fOs2High !== "" && !isNaN(Number(fOs2High))) ? (fOs2HighSign === "-" ? -Number(fOs2High) : Number(fOs2High)) : null;
     var _o3 = (fOs3High !== "" && !isNaN(Number(fOs3High))) ? (fOs3HighSign === "-" ? -Number(fOs3High) : Number(fOs3High)) : null;
-    var _o1R = _av != null && _o1 != null && _o1 >= _av;
-    var _o2R = _av != null && _o2 != null && _o2 >= _av;
-    var _o3R = _av != null && _o3 != null && _o3 >= _av;
+    // 2026-11-26 同値（高値＝α値）は届かない扱い（_epHit と同じ）。実エントリー「あり」だけ同値でも届く（ユーザー指摘のバグ：フォームだけ同値を届いた扱いにして確定待ちの足を手前に保存していた）
+    var _eqHit = fEntered === true;
+    var _o1R = _av != null && _o1 != null && (_o1 > _av || (_eqHit && _o1 === _av));
+    var _o2R = _av != null && _o2 != null && (_o2 > _av || (_eqHit && _o2 === _av));
+    var _o3R = _av != null && _o3 != null && (_o3 > _av || (_eqHit && _o3 === _av));
     var _cOf = function(v, sg) { return (v !== "" && !isNaN(Number(v))) ? (sg === "-" ? -Number(v) : Number(v)) : null; };
     var _cs = [_cOf(fOsConfVal, fOsConfSign), _cOf(fOs2Conf, fOs2ConfSign), _cOf(fOs3Conf, fOs3ConfSign)];
     var _rs = [_o1R, _o2R, _o3R];
