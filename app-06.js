@@ -920,6 +920,7 @@ function _ElSigMonthBoard(_p) {
   var recs = _p.recs || [], aiOf = _p.aiOf, data = _p.data, pnlOf = _p.pnlOf;
   var _uSel = useState(null), sel = _uSel[0], setSel = _uSel[1];   // { tag, ym("" ＝全月) }
   var _uExp = useState(null), exp = _uExp[0], setExp = _uExp[1];
+  var _uOff = useState(0), mOff = _uOff[0], setMOff = _uOff[1];   // 2026-11-26 表に出す月は直近3か月・＜＞で何か月ずらすか（0＝最新）
   var prov = _elProvTags(data);
   var by = {}, months = {}, tot = {};
   recs.forEach(function(r) {
@@ -929,8 +930,11 @@ function _ElSigMonthBoard(_p) {
       var k = e.label; (by[k] = by[k] || {}); (by[k][ym] = by[k][ym] || []).push(r); tot[k] = (tot[k] || 0) + 1;
     });
   });
-  var yms = Object.keys(months).sort();
-  if (!yms.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "8月20日以降の記録がありません");
+  var ymsAll = Object.keys(months).sort();
+  if (!ymsAll.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "8月20日以降の記録がありません");
+  // 2026-11-26 月の列は3か月だけ（ユーザー指示「月が増えると窮屈」）。合計の列は全期間のまま。
+  var _SHOW = 3, _maxOff = Math.max(0, ymsAll.length - _SHOW), _off = Math.min(mOff, _maxOff);
+  var yms = ymsAll.slice(Math.max(0, ymsAll.length - _SHOW - _off), ymsAll.length - _off);
   var tags = Object.keys(by).sort(function(a, b) { var pa = prov.indexOf(a) >= 0 ? 1 : 0, pb = prov.indexOf(b) >= 0 ? 1 : 0; if (pa !== pb) return pa - pb; return (tot[b] - tot[a]) || (a < b ? -1 : 1); });
   var _stat = function(rs) {
     var o = { n: rs.length, noLoss: 0, win: 0, lose: 0, draw: 0, pnl: null };
@@ -965,7 +969,7 @@ function _ElSigMonthBoard(_p) {
       React.createElement("thead", null, React.createElement("tr", null, [_th("シグナル", "h")].concat(yms.map(function(ym) { return _th(_ymLbl(ym), ym); })).concat([_th("合計", "all")]))),
       React.createElement("tbody", null, tags.map(function(t) {
         var isP = prov.indexOf(t) >= 0, all = [];
-        yms.forEach(function(ym) { all = all.concat(by[t][ym] || []); });
+        ymsAll.forEach(function(ym) { all = all.concat(by[t][ym] || []); });
         var onAll = !!(sel && sel.tag === t && sel.ym === "");
         return React.createElement("tr", { key: t },
           React.createElement("td", { onClick: function() { setSel(onAll ? null : { tag: t, ym: "" }); setExp(null); }, title: "押すと全月ぶんの記録を下に開きます",
@@ -982,10 +986,15 @@ function _ElSigMonthBoard(_p) {
   }).filter(Boolean);
   var list = null;
   if (sel && by[sel.tag]) {
-    var rs = sel.ym ? (by[sel.tag][sel.ym] || []) : [].concat.apply([], yms.map(function(ym) { return by[sel.tag][ym] || []; }));
+    var rs = sel.ym ? (by[sel.tag][sel.ym] || []) : [].concat.apply([], ymsAll.map(function(ym) { return by[sel.tag][ym] || []; }));
     list = _elSigRecList(rs, (sel.ym ? _ymLbl(sel.ym) : "全月") + " × " + stripCat(sel.tag), { aiOf: aiOf, data: data, pnlOf: pnlOf, exp: exp, setExp: setExp, onEdit: _p.onEdit, onGoDate: _p.onGoDate, onClose: function() { setSel(null); setExp(null); } });
   }
-  return React.createElement("div", null, tbl, list, items.length ? _elInsightBoxV2(items, { note: "マス＝上段：件数・想定損益の合計（仮シグナルも含む＝上の合計には入らない）／下段：勝＝勝率・分＝分け率（想定損益0円）・負＝負率（分母＝エントリーできた記録・未達/×見送りは入れない）。複数シグナルの記録は各行に数える。マスを押すとその月×シグナルの記録、シグナル名を押すと全月の記録が下に開きます。" }) : null);
+  var _nb = function(lbl, dis, fn, ttl) { return React.createElement("button", { type: "button", disabled: dis, title: ttl, onClick: fn, style: { padding: "2px 12px", fontSize: 15, fontWeight: 800, background: "#fff", border: "1px solid #E4DFD7", borderRadius: 8, cursor: dis ? "default" : "pointer", color: dis ? "#D6D3D1" : "#9A3412" } }, lbl); };
+  var nav = ymsAll.length > _SHOW ? React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, margin: "4px 0" } },
+    _nb("＜", _off >= _maxOff, function() { setMOff(Math.min(_maxOff, _off + 1)); }, "前の月へずらす"),
+    React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#9A3412", minWidth: 120, textAlign: "center" } }, _ymLbl(yms[0]) + " 〜 " + _ymLbl(yms[yms.length - 1])),
+    _nb("＞", _off <= 0, function() { setMOff(Math.max(0, _off - 1)); }, "次の月へずらす")) : null;
+  return React.createElement("div", null, nav, tbl, list, items.length ? _elInsightBoxV2(items, { note: "マス＝上段：件数・想定損益の合計（仮シグナルも含む＝上の合計には入らない）／下段：勝＝勝率・分＝分け率（想定損益0円）・負＝負率（分母＝エントリーできた記録・未達/×見送りは入れない）。複数シグナルの記録は各行に数える。マスを押すとその月×シグナルの記録、シグナル名を押すと全月の記録が下に開きます。" }) : null);
 }
 // ===== 🌱 仮シグナル別 成功度 2026-11-05（ユーザー要望「仮シグナルのみの分析：件数・成功率・損益」）=====
 // 行＝仮シグナル（custom.provSignalTags の並び・一覧外の旧名は末尾）＋仮シグナル計。列＝件数／損失なし率／E後の勝率／E到達率／見切り率／損切り率／純損益／1件平均。
