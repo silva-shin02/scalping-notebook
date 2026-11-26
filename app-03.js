@@ -1533,28 +1533,26 @@ function StockTabs(_ref34) {
   
   onSetTabHidden && tabVisAll ? React.createElement("span", {
     onClick: function(){ setTabVisDraft(tabHidden.slice()); },
-    title: "銘柄タブに並べる銘柄を選ぶ（この日以降に効く）",
+    title: "銘柄の名前変更・削除",
     style: { cursor: "pointer", fontSize: 12, color: "#555", border: "1.5px solid #e0ddd6", borderRadius: 6, padding: "5px 10px", display: "inline-flex", alignItems: "center", gap: 4, background: "#fff", flexShrink: 0, marginLeft: 4, minHeight: IS_TOUCH ? 40 : 32, userSelect: "none", whiteSpace: "nowrap" }
-  }, "⚙ 並べる銘柄") : null,
+  }, "⚙ 銘柄の管理") : null,   // 2026-11-26 日ごとの非表示はやめた（ユーザー指示）＝名前変更・削除だけ
   (onSetTabHidden && tabVisAll && tabVisDraft) ? React.createElement("div", {
     onClick: function(){ setTabVisDraft(null); },
     style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }
   }, React.createElement("div", { onClick: function(e){ e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: "14px 16px", width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,.2)" } },
-    React.createElement("div", { style: { fontSize: 14, fontWeight: 800, color: "#1E3A8A", marginBottom: 4 } }, "⚙ 銘柄タブに並べる銘柄"),
-    React.createElement("div", { style: { fontSize: 11, color: "#78716C", lineHeight: 1.6, marginBottom: 10 } }, (tabDate ? tabDate.slice(5).replace("-", "/") + " 以降" : "この日以降") + "に効きます（前の日は今のまま）。チェックを外した銘柄はタブとEPナビの▽に出ません。選定・スポットに入っている銘柄は外しても出ます。✎（名前）と×（削除）は押したときにすぐ反映されます。"),
+    React.createElement("div", { style: { fontSize: 14, fontWeight: 800, color: "#1E3A8A", marginBottom: 4 } }, "⚙ 銘柄の管理"),
+    React.createElement("div", { style: { fontSize: 11, color: "#78716C", lineHeight: 1.6, marginBottom: 10 } }, "✎＝名前を変更（全期間に反映）・×＝銘柄を削除。"),
     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
       tabVisAll.map(function(nm) {
-        var on = tabVisDraft.indexOf(nm) < 0, lock = picked.indexOf(nm) >= 0 || spotPicked.indexOf(nm) >= 0;
-        return React.createElement("label", { key: nm, style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 6, cursor: "pointer", background: on ? "#EFF6FF" : "#FAFAF9", border: "1px solid " + (on ? "#BFDBFE" : "#E7E5E4") } },
-          React.createElement("input", { type: "checkbox", checked: on, onChange: function(){ setTabVisDraft(function(d){ var c = (d || []).slice(), i = c.indexOf(nm); if (i >= 0) c.splice(i, 1); else c.push(nm); return c; }); } }),
-          React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: on ? "#1E3A8A" : "#A8A29E" } }, nm + (_stkCode(nm) ? "（" + _stkCode(nm) + "）" : "")),
+        var on = true, lock = picked.indexOf(nm) >= 0 || spotPicked.indexOf(nm) >= 0;
+        return React.createElement("div", { key: nm, style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 6, background: "#FAFAF9", border: "1px solid #E7E5E4" } },
+          React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: "#1E3A8A" } }, nm + (_stkCode(nm) ? "（" + _stkCode(nm) + "）" : "")),
           lock ? React.createElement("span", { style: { fontSize: 10, color: "#92400E", marginLeft: "auto" } }, picked.indexOf(nm) >= 0 ? "選定中" : "スポット") : null,
           onRename ? React.createElement("button", { type: "button", title: "名前を変更（すぐ反映・全期間）", onClick: function(e){ e.preventDefault(); e.stopPropagation(); _doRenameStock(nm); }, style: { marginLeft: lock ? 6 : "auto", fontSize: 11, fontWeight: 700, border: "1px solid #C7D2FE", background: "#fff", color: "#4338CA", borderRadius: 5, padding: "1px 7px", cursor: "pointer" } }, "✎") : null,
           onDel ? React.createElement("button", { type: "button", title: "この銘柄を削除", onClick: function(e){ e.preventDefault(); e.stopPropagation(); setTabVisDraft(null); setStockDelTarget(nm); }, style: { marginLeft: 4, fontSize: 11, fontWeight: 700, border: "1px solid #FECACA", background: "#fff", color: "#B91C1C", borderRadius: 5, padding: "1px 7px", cursor: "pointer" } }, "×") : null);
       })),
     React.createElement("div", { style: { display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 } },
-      React.createElement("button", { type: "button", onClick: function(){ setTabVisDraft(null); }, style: { padding: "7px 14px", fontSize: 12, fontWeight: 700, border: "1px solid #D6D3D1", background: "#fff", color: "#57534E", borderRadius: 7, cursor: "pointer" } }, "やめる"),
-      React.createElement("button", { type: "button", onClick: function(){ onSetTabHidden(tabVisDraft); setTabVisDraft(null); }, style: { padding: "7px 14px", fontSize: 12, fontWeight: 800, border: "none", background: "#1D4ED8", color: "#fff", borderRadius: 7, cursor: "pointer" } }, "この日以降に適用")))) : null,
+      React.createElement("button", { type: "button", onClick: function(){ setTabVisDraft(null); }, style: { padding: "7px 14px", fontSize: 12, fontWeight: 700, border: "1px solid #D6D3D1", background: "#fff", color: "#57534E", borderRadius: 7, cursor: "pointer" } }, "閉じる")))) : null,
   onRestore && hiddenStocks && hiddenStocks.length > 0 && React.createElement("span", {
     onClick: function(){ setHiddenDlgOpen(true); },
     title: "非表示中の銘柄を管理",

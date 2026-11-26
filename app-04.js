@@ -4358,8 +4358,7 @@ function _spotToggle(save, date, stock) {
 //   その日以前で最も近い指定を使う・無ければ設定の custom.pickHidden（従来の「選定の候補に出す銘柄」）。指定すると、その日より後の指定は消す（＝選んだ日以降に効く・前の日は元のまま）。
 //   選定・スポットに入っている銘柄は非表示でも出る（呼び出し側）。EPナビの▽の候補も同じ。
 function _tabHiddenOf(data, date) {
-  var m = data && data.tabHidden;
-  if (m && date) { var best = ""; for (var k in m) { if (k <= date && k > best) best = k; } if (best) return Array.isArray(m[best]) ? m[best] : []; }
+  // 2026-11-26 日ごとの非表示（data.tabHidden）はやめた（ユーザー指示）＝設定の「選定の候補に出す銘柄」（custom.pickHidden）だけ。data.tabHidden は消さずに無視。
   return (data && data.custom && Array.isArray(data.custom.pickHidden)) ? data.custom.pickHidden : [];
 }
 function _tabHiddenSetFrom(save, date, list) {
