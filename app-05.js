@@ -4039,6 +4039,13 @@ function _elNotInclRowStyle(s) {
 // 要審議(第4状態)は合計に算入する記録なので、スルーのようなopacityフェードはかけず薄ピンク背景＋ピンク左線で行全体をウォッシュ（文字は薄くしない）2026-07-18。
 // 優先順位はスルー/不算入が先（被り除外の母数=算入のみなので実際には排他）。要審議はその次・被り除外より前。r={stock,date,signal}・dataが無い呼び出しは従来どおり。
 function _elRowStyleWithColl(data, r, scope) {
+  // 2026-11-26 時間被りで合計に入らない記録（被り選外）は、要審議・指値同値などほかの色の行でも薄くする（ユーザー指示）。銘柄別の表でも全銘柄で見て判定。
+  if (data && r && r.signal && scope && _elCollExcluded(data, r, null)) scope = null;
+  var _st0 = _elRowStyleWithColl0(data, r, scope);
+  if (data && r && r.signal && _elCollExcluded(data, r, scope) && !(_st0 && _st0.opacity != null)) return Object.assign({}, _st0 || {}, { opacity: 0.55 });
+  return _st0;
+}
+function _elRowStyleWithColl0(data, r, scope) {
   var st = _elNotInclRowStyle(r && r.signal);
   if (st) return st;
   if (r && r.signal && _elIsReview(r.signal)) return { background: "#FCE7F3", borderLeft: "3px solid #EC4899" };
@@ -4051,7 +4058,7 @@ function _elRowStyleWithColl(data, r, scope) {
   var _hatch = _na ? { backgroundImage: "repeating-linear-gradient(45deg,#EFF3F7 0 5px,transparent 5px 11px)" } : null;
   // 選抜待ちは赤系。合計から外れている点は被り除外と同じだが、原因が違うので色を分ける 2026-08-19。
   if (_elCollPending(data, r, scope)) return Object.assign({ background: "#FFF9F9", borderLeft: "3px solid #EF4444" }, _hatch || {});
-  if (_elCollExcluded(data, r, scope)) return Object.assign({ opacity: 0.68, background: "#F5F3FF", borderLeft: "3px solid #A78BFA" }, _hatch || {});
+  if (_elCollExcluded(data, r, scope)) return Object.assign({ opacity: 0.55, background: "#F5F3FF", borderLeft: "3px solid #A78BFA" }, _hatch || {});
   if (_na) return Object.assign({ borderLeft: "3px solid #CBD5E1" }, _hatch);
   return null;
 }
