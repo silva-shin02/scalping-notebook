@@ -2047,6 +2047,18 @@ function migrateData(d) {
   }
   // 選定銘柄方式の日の記録の合計算入を選定に揃える（毎回・冪等・2026-11-19 app-04 _dsSyncAllTrio）＝同期で届いた分も揃う。
   try { if (typeof _dsSyncAllTrio === "function") d = _dsSyncAllTrio(d); } catch(e) { console.warn("[migrateData] trio-sync error:", e); }
+  // 【一回性 _migCollPri1126・2026-11-26 ユーザー指示】時間被りの銘柄の優先順（SBG→フジクラ）を廃止。今その優先順で自動に決まっているグループは
+  //   「今の結果のまま固定」＝選ばれている記録を手動選抜(data.collPick)として書き込む（過去の合計は変わらない）。以後の未選択は早い時刻の記録を仮に算入。app-05 未ロード時は次回へ回す。
+  if (!d._migCollPri1126 && typeof _elCollisionExcludedSet === "function" && typeof _EL_COLL_USE_PRI !== "undefined") {
+    try {
+      _elCollMemo = {}; _EL_COLL_USE_PRI = true;
+      var _cpSt = _elCollisionExcludedSet(d, null), _cpPick = Object.assign({}, d.collPick || {}), _cpN = 0;
+      Object.keys(_cpSt.groups).forEach(function(gid) { var g = _cpSt.groups[gid]; if (g && g.autoPri && g.picked) { _cpPick[gid] = g.picked; _cpN++; } });
+      if (_cpN) { d.collPick = _cpPick; console.log("[migrateData] 時間被りの優先順の結果を手動選抜として固定: " + _cpN + "組"); }
+      d._migCollPri1126 = true;
+    } catch(e) { console.warn("[migrateData] coll-pri error:", e); }
+    finally { _EL_COLL_USE_PRI = false; _elCollMemo = {}; }
+  }
   return d;
 }
 function stLoad() {
