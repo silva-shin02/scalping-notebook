@@ -8710,7 +8710,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       var mk = wk.slice(0, 7), mm = (wkM[mk] = wkM[mk] || {});
       var g = _profitGradeFromPnl(wkAcc[wk], 1); mm[g] = (mm[g] || 0) + 1;
     });
-    var yms = Object.keys(recM).concat(Object.keys(wkM)).filter(function(x, i, a) { return a.indexOf(x) === i; }).sort().reverse();   // 新しい月が上＝「全体損益（期間別）」の並びに合わせる（週の行は月曜の月＝記録の無い前月が入ることがある）
+    var yms = Object.keys(recM).concat(Object.keys(dayM)).filter(function(x, i, a) { return a.indexOf(x) === i; }).sort().reverse();   // 新しい月が上＝「全体損益（期間別）」の並びに合わせる（週の行は月曜の月＝記録の無い前月が入ることがある）
     if (!yms.length) return null;
     var _pct = function(n, d) { return d > 0 ? Math.round(n / d * 100) + "%" : "—"; };
     // Z＝記録の無い営業日（日単位の表だけ・土日祝日と今日より後は数えない・合計と%には入れない）2026-11-26 ユーザー要望。カレンダーの Z バッジと同じ規約。
@@ -8771,10 +8771,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     return React.createElement("div", null,
       _cap("① 日単位（1日＝1件）", "その日の想定損益の合計をグレード判定。合計＝その月に記録があった日数。Z＝記録の無い営業日（土日祝日・今日より後は除く・合計と%には入れない）"),
       _tbl(dayM, "日", _zM),
-      // 2026-10-31 ②週単位を追加（ユーザー要望・トレード単位は③へ）。月曜始まりの週の想定損益合計をそのまま判定（1日平均にしない）・月をまたぐ週は月曜の月。
-      _cap("② 週単位（1週＝1件）", "その週（月曜始まり）の想定損益の合計をそのままグレード判定。月をまたぐ週は月曜の月に数える。合計＝その月に記録があった週の数"),
-      _tbl(wkM, "週"),
-      _cap("③ トレード単位（記録1件＝1件）", "1記録の想定損益をそのままグレード判定。合計＝その月に金額が出た記録数（🏷銘柄別の 総利益件数＋総損失件数＋D）"),
+      // 2026-11-26 ②週単位は撤去（ユーザー指定「週単位は不要」）。トレード単位を②へ戻した。
+      _cap("② トレード単位（記録1件＝1件）", "1記録の想定損益をそのままグレード判定。合計＝その月に金額が出た記録数（🏷銘柄別の 総利益件数＋総損失件数＋D）"),
       _tbl(recM, "件"));
   };
   var _ovPnlTbl = function(rs, g, opts) {   // opts.noExtra=表示専用行を作らない／opts.pfx=行展開キーの接頭辞（参考表を別の表として開閉するため）2026-10-05
