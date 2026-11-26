@@ -948,10 +948,16 @@ function _ElSigMonthBoard(_p) {
     return React.createElement("td", { key: ym || "__all__", onClick: function() { setSel(on ? null : { tag: t, ym: ym }); setExp(null); },
       style: { padding: "4px 6px", textAlign: "center", borderTop: "1px solid #f0ede8", cursor: "pointer", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", lineHeight: 1.35,
         background: on ? "#FFEDD5" : (top ? "#FFF7ED" : (ym ? "transparent" : "#FAF6F0")), outline: on ? "2px solid #FB923C" : (top ? "1.5px solid #FDBA74" : "none"), outlineOffset: -2 } },
-      React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#9A3412" } }, o.n + "件", top ? React.createElement("span", { style: { fontSize: 8, marginLeft: 2, color: "#EA580C" } }, "最多") : null),
-      React.createElement("div", { style: { fontSize: 9.5, color: "#888" } }, "損なし ", _pct(o.noLoss, o.n, 70)),
-      React.createElement("div", { style: { fontSize: 9.5, color: "#888" } }, "勝率 ", _pct(o.win, o.win + o.lose + o.draw, 50)),
-      React.createElement("div", { style: { fontSize: 10.5, fontWeight: 700, color: _elPnlColor(o.pnl) } }, o.pnl == null ? "—" : _elPnlFmt(Math.round(o.pnl))));
+      // 2026-11-26 マスを2段に（ユーザー指示「縦長すぎる」）：上＝件数＋想定損益／下＝勝率・分け率・負率（分母＝エントリーできた記録＝勝＋分＋負）
+      React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#9A3412" } }, o.n + "件", top ? React.createElement("span", { style: { fontSize: 8, marginLeft: 2, color: "#EA580C" } }, "最多") : null,
+        React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, marginLeft: 6, color: _elPnlColor(o.pnl) } }, o.pnl == null ? "—" : _elPnlFmt(Math.round(o.pnl)))),
+      (function() {
+        var d = o.win + o.lose + o.draw, pc = function(n) { return d ? Math.round(n / d * 100) + "%" : "—"; };
+        return React.createElement("div", { style: { fontSize: 9.5, color: "#888" } },
+          "勝 ", React.createElement("b", { style: { color: "#C0392B" } }, pc(o.win)),
+          " 分 ", React.createElement("b", { style: { color: "#888" } }, pc(o.draw)),
+          " 負 ", React.createElement("b", { style: { color: "#1E8449" } }, pc(o.lose)));
+      })());
   };
   var _th = function(t, k) { return React.createElement("th", { key: k, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
   var tbl = React.createElement(_HScrollBox, { style: { marginTop: 4 } },
@@ -979,7 +985,7 @@ function _ElSigMonthBoard(_p) {
     var rs = sel.ym ? (by[sel.tag][sel.ym] || []) : [].concat.apply([], yms.map(function(ym) { return by[sel.tag][ym] || []; }));
     list = _elSigRecList(rs, (sel.ym ? _ymLbl(sel.ym) : "全月") + " × " + stripCat(sel.tag), { aiOf: aiOf, data: data, pnlOf: pnlOf, exp: exp, setExp: setExp, onEdit: _p.onEdit, onGoDate: _p.onGoDate, onClose: function() { setSel(null); setExp(null); } });
   }
-  return React.createElement("div", null, tbl, list, items.length ? _elInsightBoxV2(items, { note: "マス＝件数／損なし＝損失なし率（損切りもEP損益マイナスも出なかった割合・未達/×見送りは損失なし）／勝率＝E後の勝率／最下段＝想定損益の合計（仮シグナルも含む＝上の合計には入らない）。複数シグナルの記録は各行に数える。マスを押すとその月×シグナルの記録、シグナル名を押すと全月の記録が下に開きます。" }) : null);
+  return React.createElement("div", null, tbl, list, items.length ? _elInsightBoxV2(items, { note: "マス＝上段：件数・想定損益の合計（仮シグナルも含む＝上の合計には入らない）／下段：勝＝勝率・分＝分け率（想定損益0円）・負＝負率（分母＝エントリーできた記録・未達/×見送りは入れない）。複数シグナルの記録は各行に数える。マスを押すとその月×シグナルの記録、シグナル名を押すと全月の記録が下に開きます。" }) : null);
 }
 // ===== 🌱 仮シグナル別 成功度 2026-11-05（ユーザー要望「仮シグナルのみの分析：件数・成功率・損益」）=====
 // 行＝仮シグナル（custom.provSignalTags の並び・一覧外の旧名は末尾）＋仮シグナル計。列＝件数／損失なし率／E後の勝率／E到達率／見切り率／損切り率／純損益／1件平均。
