@@ -5988,7 +5988,12 @@ function DayView(_ref57) {
   var _uPickRepl = useState(null), pickRepl = _uPickRepl[0], setPickRepl = _uPickRepl[1];   // 選定が3つのときに〇した銘柄（どれと入れ替えるかの小窓）2026-11-25
   _EL_UI_VAP = _vapWorld(date);   // 日別ページのVAP日(8/20以降)は「α」表記をVAPに（EPとの差チップ・α値セルのラベル）。表記だけ 2026-10-05。App描画ごとに _elAmtStocksSet でfalseへ戻る
   var custom = data.custom || EMPTY.custom;
-  var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
+  var _baseStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
+  // 2026-11-26 非表示は「非表示にした日（開いていた日）から後」だけ（ユーザー指示）：custom.stockHideFrom[銘柄]＝その日。それより前の日を開いたときは普通のタブで出す（一覧 custom.stocks には戻さない）。
+  //   日付の無い既存の非表示は全部の日で非表示のまま。書き込み（銘柄の追加・復活の判定・非表示一覧）は _baseStocks を使う。
+  var _hideFromM = (custom.stockHideFrom && typeof custom.stockHideFrom === "object") ? custom.stockHideFrom : {};
+  var _pastExtra = Object.keys(_hideFromM).filter(function(nm) { return nm && _baseStocks.indexOf(nm) < 0 && typeof _hideFromM[nm] === "string" && date < _hideFromM[nm]; });
+  var allStocks = _pastExtra.length ? _baseStocks.concat(_pastExtra) : _baseStocks;
   // 日替わり銘柄（📅タブ 2026-07-22→per-day 2026-07-22d）: custom.rotatingStocks＝候補プール（マスター実在のみ・日経除く）。改名はhandleRenameStockで追従・削除は実在フィルタで自然に無効化。外国市場の右に固定した1タブ。
   var rotStocks = (Array.isArray(custom.rotatingStocks) ? custom.rotatingStocks : []).filter(function(s) { return allStocks.indexOf(s) >= 0 && s !== "日経平均株価"; });
   var _uRotAdd = useState(false), rotAddOpen = _uRotAdd[0], setRotAddOpen = _uRotAdd[1];
@@ -6200,9 +6205,9 @@ function DayView(_ref57) {
     });
   };
   var addStock = function addStock(name) {
-    if (!allStocks.includes(name)) {
+    if (!_baseStocks.includes(name)) {
       updCustom({
-        stocks: [].concat(_toConsumableArray(allStocks), [name])
+        stocks: [].concat(_toConsumableArray(_baseStocks), [name])
       });
       setCs(name);
     }
@@ -6220,7 +6225,8 @@ function DayView(_ref57) {
       // CA から自動追加された銘柄を消したら、次の起動で戻さない（_caStocksSync・app-05）2026-11-11
       var _sk = Array.isArray(pc.caAutoSkip) ? pc.caAutoSkip.slice() : [], _inf = _caGetStockInfo(stock, pc);
       [stock, _inf && _inf.caTicker].forEach(function(x) { if (x && _sk.indexOf(x) < 0) _sk.push(x); });
-      return Object.assign({}, prev, { custom: Object.assign({}, pc, { stocks: pns, caAutoSkip: _sk }) });
+      var _hf = Object.assign({}, pc.stockHideFrom || {}); if (!(_hf[stock] && _hf[stock] < date)) _hf[stock] = date;   // 開いている日から非表示 2026-11-26
+      return Object.assign({}, prev, { custom: Object.assign({}, pc, { stocks: pns, caAutoSkip: _sk, stockHideFrom: _hf }) });
     });
     if (activeStock === stock) setCs(ns[0] || "");
   };
@@ -6238,7 +6244,7 @@ function DayView(_ref57) {
       var psc = Object.assign({}, pc.stockCodes || {});
       delete psc[stock];
       return Object.assign({}, prev, {
-        custom: Object.assign({}, pc, { stocks: ns, stockCodes: psc }),
+        custom: Object.assign({}, pc, { stocks: ns, stockCodes: psc, stockHideFrom: (function() { var h = Object.assign({}, pc.stockHideFrom || {}); delete h[stock]; return h; })() }),
         charts: nc
       });
     });
@@ -6246,14 +6252,14 @@ function DayView(_ref57) {
   };
   
   var handleRestoreStock = function handleRestoreStock(stock) {
-    if (allStocks.includes(stock)) return;
+    if (_baseStocks.includes(stock)) return;
     save(function(prev) {
       var pc = prev.custom || {};
       var ps = (pc.stocks && pc.stocks.length > 0) ? pc.stocks.slice() : [].concat(DEF_STOCKS);
       if (ps.indexOf(stock) === -1) ps.push(stock);
       var _inf = _caGetStockInfo(stock, pc), _sk = (Array.isArray(pc.caAutoSkip) ? pc.caAutoSkip : []).filter(function(x) { return x !== stock && x !== (_inf && _inf.caTicker); });
       return Object.assign({}, prev, {
-        custom: Object.assign({}, pc, { stocks: ps, caAutoSkip: _sk })
+        custom: Object.assign({}, pc, { stocks: ps, caAutoSkip: _sk, stockHideFrom: (function() { var h = Object.assign({}, pc.stockHideFrom || {}); delete h[stock]; return h; })() })
       });
     });
     setCs(stock);
@@ -6267,7 +6273,7 @@ function DayView(_ref57) {
       if (idx < 0) return;
       var nm = k.slice(0, idx);
       if (!nm) return;
-      if (allStocks.indexOf(nm) !== -1) return;
+      if (_baseStocks.indexOf(nm) !== -1) return;
       seen[nm] = (seen[nm] || 0) + 1;
     });
     return Object.keys(seen).sort(function(a, b) { return seen[b] - seen[a]; });
@@ -6295,7 +6301,7 @@ function DayView(_ref57) {
       var _prot = Array.isArray(pc.rotatingStocks) ? pc.rotatingStocks.map(function(s) { return s === oldName ? newName : s; }) : pc.rotatingStocks;   // 日替わり属性も追従 2026-07-22
       var _prord = Array.isArray(pc.rotStockOrder) ? pc.rotStockOrder.map(function(s) { return s === oldName ? newName : s; }) : pc.rotStockOrder;   // 手動並び順も追従 2026-08-17d（追従しないと改名した銘柄だけ並びの末尾へ飛ぶ）
       var _pph = Array.isArray(pc.pickHidden) ? pc.pickHidden.map(function(s) { return s === oldName ? newName : s; }) : pc.pickHidden;   // 選定候補の非表示も追従 2026-11-11g
-      next.custom = Object.assign({}, pc, { pickHidden: _pph, stocks: ps, stockCodes: psc, epnStocks: _pepn, rotatingStocks: _prot, rotStockOrder: _prord, stockInfoTabs: _rnStockKey(pc.stockInfoTabs) });
+      next.custom = Object.assign({}, pc, { pickHidden: _pph, stocks: ps, stockCodes: psc, epnStocks: _pepn, rotatingStocks: _prot, rotStockOrder: _prord, stockInfoTabs: _rnStockKey(pc.stockInfoTabs), stockHideFrom: _rnStockKey(pc.stockHideFrom) });
       if (next.tabHidden && typeof next.tabHidden === "object") { var _nth = {}; Object.keys(next.tabHidden).forEach(function(k) { var v = next.tabHidden[k]; _nth[k] = Array.isArray(v) ? v.map(function(x) { return x === oldName ? newName : x; }) : v; }); next.tabHidden = _nth; }   // 並べる銘柄の指定も追従 2026-11-25
       
       var pch = prev.charts || {};
