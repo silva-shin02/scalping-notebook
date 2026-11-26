@@ -3738,11 +3738,12 @@ function StockQuickRefTable(_props_qrt) {
               var _ttMark = (c2 && c2.signals && c2.signals.length) ? null : _elTradeTagMarker(c2, activeStock, d);   // 2026-10-14: CA の取引タグも   // 記録がある日はタグ(Z/DNF)でなく記録の損益を出す 2026-10-05（タグが残っていても金額が隠れない）。取引カテゴリタグ日: ノーシグナル→DNFピル / 有効シグナルなし等→Z（取引なし）2026-07-23
               if (_ttMark) return _ttMark;
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 15;
-              var _exA = function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); }, _itA = function(_sg) { return _elItemOfSig(data, d, _sg); };
+              var _exA = function(_sg) { return _elCollExclMixed(data, activeStock, d, _sg); }, _itA = function(_sg) { return _elItemOfSig(data, d, _sg); };   // 2026-11-26 時間被りは全銘柄で見た結果に
               var _g = _elCalcChartGrades(c2.signals, null, _cutA, _exA, _itA);
               // 指値同値（未約定）の件数・参考額を金額の下に小さく 2026-10-19（合計・グレードは不変）
               var _eqMini = _elFillEqMiniNode(c2.signals, _cutA, _exA, _itA);
-              var _wrapEq = function(node) { return _eqMini ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 } }, node, _eqMini) : node; };
+              var _collMini = _elCollDayMiniNode(data, activeStock, d, c2.signals);   // 2026-11-26 被り選外・選定外の被りの札
+              var _wrapEq = function(node) { return (_eqMini || _collMini) ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 } }, node, _eqMini, _collMini) : node; };
               if (_g.allMissH) return _wrapEq(_qZeroCell());
               if (_g.hold2Sum == null) return _wrapEq((_g.hold2RefCnt > 0)
                 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, _elHold2RefSuffix(_g.hold2Sum, _g.hold2RefSum, _g.hold2RefCnt))
@@ -3756,7 +3757,7 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 15;
-              var _gR = _elCalcChartGrades(c2.signals, null, _cutR, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); },
+              var _gR = _elCalcChartGrades(c2.signals, null, _cutR, function(_sg) { return _elCollExclMixed(data, activeStock, d, _sg); },
                 function(_sg) { return _elItemOfSig(data, d, _sg); });
               if (_gR.real === "Z") return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
