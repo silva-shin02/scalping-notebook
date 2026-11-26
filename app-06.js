@@ -8731,8 +8731,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     // ヘッダは丸バッジ（_elHoldGradeBadge＝記録一覧の損益バッジと同じ見た目）＋しきい値。列の意味を凡例なしで読めるようにする。
     var _headOf = function(withZ) { return [_elv2Th("月")].concat(_EL_GRADES.concat(withZ ? ["Z"] : []).map(function(g) {
       return React.createElement("th", { key: g, style: { padding: "4px 5px", borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center" } },
-        React.createElement("div", null, _elHoldGradeBadge(g)),
-        React.createElement("div", { style: { fontSize: 7.5, color: "#A79E92", fontWeight: 600, marginTop: 1 } }, g === "Z" ? "記録なしの営業日" : _GRADE_DESC[g]));
+        React.createElement("div", null, g === "Z" ? (function() { var gs = _GRADE_STYLE.Z; return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 13, height: 13, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8 } }, "Z"); })() : _elHoldGradeBadge(g)),
+        g === "Z" ? null : React.createElement("div", { style: { fontSize: 7.5, color: "#A79E92", fontWeight: 600, marginTop: 1 } }, _GRADE_DESC[g]));
     })).concat([_elv2Th("合計")]); };
     // セル背景にグレード色(_GRADE_STYLE.bg＝A側=赤系/G側=緑系)を敷く＝0件は白のまま残るので分布の形がそのまま見える。
     var _tbl = function(m, unit, zM) {
