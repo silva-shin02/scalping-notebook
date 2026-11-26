@@ -6225,6 +6225,8 @@ function _elCollPickNode(data, r, save, scope) {
 // 選抜済みであることが二重に伝わるため（2026-08-19 ユーザー指示「選抜された記録は※被り有と表記しなくていい」）。
 var _EL_COLL_HIDE_KEEP = { hideKeep: true };
 function _elCollMarkNode(data, r, scope, opts) {
+  // 2026-11-26 銘柄別の表でも、全銘柄で見て合計に入らない（ほかの銘柄の記録が選ばれた）記録は「被り選外」を出す（ユーザー指示「算入外だと分かるように」）
+  if (scope && _elCollExcluded(data, r, null)) scope = null;
   var _g = _elCollGroupOf(data, r, scope);
   if (!_g) return null;
   var _n = _g.members.length, _bs = [];
@@ -6240,8 +6242,8 @@ function _elCollMarkNode(data, r, scope, opts) {
     if (!(opts && opts.hideKeep)) _bs.push(_mk("k", "※被り有", "#B45309", "#FEF3C7", "#FCD34D",
       "時間かぶり" + _n + "件のうち、この記録を算入に選抜しています。ほかは合計から除外（件数は残ります）"));
   } else if (_elCollExcluded(data, r, scope)) {
-    _bs.push(_mk("d", "被り除外", "#6D28D9", "#F5F3FF", "#C4B5FD",
-      "時間かぶり" + _n + "件のうち別の記録が選抜されているため、この記録は合計額に入れない（件数は残ります）"));
+    _bs.push(_mk("d", "被り選外", "#6D28D9", "#F5F3FF", "#C4B5FD",
+      "時間被り" + _n + "件のうち別の記録が優先されているため、この記録は合計に算入しない（件数は残ります）"));
   }
   var _nk = _elCollNaKind(data, r, scope);
   if (_nk === "miss") {
