@@ -6133,8 +6133,10 @@ function DayView(_ref57) {
     return a < b ? -1 : a > b ? 1 : 0;
   };
   _tabPicked = _tabPicked.slice().sort(_byCode);
+  var _trioTabDim = [];   // 設定で非表示の銘柄（タブの右端に薄く）2026-11-26
   var _tabSpot = _trioDay ? _spotList(data, date).filter(function(s) { return allStocks.indexOf(s) >= 0; }).slice().sort(_byCode) : [];   // スポット銘柄（選定の右・◇）2026-11-25
-  var _trioTabs = _tabPicked.concat(_tabSpot).concat(allStocks.filter(function(s) { return s !== "日経平均株価" && _tabPicked.indexOf(s) < 0 && _tabSpot.indexOf(s) < 0 && _pickHidT.indexOf(s) < 0; }).sort(_byCode));
+  var _trioTabs = _tabPicked.concat(_tabSpot).concat(allStocks.filter(function(s) { return s !== "日経平均株価" && _tabPicked.indexOf(s) < 0 && _tabSpot.indexOf(s) < 0 && _pickHidT.indexOf(s) < 0; }).sort(_byCode))
+    .concat(_trioTabDim = allStocks.filter(function(s) { return s !== "日経平均株価" && _tabPicked.indexOf(s) < 0 && _tabSpot.indexOf(s) < 0 && _pickHidT.indexOf(s) >= 0; }).sort(_byCode));   // 2026-11-26 非表示の銘柄も右端に薄く出す（日を移っても見ていた銘柄が消えない・ユーザー指示）
   var activeStock = _trioTabs
     ? ((_trioTabs.indexOf(cs) >= 0) ? cs : (_tabPicked[0] || _trioTabs[0] || allStocks[0] || ""))
     : ((allStocks.includes(cs) && rotStocks.indexOf(cs) < 0) ? cs : (_regStocks[0] || allStocks[0] || ""));
@@ -6921,6 +6923,7 @@ function DayView(_ref57) {
     picked: _tabPicked,
     tabVisAll: _trioDay ? allStocks.filter(function(s) { return s !== "日経平均株価"; }).slice().sort(_byCode) : null,   // ⚙ 並べる銘柄 2026-11-25
     tabHidden: _pickHidT,
+    dimStocks: _trioTabDim,
     tabDate: date,
     onSetTabHidden: _trioDay ? function(list) { _tabHiddenSetFrom(save, date, list); } : null,
     spotPicked: _tabSpot,

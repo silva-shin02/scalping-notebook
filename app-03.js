@@ -1120,6 +1120,7 @@ function StockTabs(_ref34) {
     rotDayCount = _ref34.rotDayCount,
     picked = _ref34.picked || [],   // その日の選定銘柄（左に並ぶ・青で色分け 2026-11-11）
     onTogglePick = _ref34.onTogglePick,
+    dimStocks = _ref34.dimStocks || [],   // 設定で非表示の銘柄（右端に薄く・点線）2026-11-26
     spotPicked = _ref34.spotPicked || [],   // その日のスポット銘柄（◇塗り）2026-11-25
     onToggleSpot = _ref34.onToggleSpot,
     tabVisAll = _ref34.tabVisAll, tabHidden = _ref34.tabHidden || [], tabDate = _ref34.tabDate, onSetTabHidden = _ref34.onSetTabHidden;   // ⚙ 並べる銘柄（選んだ日以降）2026-11-25
@@ -1344,11 +1345,11 @@ function StockTabs(_ref34) {
         marginRight: (picked.length && i === picked.length - 1 && stocks.length > picked.length) ? 8 : 0,   // 選定銘柄と他の銘柄の間をあける
         fontSize: 13,
         fontWeight: (picked.indexOf(s) >= 0 || spotPicked.indexOf(s) >= 0) ? 800 : 600,
-        border: active === s ? (picked.indexOf(s) >= 0 ? "2px solid #3B82F6" : spotPicked.indexOf(s) >= 0 ? "2px solid #F59E0B" : "1.5px solid #1a1a1a") : over === i && drag != null ? "2px solid #6366F1" : (picked.indexOf(s) >= 0 ? "1.5px solid #93C5FD" : spotPicked.indexOf(s) >= 0 ? "1.5px solid #FDBA74" : "1px solid #ccc"),
+        border: active === s ? (picked.indexOf(s) >= 0 ? "2px solid #3B82F6" : spotPicked.indexOf(s) >= 0 ? "2px solid #F59E0B" : "1.5px solid #1a1a1a") : over === i && drag != null ? "2px solid #6366F1" : (picked.indexOf(s) >= 0 ? "1.5px solid #93C5FD" : spotPicked.indexOf(s) >= 0 ? "1.5px solid #FDBA74" : dimStocks.indexOf(s) >= 0 ? "1px dashed #D6D3D1" : "1px solid #ccc"),
         borderRadius: 7,
         cursor: onReorder ? "grab" : "pointer",
-        background: active === s ? "#1a1a1a" : over === i && drag != null ? "#EEF2FF" : (picked.indexOf(s) >= 0 ? "#DBEAFE" : spotPicked.indexOf(s) >= 0 ? "#FFEDD5" : "#fff"),
-        color: active === s ? "#fff" : (picked.indexOf(s) >= 0 ? "#1E3A8A" : spotPicked.indexOf(s) >= 0 ? "#9A3412" : "#666"),
+        background: active === s ? "#1a1a1a" : over === i && drag != null ? "#EEF2FF" : (picked.indexOf(s) >= 0 ? "#DBEAFE" : spotPicked.indexOf(s) >= 0 ? "#FFEDD5" : dimStocks.indexOf(s) >= 0 ? "#F5F5F4" : "#fff"),
+        color: active === s ? "#fff" : (picked.indexOf(s) >= 0 ? "#1E3A8A" : spotPicked.indexOf(s) >= 0 ? "#9A3412" : dimStocks.indexOf(s) >= 0 ? "#B8B4AE" : "#666"),
         opacity: drag === i ? .4 : 1,
         whiteSpace: "nowrap",
         minHeight: IS_TOUCH ? 40 : 32,
