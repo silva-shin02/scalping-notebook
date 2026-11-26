@@ -6224,11 +6224,47 @@ function _elCollPickNode(data, r, save, scope) {
 // opts.hideKeep=true で「※被り有」を出さない。選抜ラジオ〇とグループ見出し（算入 ● 銘柄名）がある表では
 // 選抜済みであることが二重に伝わるため（2026-08-19 ユーザー指示「選抜された記録は※被り有と表記しなくていい」）。
 var _EL_COLL_HIDE_KEEP = { hideKeep: true };
+// 2026-11-26 時間被りの合計除外を「全銘柄で見たグループがあればそれ・無ければ銘柄の中」で判定（早見表の額を全銘柄の結果にそろえる・ユーザー指示）
+function _elCollExclMixed(data, stock, date, s) {
+  var st = _elCollisionExcludedSet(data, null), k = _elCollKey(stock, date, s);
+  if (st.groupOf[k]) return !!st.excluded[k];
+  return _elCollExcludedSig(data, stock, date, s, stock);
+}
+// 2026-11-26 選定外（合計に入らない）記録が、合計に入っている記録の保有中に出ていたか（＝選定でも入れなかった枠）。当たった相手の枠を返す・無ければ null。
+//   スルー・仮シグナルは見ない。合計・優先の選択には影響しない（札を出すだけ）。
+function _elCollOutHit(data, stock, date, sig) {
+  if (!sig || !date) return null;
+  var s = _compatSignal(sig);
+  if (!_epIsV2(s) || s.passThrough === true || (typeof _elIsProvisional === "function" && _elIsProvisional(s))) return null;
+  if (_elInclTotalAmt(data, { stock: stock, date: date, signal: s })) return null;
+  var me = _elCollEntry(data, stock, date, sig, 15, null, true);
+  if (!me) return null;
+  var st = _elCollisionExcludedSet(data, null), arr = st.byDay[date] || [];
+  for (var i = 0; i < arr.length; i++) { var e = arr[i]; if (e.key !== me.key && !st.excluded[e.key] && e.min <= me.exitMin && me.min <= e.exitMin) return e; }
+  return null;
+}
+// 早見表の想定損益の下に出す小さな札（その銘柄・その日の 被り選外N件／選定外の被りN件）2026-11-26
+function _elCollDayMiniNode(data, stock, date, signals) {
+  var nx = 0, no = 0, st = _elCollisionExcludedSet(data, null);
+  (signals || []).forEach(function(sg) { var s = _compatSignal(sg); if (!s) return; if (st.excluded[_elCollKey(stock, date, s)]) nx++; else if (_elCollOutHit(data, stock, date, sg)) no++; });
+  if (!nx && !no) return null;
+  var _b = function(k, t, ttl) { return React.createElement("span", { key: k, title: ttl, style: { fontSize: 8.5, fontWeight: 800, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 3, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 } }, t); };
+  return React.createElement("div", { style: { display: "flex", gap: 3, flexWrap: "wrap" } },
+    nx ? _b("x", "被り選外" + nx + "件", "時間被りでほかの記録が優先され、合計に算入しない記録（件数は残る）") : null,
+    no ? _b("o", "選定外の被り" + no + "件", "選定外の記録で、合計に入る記録の保有中に出ていたもの（選定でも入れなかった枠）") : null);
+}
 function _elCollMarkNode(data, r, scope, opts) {
   // 2026-11-26 銘柄別の表でも、全銘柄で見て合計に入らない（ほかの銘柄の記録が選ばれた）記録は「被り選外」を出す（ユーザー指示「算入外だと分かるように」）
   if (scope && _elCollExcluded(data, r, null)) scope = null;
   var _g = _elCollGroupOf(data, r, scope);
-  if (!_g) return null;
+  if (!_g) {
+    // 2026-11-26 選定外の記録が合計に入る記録の保有中に出ていたら「被り（選定外）」
+    var _oh = (r && r.signal) ? _elCollOutHit(data, r.stock, r.date, r.signal) : null;
+    if (!_oh) return null;
+    return React.createElement("div", { style: { marginTop: 1 } }, React.createElement("div", {
+      title: "選定外の記録。この時間は " + _oh.stock + " " + (_oh.time || "") + "（合計に入る記録）を保有中＝選定でも入れなかった枠",
+      style: { marginTop: 1, marginRight: 2, fontSize: 8, fontWeight: 800, color: "#6D28D9", background: "#F5F3FF", border: "1px dashed #C4B5FD", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "被り（選定外）"));
+  }
   var _n = _g.members.length, _bs = [];
   var _mk = function(k, txt, col, bg, bd, ttl) {
     return React.createElement("div", { key: k, title: ttl,
