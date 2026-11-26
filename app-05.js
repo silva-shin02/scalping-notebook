@@ -265,11 +265,11 @@ function Calendar(_ref60) {
 
       // 【損益帯】2026-08-17h: グレード・想定損益・実現(実額)・1000株換算を1行にまとめてセル上部へ固定（ユーザー決定「損益は上」）。
       //   日付行から金額を追い出したので予定バーが1件ぶん多く入る。**記録のある日だけ**出す＝無い日は縦を1pxも食わない。
-      //   ⚠️金額の丸めは k 表記で統一（1万円以上）。背景のヒートマップと同じ _gd.grade を見ているので、色と数字が食い違わない。
+      //   ⚠️金額の丸めは k 表記で統一（2026-11-26 1万円未満も k・3,000円＝3k）。背景のヒートマップと同じ _gd.grade を見ているので、色と数字が食い違わない。
       //   ⚠️想定損益＝記録から計算した値（見送りの仮想も含む）。「実」だけが実際に約定した額。
       _gd ? (function() {
         var _gs = _GRADE_STYLE[_gd.grade] || _GRADE_STYLE.Z;
-        var _k = function(v) { return (v > 0 ? "+" : "") + ((v >= 10000 || v <= -10000) ? ((Math.round(v / 100) / 10) + "k") : v.toLocaleString()); };
+        var _k = function(v) { return (v > 0 ? "+" : "") + (v ? ((Math.round(v / 100) / 10) + "k") : "0"); };
         return React.createElement("div", {
           title: "想定損益グレード: " + _gd.grade + " (" + (_GRADE_DESC[_gd.grade] || "") + ")\n想定損益: " + _snYen(_gd.sum) + "（1000株換算・" + _gd.cnt + "件）"
             + (_gd.real != null ? "\n実現損益: 実額 " + _snYen(_gd.realRaw) + " / 1000株換算 " + _snYen(_gd.real) : "\n実現損益: 未記録"),
